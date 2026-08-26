@@ -25,7 +25,6 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
   const [bpm, setBpm] = useState<string>('');
   const [sheetType, setSheetType] = useState<'image_file' | 'url'>('image_file');
   const [sheetUrl, setSheetUrl] = useState('');
-  const [isCompressing, setIsCompressing] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -45,61 +44,42 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
 
   if (!isOpen) return null;
 
-  // 악보 이미지를 localStorage 용량에 맞게 최적화 압축하는 함수
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let { width, height } = img;
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-          // 악보 가독성을 유지하는 최대 해상도 제한 (최대 폭 1600px)
-          const MAX_WIDTH = 1600;
-          if (width > MAX_WIDTH) {
-            height = (height * MAX_WIDTH) / width;
-            width = MAX_WIDTH;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        const maxDim = 1800;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = (height * maxDim) / width;
+            width = maxDim;
+          } else {
+            width = (width * maxDim) / height;
+            height = maxDim;
           }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(e.target?.result as string);
-            return;
-          }
-
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
-
-          // JPEG 0.75 퀄리티로 압축 (용량을 90% 이상 대폭 줄임)
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-          resolve(compressedDataUrl);
-        };
-        img.onerror = () => reject(new Error('이미지 로드 실패'));
-        img.src = e.target?.result as string;
+          setSheetUrl(canvas.toDataURL('image/jpeg', 0.85));
+        } else {
+          setSheetUrl(rawDataUrl);
+        }
       };
-      reader.onerror = () => reject(new Error('파일 읽기 실패'));
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        setIsCompressing(true);
-        const optimizedImage = await compressImage(file);
-        setSheetUrl(optimizedImage);
-      } catch (err) {
-        alert('이미지를 처리하는 중 오류가 발생했습니다.');
-        console.error(err);
-      } finally {
-        setIsCompressing(false);
-      }
-    }
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -110,7 +90,7 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
     }
     onSave({
       id: initialData?.id,
-      title,
+      title: title.trim(),
       key,
       bpm: bpm ? parseInt(bpm, 10) : undefined,
       sheetType,
@@ -120,7 +100,7 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6 text-neutral-100 shadow-2xl animate-in zoom-in-95">
         <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
           <h2 className="text-lg font-bold flex items-center gap-2">
@@ -203,33 +183,33 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
 
             {sheetType === 'image_file' ? (
               <div className="space-y-2">
-                {sheetUrl && sheetUrl.startsWith('data:image') ? (
-                  <div className="flex items-center justify-between p-2.5 bg-neutral-800/80 border border-neutral-700 rounded-xl">
-                    <div className="flex items-center gap-3">
+                {sheetUrl ? (
+                  <div className="flex items-center justify-between p-2.5 bg-neutral-800 border border-neutral-700 rounded-xl">
+                    <div className="flex items-center gap-3 overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={sheetUrl}
                         alt="악보 미리보기"
-                        className="w-12 h-14 object-cover rounded border border-neutral-600 bg-white"
+                        className="w-12 h-14 object-contain rounded border border-neutral-600 bg-white shrink-0"
                       />
-                      <div>
+                      <div className="truncate">
                         <span className="text-xs font-bold text-emerald-400 block">✓ 악보 이미지 등록됨</span>
-                        <span className="text-[11px] text-neutral-400">새 이미지로 변경하려면 아래 파일 선택</span>
+                        <span className="text-[11px] text-neutral-400">다른 이미지로 변경하려면 아래 파일 선택</span>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setSheetUrl('')}
-                      className="p-1.5 bg-neutral-700 hover:bg-red-950/60 text-neutral-300 hover:text-red-400 rounded-lg transition"
+                      className="p-1.5 bg-neutral-700 hover:bg-red-950/60 text-neutral-300 hover:text-red-400 rounded-lg transition shrink-0 ml-2"
                       title="이미지 삭제"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-2 bg-neutral-800 border border-dashed border-neutral-700 rounded-xl text-neutral-400">
+                  <div className="flex items-center gap-2 p-2.5 bg-neutral-800/60 border border-dashed border-neutral-700 rounded-xl text-neutral-400">
                     <ImageIcon className="w-4 h-4 text-neutral-500 shrink-0 ml-1" />
-                    <span className="text-xs">등록된 이미지가 없습니다. 악보를 선택해주세요.</span>
+                    <span className="text-xs">등록된 악보가 없습니다. 아래에서 이미지를 선택해주세요.</span>
                   </div>
                 )}
 
@@ -237,12 +217,8 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
-                  disabled={isCompressing}
                   className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-neutral-800 file:text-neutral-200 hover:file:bg-neutral-700 file:cursor-pointer"
                 />
-                {isCompressing && (
-                  <span className="text-xs text-amber-400 block animate-pulse">이미지 용량 최적화 중...</span>
-                )}
               </div>
             ) : (
               <input
@@ -265,8 +241,7 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
             </button>
             <button
               type="submit"
-              disabled={isCompressing}
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30 transition"
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30 transition"
             >
               {initialData ? '수정 완료' : '추가 완료'}
             </button>
