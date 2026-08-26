@@ -69,6 +69,7 @@ export default function PraiseApp() {
   const imageRef = useRef<HTMLImageElement>(null);
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
+  const isLocalDrawing = useRef(false);
 
   // 1. Firebase 실시간 콘티 및 곡 목록 동기화
   useEffect(() => {
@@ -96,6 +97,36 @@ export default function PraiseApp() {
       unsubSongs();
     };
   }, []);
+
+  // 2. 현재 열린 악보의 '필기 내용' 실시간 클라우드 동기화 구독
+  useEffect(() => {
+    if (!viewingSong) return;
+
+    const drawDocRef = doc(db, 'drawings_v2', viewingSong.id);
+    const unsubDraw = onSnapshot(drawDocRef, (docSnap) => {
+      if (isLocalDrawing.current) return; // 내가 그리는 중에는 원격 덮어쓰기 방지
+
+      const data = docSnap.data();
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) return;
+
+      if (data?.drawingData) {
+        const dImg = new Image();
+        dImg.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(dImg, 0, 0, canvas.width, canvas.height);
+          history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+        };
+        dImg.src = data.drawingData;
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+      }
+    });
+
+    return () => unsubDraw();
+  }, [viewingSong]);
 
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const currentSongs = allSongs.filter((s) => s.contiId === currentConti?.id);
@@ -133,7 +164,7 @@ export default function PraiseApp() {
     setIsModalOpen(true);
   };
 
-  // 이미지 선택 시 압축 (Firestore 1MB 한도 내에 안전하게 보관)
+  // 이미지 선택 시 압축
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -176,7 +207,7 @@ export default function PraiseApp() {
     reader.readAsDataURL(file);
   };
 
-  // 곡 저장 (undefined 방지 처리 완료)
+  // 곡 저장
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim()) {
@@ -200,7 +231,6 @@ export default function PraiseApp() {
 
       const songDocId = editingSongId || `song_${Date.now()}`;
       
-      // undefined가 Firestore에 들어가지 않도록 null 또는 빈문자열로 처리
       const songData: SongItem = {
         id: songDocId,
         contiId: activeContiId,
@@ -228,6 +258,7 @@ export default function PraiseApp() {
     if (!confirm('이 곡을 삭제하시겠습니까?')) return;
     try {
       await deleteDoc(doc(db, 'songs_v2', songId));
+      await deleteDoc(doc(db, 'drawings_v2', songId));
     } catch (e) {
       console.error(e);
       alert('삭제 중 오류가 발생했습니다.');
@@ -242,23 +273,6 @@ export default function PraiseApp() {
 
     canvas.width = img.naturalWidth || 800;
     canvas.height = img.naturalHeight || 1100;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (viewingSong) {
-      const saved = localStorage.getItem(`draw_${viewingSong.id}`);
-      if (saved) {
-        const dImg = new Image();
-        dImg.onload = () => {
-          ctx.drawImage(dImg, 0, 0);
-          history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
-        };
-        dImg.src = saved;
-      } else {
-        history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
-      }
-    }
   };
 
   const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent) => {
@@ -278,6 +292,7 @@ export default function PraiseApp() {
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
     isDrawing.current = true;
+    isLocalDrawing.current = true;
     const { x, y } = getCanvasCoords(e);
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -308,17 +323,44 @@ export default function PraiseApp() {
     ctx.stroke();
   };
 
-  const stopDraw = () => {
+  // 필기가 끝났을 때 클라우드에 실시간 자동 업로드
+  const stopDraw = async () => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas || !viewingSong) return;
+    if (!ctx || !canvas || !viewingSong) {
+      isLocalDrawing.current = false;
+      return;
+    }
     history.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+
     try {
-      localStorage.setItem(`draw_${viewingSong.id}`, canvas.toDataURL());
+      const dataUrl = canvas.toDataURL('image/png');
+      await setDoc(doc(db, 'drawings_v2', viewingSong.id), {
+        drawingData: dataUrl,
+        updatedAt: Date.now(),
+      });
     } catch (e) {
-      console.warn(e);
+      console.warn('필기 동기화 오류:', e);
+    } finally {
+      isLocalDrawing.current = false;
+    }
+  };
+
+  // 모두 지우기
+  const handleClearDrawing = async () => {
+    if (!confirm('작성된 필기를 모두 지우시겠습니까? 모든 기기에서도 함께 삭제됩니다.')) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx || !canvas || !viewingSong) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    history.current = [];
+    try {
+      await deleteDoc(doc(db, 'drawings_v2', viewingSong.id));
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -412,31 +454,10 @@ export default function PraiseApp() {
             ))}
 
             <button
-              onClick={() => {
-                if (history.current.length > 1) {
-                  history.current.pop();
-                  const prev = history.current[history.current.length - 1];
-                  const ctx = canvasRef.current?.getContext('2d');
-                  if (ctx && prev) ctx.putImageData(prev, 0, 0);
-                }
-              }}
-              className="px-2.5 py-1 bg-neutral-800 border border-neutral-700 rounded text-neutral-300 cursor-pointer"
+              onClick={handleClearDrawing}
+              className="px-2.5 py-1 bg-neutral-800 text-red-400 hover:bg-red-950 border border-neutral-700 rounded cursor-pointer"
             >
-              되돌리기
-            </button>
-            <button
-              onClick={() => {
-                const canvas = canvasRef.current;
-                const ctx = canvas?.getContext('2d');
-                if (ctx && canvas && viewingSong) {
-                  ctx.clearRect(0, 0, canvas.width, canvas.height);
-                  history.current = [];
-                  localStorage.removeItem(`draw_${viewingSong.id}`);
-                }
-              }}
-              className="px-2.5 py-1 bg-neutral-800 text-red-400 border border-neutral-700 rounded cursor-pointer"
-            >
-              초기화
+              필기 전체 초기화
             </button>
           </div>
         )}
@@ -458,7 +479,7 @@ export default function PraiseApp() {
                 src={viewingSong.sheetUrl}
                 alt={viewingSong.title}
                 onLoad={initCanvas}
-                className="max-h-[85vh] max-w-full object-contain rounded bg-white shadow-2xl block"
+                className="max-h-[85vh] max-w-full object-contain rounded bg-white shadow-2xl block select-none pointer-events-none"
               />
               <canvas
                 ref={canvasRef}
