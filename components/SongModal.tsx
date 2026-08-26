@@ -1,26 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Music, Link as LinkIcon, FileText } from 'lucide-react';
+
+export interface SongData {
+  id?: string;
+  title: string;
+  key: string;
+  bpm?: number;
+  sheetType: 'image_file' | 'url';
+  sheetUrl: string;
+}
 
 interface SongModalProps {
   isOpen: boolean;
+  initialData?: SongData | null;
   onClose: () => void;
-  onSave: (song: {
-    title: string;
-    key: string;
-    bpm?: number;
-    sheetType: 'image_file' | 'url';
-    sheetUrl: string;
-  }) => void;
+  onSave: (song: SongData) => void;
 }
 
-export default function SongModal({ isOpen, onClose, onSave }: SongModalProps) {
+export default function SongModal({ isOpen, initialData, onClose, onSave }: SongModalProps) {
   const [title, setTitle] = useState('');
   const [key, setKey] = useState('C');
   const [bpm, setBpm] = useState<string>('');
   const [sheetType, setSheetType] = useState<'image_file' | 'url'>('image_file');
   const [sheetUrl, setSheetUrl] = useState('');
+
+  // 수정 모드일 때 기존 데이터 불러오기
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || '');
+      setKey(initialData.key || 'C');
+      setBpm(initialData.bpm ? String(initialData.bpm) : '');
+      setSheetType(initialData.sheetType || 'image_file');
+      setSheetUrl(initialData.sheetUrl || '');
+    } else {
+      setTitle('');
+      setKey('C');
+      setBpm('');
+      setSheetType('image_file');
+      setSheetUrl('');
+    }
+  }, [initialData, isOpen]);
 
   if (!isOpen) return null;
 
@@ -44,15 +65,13 @@ export default function SongModal({ isOpen, onClose, onSave }: SongModalProps) {
       return;
     }
     onSave({
+      id: initialData?.id,
       title,
       key,
       bpm: bpm ? parseInt(bpm, 10) : undefined,
       sheetType,
       sheetUrl,
     });
-    setTitle('');
-    setSheetUrl('');
-    setBpm('');
     onClose();
   };
 
@@ -62,7 +81,7 @@ export default function SongModal({ isOpen, onClose, onSave }: SongModalProps) {
         <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Music className="w-5 h-5 text-blue-500" />
-            찬양 곡 추가
+            {initialData ? '찬양 곡 수정' : '찬양 곡 추가'}
           </h2>
           <button onClick={onClose} className="p-1 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white">
             <X className="w-5 h-5" />
@@ -114,10 +133,7 @@ export default function SongModal({ isOpen, onClose, onSave }: SongModalProps) {
             <div className="grid grid-cols-2 gap-2 mb-2">
               <button
                 type="button"
-                onClick={() => {
-                  setSheetType('image_file');
-                  setSheetUrl('');
-                }}
+                onClick={() => setSheetType('image_file')}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold border transition ${
                   sheetType === 'image_file'
                     ? 'bg-blue-600 border-blue-500 text-white'
@@ -125,14 +141,11 @@ export default function SongModal({ isOpen, onClose, onSave }: SongModalProps) {
                 }`}
               >
                 <FileText className="w-4 h-4" />
-                악보 이미지 파일
+                악보 이미지
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setSheetType('url');
-                  setSheetUrl('');
-                }}
+                onClick={() => setSheetType('url')}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold border transition ${
                   sheetType === 'url'
                     ? 'bg-blue-600 border-blue-500 text-white'
@@ -145,12 +158,17 @@ export default function SongModal({ isOpen, onClose, onSave }: SongModalProps) {
             </div>
 
             {sheetType === 'image_file' ? (
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-neutral-800 file:text-neutral-200 hover:file:bg-neutral-700"
-              />
+              <div className="space-y-1.5">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-neutral-800 file:text-neutral-200 hover:file:bg-neutral-700"
+                />
+                {sheetUrl && sheetUrl.startsWith('data:image') && (
+                  <span className="text-[11px] text-emerald-400">✓ 등록된 이미지 파일이 있습니다.</span>
+                )}
+              </div>
             ) : (
               <input
                 type="url"
@@ -174,7 +192,7 @@ export default function SongModal({ isOpen, onClose, onSave }: SongModalProps) {
               type="submit"
               className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30 transition"
             >
-              추가 완료
+              {initialData ? '수정 완료' : '추가 완료'}
             </button>
           </div>
         </form>
