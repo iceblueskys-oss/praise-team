@@ -12,6 +12,8 @@ import {
   Music,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   PenTool,
   Wifi,
   Layers,
@@ -33,6 +35,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  writeBatch,
 } from 'firebase/firestore';
 
 interface SongItem {
@@ -145,7 +148,7 @@ export default function PraiseApp() {
           comment: data.comment || '',
           sheetType: data.sheetType || 'file',
           sheetUrls: sheets,
-          order: data.order,
+          order: data.order ?? 0,
         });
       });
       setAllSongs(sList);
@@ -158,7 +161,9 @@ export default function PraiseApp() {
   }, []);
 
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
-  const currentSongs = allSongs.filter((s) => s.contiId === currentConti?.id);
+  const currentSongs = allSongs
+    .filter((s) => s.contiId === currentConti?.id)
+    .sort((a, b) => a.order - b.order);
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
@@ -194,7 +199,34 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 이전 곡 / 다음 곡 이동 함수
+  // 곡 순서 변경 (위로 / 아래로)
+  const handleMoveSongOrder = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentSongs.length) return;
+
+    const currentSong = currentSongs[index];
+    const targetSong = currentSongs[targetIndex];
+
+    try {
+      const batch = writeBatch(db);
+      const currentRef = doc(db, 'songs_v2', currentSong.id);
+      const targetRef = doc(db, 'songs_v2', targetSong.id);
+
+      // 서로의 order 값을 맞교환
+      const tempOrder = currentSong.order === targetSong.order ? index * 10 : currentSong.order;
+      const targetOrder = targetSong.order === currentSong.order ? targetIndex * 10 : targetSong.order;
+
+      batch.update(currentRef, { order: targetOrder });
+      batch.update(targetRef, { order: tempOrder });
+
+      await batch.commit();
+    } catch (e) {
+      console.error('순서 변경 오류:', e);
+      alert('순서 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 이전 곡 / 다음 곡 이동
   const handlePrevSong = () => {
     if (currentSongIndex > 0) {
       setViewingSongId(currentSongs[currentSongIndex - 1].id);
@@ -371,7 +403,7 @@ export default function PraiseApp() {
     setModalSheetUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // 곡 저장
+  // 곡 저장 (순서 order 자동 책정)
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim()) {
@@ -401,6 +433,13 @@ export default function PraiseApp() {
           : modalSheetUrls;
 
       const songDocId = editingSongId || `song_${Date.now()}`;
+      
+      // 새 곡인 경우 맨 뒤 순서로 지정
+      const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order)) : 0;
+      const songOrder = editingSongId
+        ? allSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
+        : maxOrder + 10;
+
       const songData: SongItem = {
         id: songDocId,
         contiId: activeContiId,
@@ -410,9 +449,7 @@ export default function PraiseApp() {
         comment: modalComment.trim(),
         sheetType: modalSheetType,
         sheetUrls: finalUrls,
-        order: editingSongId
-          ? allSongs.find((s) => s.id === editingSongId)?.order || Date.now()
-          : Date.now(),
+        order: songOrder,
       };
 
       await setDoc(doc(db, 'songs_v2', songDocId), songData);
@@ -553,7 +590,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 뷰어 화면 (곡 전환 내비게이션 포함)
+  // 1. 악보 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const isUrlSheet = viewingSong.sheetType === 'url';
@@ -562,7 +599,6 @@ export default function PraiseApp() {
 
     return (
       <div className={`fixed inset-0 z-50 flex flex-col h-screen w-full select-none overflow-hidden ${isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-200 text-slate-900'}`}>
-        {/* 상단 헤더 */}
         <header className={`flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 border-b z-20 shrink-0 gap-2 ${isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm'}`}>
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button
@@ -578,7 +614,6 @@ export default function PraiseApp() {
               <span className="hidden sm:inline">목록</span>
             </button>
 
-            {/* 곡 이전/다음 이동 버튼 & 곡 순서 표시 */}
             <div className={`flex items-center rounded-lg border p-0.5 shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
               <button
                 onClick={handlePrevSong}
@@ -612,7 +647,6 @@ export default function PraiseApp() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* 페이지 넘김 버튼 (2페이지 이상일 때) */}
             {!isUrlSheet && totalPages > 1 && (
               <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
                 <button
@@ -672,7 +706,6 @@ export default function PraiseApp() {
           </div>
         </header>
 
-        {/* 진행 순서 및 연주 메모 상단 알림 바 */}
         {viewingSong.comment && (
           <div className={`px-4 py-2 border-b text-xs flex items-center gap-2 z-10 shrink-0 ${isDark ? 'bg-blue-950/40 border-blue-900/60 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'}`}>
             <MessageSquare className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -681,7 +714,6 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 필기 서브 툴바 */}
         {isDrawingMode && !isUrlSheet && (
           <div className={`flex items-center justify-between sm:justify-center gap-2 py-2 px-3 border-b z-20 overflow-x-auto text-xs shrink-0 no-scrollbar ${isDark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-white/95 border-slate-200'}`}>
             <div className={`flex items-center p-1 rounded-lg gap-1 border shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
@@ -727,7 +759,6 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 본문 뷰어 */}
         <main className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 relative ${isDark ? 'bg-neutral-950' : 'bg-slate-200'}`}>
           {!currentSheetUrl ? (
             <div className={`text-center p-6 border rounded-2xl max-w-xs ${cardBgClass}`}>
@@ -785,9 +816,8 @@ export default function PraiseApp() {
             </div>
           )}
 
-          {/* 하단 플로팅 넘김 바 (이전곡 / 이전페이지 / 다음페이지 / 다음곡) */}
+          {/* 하단 플로팅 넘김 바 */}
           <div className="absolute bottom-4 inset-x-0 flex justify-center items-center gap-2 pointer-events-none px-2">
-            {/* 이전 곡 버튼 */}
             <button
               onClick={handlePrevSong}
               disabled={currentSongIndex <= 0}
@@ -799,7 +829,6 @@ export default function PraiseApp() {
               <span className="hidden xs:inline">이전 곡</span>
             </button>
 
-            {/* 다중 페이지일 때 페이지 컨트롤 */}
             {!isUrlSheet && totalPages > 1 && (
               <div className="flex items-center gap-1.5 pointer-events-auto">
                 <button
@@ -828,7 +857,6 @@ export default function PraiseApp() {
               </div>
             )}
 
-            {/* 다음 곡 버튼 */}
             <button
               onClick={handleNextSong}
               disabled={currentSongIndex >= currentSongs.length - 1}
@@ -846,7 +874,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면
+  // 2. 메인 콘티 목록 화면 (순서 변경 버튼 탑재)
   // ==========================================
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
@@ -908,7 +936,7 @@ export default function PraiseApp() {
           </div>
         </div>
 
-        {/* 현재 콘티 타이틀 & 제목 수정 버튼 */}
+        {/* 현재 콘티 타이틀 */}
         {currentConti && (
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2 min-w-0">
@@ -925,7 +953,7 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 곡 목록 카드 리스트 */}
+        {/* 곡 목록 리스트 (순서 변경 버튼 추가) */}
         <div className="space-y-2.5 sm:space-y-3">
           {currentSongs.length === 0 ? (
             <div className={`text-center py-12 sm:py-16 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
@@ -935,15 +963,37 @@ export default function PraiseApp() {
             currentSongs.map((song, idx) => (
               <div
                 key={song.id}
-                className={`flex flex-col xs:flex-row items-start xs:items-center justify-between p-3.5 sm:p-4 rounded-2xl border gap-3 transition ${cardBgClass}`}
+                className={`flex flex-col xs:flex-row items-start xs:items-center justify-between p-3 sm:p-3.5 rounded-2xl border gap-3 transition ${cardBgClass}`}
               >
-                <div className="flex items-start gap-3 min-w-0 w-full xs:w-auto flex-1">
-                  <span className="w-6 text-center font-black text-xs sm:text-sm shrink-0 opacity-60 mt-0.5">
-                    {idx + 1}
-                  </span>
+                {/* 순서 변경 버튼 & 곡 정보 */}
+                <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 w-full xs:w-auto flex-1">
+                  {/* 순서 변경 화살표 버튼 컨트롤 */}
+                  <div className="flex flex-col items-center justify-center shrink-0 -my-0.5">
+                    <button
+                      onClick={() => handleMoveSongOrder(idx, 'up')}
+                      disabled={idx === 0}
+                      className={`p-1 rounded-md border text-neutral-400 hover:text-blue-500 disabled:opacity-20 disabled:hover:text-neutral-400 transition ${subCardBg}`}
+                      title="위로 이동"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-xs font-black opacity-70 my-0.5 min-w-[20px] text-center">
+                      {idx + 1}
+                    </span>
+                    <button
+                      onClick={() => handleMoveSongOrder(idx, 'down')}
+                      disabled={idx === currentSongs.length - 1}
+                      className={`p-1 rounded-md border text-neutral-400 hover:text-blue-500 disabled:opacity-20 disabled:hover:text-neutral-400 transition ${subCardBg}`}
+                      title="아래로 이동"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* 곡 타이틀 및 태그 */}
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm sm:text-base font-bold truncate max-w-[200px] sm:max-w-sm">
+                      <h3 className="text-sm sm:text-base font-bold truncate max-w-[180px] sm:max-w-sm">
                         {song.title}
                       </h3>
                       {song.key && (
@@ -984,6 +1034,7 @@ export default function PraiseApp() {
                   </div>
                 </div>
 
+                {/* 우측 조작 버튼 그룹 */}
                 <div className={`flex items-center justify-end gap-1.5 w-full xs:w-auto pt-2 xs:pt-0 border-t xs:border-t-0 ${isDark ? 'border-neutral-800' : 'border-slate-100'}`}>
                   <button
                     onClick={() => {
