@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Music, Link as LinkIcon, FileText, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { X, Music, Link as LinkIcon, FileText, Image as ImageIcon, Trash2, CheckCircle2 } from 'lucide-react';
 
 export interface SongData {
   id?: string;
@@ -25,6 +25,7 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
   const [bpm, setBpm] = useState<string>('');
   const [sheetType, setSheetType] = useState<'image_file' | 'url'>('image_file');
   const [sheetUrl, setSheetUrl] = useState('');
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -44,40 +45,60 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
 
   if (!isOpen) return null;
 
+  // 이미지 파일 선택 시 즉시 안정적인 Base64 데이터로 변환
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsProcessingImage(true);
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      const rawDataUrl = event.target?.result as string;
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let { width, height } = img;
-        const maxDim = 1800;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = (height * maxDim) / width;
-            width = maxDim;
-          } else {
-            width = (width * maxDim) / height;
-            height = maxDim;
+        try {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+          const MAX_SIZE = 1600;
+
+          if (width > MAX_SIZE || height > MAX_SIZE) {
+            if (width > height) {
+              height = Math.round((height * MAX_SIZE) / width);
+              width = MAX_SIZE;
+            } else {
+              width = Math.round((width * MAX_SIZE) / height);
+              height = MAX_SIZE;
+            }
           }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-          setSheetUrl(canvas.toDataURL('image/jpeg', 0.85));
-        } else {
-          setSheetUrl(rawDataUrl);
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            setSheetUrl(dataUrl);
+          } else {
+            setSheetUrl(event.target?.result as string);
+          }
+        } catch (err) {
+          console.error(err);
+          setSheetUrl(event.target?.result as string);
+        } finally {
+          setIsProcessingImage(false);
         }
       };
-      img.src = rawDataUrl;
+      img.onerror = () => {
+        setIsProcessingImage(false);
+        alert('이미지를 불러오는데 실패했습니다.');
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => {
+      setIsProcessingImage(false);
+      alert('파일을 읽는 중 오류가 발생했습니다.');
     };
     reader.readAsDataURL(file);
   };
@@ -88,13 +109,18 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
       alert('곡 제목을 입력해주세요.');
       return;
     }
+    if (isProcessingImage) {
+      alert('이미지 처리 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
     onSave({
       id: initialData?.id,
       title: title.trim(),
       key,
       bpm: bpm ? parseInt(bpm, 10) : undefined,
       sheetType,
-      sheetUrl,
+      sheetUrl: sheetUrl.trim(),
     });
     onClose();
   };
@@ -165,7 +191,7 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
                 }`}
               >
                 <FileText className="w-4 h-4" />
-                악보 이미지
+                악보 이미지 파일
               </button>
               <button
                 type="button"
@@ -193,8 +219,12 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
                         className="w-12 h-14 object-contain rounded border border-neutral-600 bg-white shrink-0"
                       />
                       <div className="truncate">
-                        <span className="text-xs font-bold text-emerald-400 block">✓ 악보 이미지 등록됨</span>
-                        <span className="text-[11px] text-neutral-400">다른 이미지로 변경하려면 아래 파일 선택</span>
+                        <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> 악보 이미지 준비 완료
+                        </span>
+                        <span className="text-[11px] text-neutral-400 block truncate">
+                          다른 파일로 변경하려면 아래에서 선택
+                        </span>
                       </div>
                     </div>
                     <button
@@ -209,7 +239,7 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
                 ) : (
                   <div className="flex items-center gap-2 p-2.5 bg-neutral-800/60 border border-dashed border-neutral-700 rounded-xl text-neutral-400">
                     <ImageIcon className="w-4 h-4 text-neutral-500 shrink-0 ml-1" />
-                    <span className="text-xs">등록된 악보가 없습니다. 아래에서 이미지를 선택해주세요.</span>
+                    <span className="text-xs">악보 이미지 파일을 첨부해주세요.</span>
                   </div>
                 )}
 
@@ -217,8 +247,12 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
+                  disabled={isProcessingImage}
                   className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-neutral-800 file:text-neutral-200 hover:file:bg-neutral-700 file:cursor-pointer"
                 />
+                {isProcessingImage && (
+                  <span className="text-xs text-blue-400 block animate-pulse">악보 이미지 최적화 중...</span>
+                )}
               </div>
             ) : (
               <input
@@ -241,7 +275,8 @@ export default function SongModal({ isOpen, initialData, onClose, onSave }: Song
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30 transition"
+              disabled={isProcessingImage}
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30 transition"
             >
               {initialData ? '수정 완료' : '추가 완료'}
             </button>
