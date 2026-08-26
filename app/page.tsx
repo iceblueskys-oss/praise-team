@@ -32,7 +32,7 @@ interface SongItem {
   contiId: string;
   title: string;
   key: string;
-  bpm?: number;
+  bpm?: number | null;
   sheetUrl: string;
   order: number;
 }
@@ -74,7 +74,6 @@ export default function PraiseApp() {
   useEffect(() => {
     setMounted(true);
 
-    // 콘티 리스너
     const qContis = query(collection(db, 'contis_v2'), orderBy('date', 'desc'));
     const unsubContis = onSnapshot(qContis, (snapshot) => {
       const list: Conti[] = [];
@@ -85,7 +84,6 @@ export default function PraiseApp() {
       }
     });
 
-    // 곡 목록 리스너
     const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
     const unsubSongs = onSnapshot(qSongs, (snapshot) => {
       const sList: SongItem[] = [];
@@ -135,7 +133,7 @@ export default function PraiseApp() {
     setIsModalOpen(true);
   };
 
-  // 이미지 선택 시 Firestore 저장에 적합하게 1000px, 0.7 퀄리티로 압축 (약 150KB)
+  // 이미지 선택 시 압축 (Firestore 1MB 한도 내에 안전하게 보관)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -178,7 +176,7 @@ export default function PraiseApp() {
     reader.readAsDataURL(file);
   };
 
-  // 곡 저장 (개별 문서로 안전하게 저장)
+  // 곡 저장 (undefined 방지 처리 완료)
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim()) {
@@ -201,13 +199,15 @@ export default function PraiseApp() {
       }
 
       const songDocId = editingSongId || `song_${Date.now()}`;
+      
+      // undefined가 Firestore에 들어가지 않도록 null 또는 빈문자열로 처리
       const songData: SongItem = {
         id: songDocId,
         contiId: activeContiId,
         title: modalTitle.trim(),
-        key: modalKey,
-        bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
-        sheetUrl: modalSheetUrl,
+        key: modalKey || 'C',
+        bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
+        sheetUrl: modalSheetUrl || '',
         order: editingSongId
           ? allSongs.find((s) => s.id === editingSongId)?.order || Date.now()
           : Date.now(),
