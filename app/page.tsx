@@ -29,22 +29,24 @@ import {
 
 interface SongItem {
   id: string;
+  contiId: string;
   title: string;
   key: string;
   bpm?: number;
   sheetUrl: string;
+  order: number;
 }
 
 interface Conti {
   id: string;
   title: string;
   date: string;
-  songs: SongItem[];
 }
 
 export default function PraiseApp() {
   const [mounted, setMounted] = useState(false);
   const [contis, setContis] = useState<Conti[]>([]);
+  const [allSongs, setAllSongs] = useState<SongItem[]>([]);
   const [selectedContiId, setSelectedContiId] = useState<string>('');
 
   // 모달 상태
@@ -68,56 +70,50 @@ export default function PraiseApp() {
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
 
-  // 1. Firebase 실시간 동기화
+  // 1. Firebase 실시간 콘티 및 곡 목록 동기화
   useEffect(() => {
     setMounted(true);
-    let unsubscribe = () => {};
 
-    try {
-      const q = query(collection(db, 'contis'), orderBy('date', 'desc'));
-      unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const list: Conti[] = [];
-          snapshot.forEach((docSnap) => {
-            list.push({ id: docSnap.id, ...docSnap.data() } as Conti);
-          });
-          setContis(list);
-          if (list.length > 0) {
-            setSelectedContiId((prev) => (prev ? prev : list[0].id));
-          }
-        },
-        (error) => {
-          console.warn('Firebase snapshot warning:', error);
-        }
-      );
-    } catch (e) {
-      console.error('Firebase init error:', e);
-    }
+    // 콘티 리스너
+    const qContis = query(collection(db, 'contis_v2'), orderBy('date', 'desc'));
+    const unsubContis = onSnapshot(qContis, (snapshot) => {
+      const list: Conti[] = [];
+      snapshot.forEach((d) => list.push({ id: d.id, ...d.data() } as Conti));
+      setContis(list);
+      if (list.length > 0) {
+        setSelectedContiId((prev) => (prev ? prev : list[0].id));
+      }
+    });
 
-    return () => unsubscribe();
+    // 곡 목록 리스너
+    const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
+    const unsubSongs = onSnapshot(qSongs, (snapshot) => {
+      const sList: SongItem[] = [];
+      snapshot.forEach((d) => sList.push({ id: d.id, ...d.data() } as SongItem));
+      setAllSongs(sList);
+    });
+
+    return () => {
+      unsubContis();
+      unsubSongs();
+    };
   }, []);
 
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
+  const currentSongs = allSongs.filter((s) => s.contiId === currentConti?.id);
 
   // 콘티 추가
   const handleAddConti = async () => {
     const title = prompt('새 예배 콘티 이름을 입력하세요:', '새 예배 콘티');
     if (!title) return;
-    const newId = `conti_${Date.now()}`;
+    const newId = `c_${Date.now()}`;
     const newConti: Conti = {
       id: newId,
       title,
       date: new Date().toISOString().split('T')[0],
-      songs: [],
     };
-    try {
-      await setDoc(doc(db, 'contis', newId), newConti);
-      setSelectedContiId(newId);
-    } catch (e) {
-      console.error(e);
-      alert('콘티 생성 중 오류가 발생했습니다.');
-    }
+    await setDoc(doc(db, 'contis_v2', newId), newConti);
+    setSelectedContiId(newId);
   };
 
   // 모달 열기
@@ -139,7 +135,7 @@ export default function PraiseApp() {
     setIsModalOpen(true);
   };
 
-  // 이미지 선택 시 Firestore 저장용 경량 JPEG 압축 (최적 해상도 유지)
+  // 이미지 선택 시 Firestore 저장에 적합하게 1000px, 0.7 퀄리티로 압축 (약 150KB)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -153,7 +149,7 @@ export default function PraiseApp() {
         try {
           const canvas = document.createElement('canvas');
           let { width, height } = img;
-          const MAX_WIDTH = 1200;
+          const MAX_WIDTH = 1100;
 
           if (width > MAX_WIDTH) {
             height = Math.round((height * MAX_WIDTH) / width);
@@ -167,8 +163,7 @@ export default function PraiseApp() {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
-            // 75% 퀄리티로 가볍게 압축 (용량 150KB 내외로 Firestore에 바로 저장 가능)
-            setModalSheetUrl(canvas.toDataURL('image/jpeg', 0.75));
+            setModalSheetUrl(canvas.toDataURL('image/jpeg', 0.7));
           } else {
             setModalSheetUrl(rawData);
           }
@@ -178,20 +173,12 @@ export default function PraiseApp() {
           setIsProcessing(false);
         }
       };
-      img.onerror = () => {
-        setIsProcessing(false);
-        alert('이미지 로드에 실패했습니다.');
-      };
       img.src = rawData;
-    };
-    reader.onerror = () => {
-      setIsProcessing(false);
-      alert('파일을 읽지 못했습니다.');
     };
     reader.readAsDataURL(file);
   };
 
-  // 곡 저장 (Storage 없이 Firestore에 즉시 클라우드 저장)
+  // 곡 저장 (개별 문서로 안전하게 저장)
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim()) {
@@ -203,63 +190,47 @@ export default function PraiseApp() {
 
     try {
       let activeContiId = currentConti?.id;
-      let existingSongs = currentConti?.songs || [];
-
       if (!activeContiId) {
-        activeContiId = `conti_${Date.now()}`;
-        const autoConti: Conti = {
+        activeContiId = `c_${Date.now()}`;
+        await setDoc(doc(db, 'contis_v2', activeContiId), {
           id: activeContiId,
           title: '새 예배 콘티',
           date: new Date().toISOString().split('T')[0],
-          songs: [],
-        };
-        await setDoc(doc(db, 'contis', activeContiId), autoConti);
+        });
         setSelectedContiId(activeContiId);
-        existingSongs = [];
       }
 
-      let updatedSongs: SongItem[];
-      if (editingSongId) {
-        updatedSongs = existingSongs.map((s) =>
-          s.id === editingSongId
-            ? {
-                ...s,
-                title: modalTitle.trim(),
-                key: modalKey,
-                bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
-                sheetUrl: modalSheetUrl,
-              }
-            : s
-        );
-      } else {
-        const newSong: SongItem = {
-          id: 'song_' + Date.now(),
-          title: modalTitle.trim(),
-          key: modalKey,
-          bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
-          sheetUrl: modalSheetUrl,
-        };
-        updatedSongs = [...existingSongs, newSong];
-      }
+      const songDocId = editingSongId || `song_${Date.now()}`;
+      const songData: SongItem = {
+        id: songDocId,
+        contiId: activeContiId,
+        title: modalTitle.trim(),
+        key: modalKey,
+        bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
+        sheetUrl: modalSheetUrl,
+        order: editingSongId
+          ? allSongs.find((s) => s.id === editingSongId)?.order || Date.now()
+          : Date.now(),
+      };
 
-      // Firestore 클라우드에 직접 반영
-      await setDoc(
-        doc(db, 'contis', activeContiId),
-        {
-          id: activeContiId,
-          title: currentConti?.title || '새 예배 콘티',
-          date: currentConti?.date || new Date().toISOString().split('T')[0],
-          songs: updatedSongs,
-        },
-        { merge: true }
-      );
-
+      await setDoc(doc(db, 'songs_v2', songDocId), songData);
       setIsModalOpen(false);
     } catch (err: any) {
       console.error(err);
-      alert('저장 실패: Firestore 규칙을 확인해주세요.');
+      alert('저장 실패: ' + (err?.message || '네트워크를 확인해주세요'));
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // 곡 삭제
+  const handleDeleteSong = async (songId: string) => {
+    if (!confirm('이 곡을 삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(doc(db, 'songs_v2', songId));
+    } catch (e) {
+      console.error(e);
+      alert('삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -352,7 +323,7 @@ export default function PraiseApp() {
   };
 
   if (!mounted) {
-    return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">클라우드 동기화 중...</div>;
+    return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">클라우드 연결 중...</div>;
   }
 
   // 뷰어 모드
@@ -363,7 +334,7 @@ export default function PraiseApp() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setViewingSong(null)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-xs font-semibold border border-neutral-700"
+              className="flex items-center gap-1 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-xs font-semibold border border-neutral-700 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>목록으로</span>
@@ -383,7 +354,7 @@ export default function PraiseApp() {
             {viewingSong.sheetUrl && (
               <button
                 onClick={() => setIsDrawingMode(!isDrawingMode)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold ${
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
                   isDrawingMode ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-neutral-200 border border-neutral-700'
                 }`}
               >
@@ -394,14 +365,14 @@ export default function PraiseApp() {
 
             <button
               onClick={() => setScale((s) => Math.max(s - 0.1, 0.5))}
-              className="px-2.5 py-1 bg-neutral-800 rounded text-xs font-bold"
+              className="px-2.5 py-1 bg-neutral-800 rounded text-xs font-bold cursor-pointer"
             >
               -
             </button>
             <span className="text-xs text-neutral-400 w-8 text-center">{Math.round(scale * 100)}%</span>
             <button
               onClick={() => setScale((s) => Math.min(s + 0.1, 2.0))}
-              className="px-2.5 py-1 bg-neutral-800 rounded text-xs font-bold"
+              className="px-2.5 py-1 bg-neutral-800 rounded text-xs font-bold cursor-pointer"
             >
               +
             </button>
@@ -413,19 +384,19 @@ export default function PraiseApp() {
             <div className="flex items-center bg-neutral-800 p-1 rounded-lg gap-1 border border-neutral-700">
               <button
                 onClick={() => setCurrentTool('pen')}
-                className={`px-2 py-1 rounded ${currentTool === 'pen' ? 'bg-blue-600 text-white font-bold' : 'text-neutral-400'}`}
+                className={`px-2 py-1 rounded cursor-pointer ${currentTool === 'pen' ? 'bg-blue-600 text-white font-bold' : 'text-neutral-400'}`}
               >
                 펜
               </button>
               <button
                 onClick={() => setCurrentTool('highlighter')}
-                className={`px-2 py-1 rounded ${currentTool === 'highlighter' ? 'bg-yellow-500 text-black font-bold' : 'text-neutral-400'}`}
+                className={`px-2 py-1 rounded cursor-pointer ${currentTool === 'highlighter' ? 'bg-yellow-500 text-black font-bold' : 'text-neutral-400'}`}
               >
                 형광펜
               </button>
               <button
                 onClick={() => setCurrentTool('eraser')}
-                className={`px-2 py-1 rounded ${currentTool === 'eraser' ? 'bg-neutral-600 text-white font-bold' : 'text-neutral-400'}`}
+                className={`px-2 py-1 rounded cursor-pointer ${currentTool === 'eraser' ? 'bg-neutral-600 text-white font-bold' : 'text-neutral-400'}`}
               >
                 지우개
               </button>
@@ -436,7 +407,7 @@ export default function PraiseApp() {
                 key={color}
                 onClick={() => setPenColor(color)}
                 style={{ backgroundColor: color }}
-                className={`w-5 h-5 rounded-full border-2 ${penColor === color ? 'border-white scale-110' : 'border-transparent'}`}
+                className={`w-5 h-5 rounded-full border-2 cursor-pointer ${penColor === color ? 'border-white scale-110' : 'border-transparent'}`}
               />
             ))}
 
@@ -449,7 +420,7 @@ export default function PraiseApp() {
                   if (ctx && prev) ctx.putImageData(prev, 0, 0);
                 }
               }}
-              className="px-2.5 py-1 bg-neutral-800 border border-neutral-700 rounded text-neutral-300"
+              className="px-2.5 py-1 bg-neutral-800 border border-neutral-700 rounded text-neutral-300 cursor-pointer"
             >
               되돌리기
             </button>
@@ -463,7 +434,7 @@ export default function PraiseApp() {
                   localStorage.removeItem(`draw_${viewingSong.id}`);
                 }
               }}
-              className="px-2.5 py-1 bg-neutral-800 text-red-400 border border-neutral-700 rounded"
+              className="px-2.5 py-1 bg-neutral-800 text-red-400 border border-neutral-700 rounded cursor-pointer"
             >
               초기화
             </button>
@@ -510,7 +481,7 @@ export default function PraiseApp() {
     );
   }
 
-  // 메인 콘티 목록
+  // 메인 목록
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-4 sm:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -522,18 +493,18 @@ export default function PraiseApp() {
               className="bg-neutral-800 border border-neutral-700 text-white font-bold rounded-xl px-3 py-2 text-sm"
             >
               {contis.length === 0 ? (
-                <option value="">콘티 없음 (곡 추가 시 생성)</option>
+                <option value="">콘티 없음 (새 콘티 생성)</option>
               ) : (
                 contis.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.title} ({(c.songs || []).length}곡)
+                    {c.title} ({allSongs.filter((s) => s.contiId === c.id).length}곡)
                   </option>
                 ))
               )}
             </select>
             <button
               onClick={handleAddConti}
-              className="flex items-center gap-1 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-xs font-semibold"
+              className="flex items-center gap-1 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-xs font-semibold cursor-pointer"
             >
               <FolderPlus className="w-4 h-4 text-blue-400" />
               <span>새 콘티</span>
@@ -542,11 +513,11 @@ export default function PraiseApp() {
 
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1.5 rounded-xl font-medium">
-              <Wifi className="w-3.5 h-3.5" /> 실시간 클라우드 연동됨
+              <Wifi className="w-3.5 h-3.5" /> 실시간 클라우드 동기화
             </span>
             <button
               onClick={() => handleOpenModal()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/30"
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/30 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>곡 및 악보 추가</span>
@@ -562,12 +533,12 @@ export default function PraiseApp() {
         )}
 
         <div className="space-y-3">
-          {!currentConti?.songs || currentConti.songs.length === 0 ? (
+          {currentSongs.length === 0 ? (
             <div className="text-center py-16 bg-neutral-900/50 border border-neutral-800 rounded-2xl text-neutral-500 text-sm">
               등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-400 font-semibold">[+ 곡 및 악보 추가]</span> 버튼으로 새 곡을 추가해보세요.
             </div>
           ) : (
-            currentConti.songs.map((song, idx) => (
+            currentSongs.map((song, idx) => (
               <div
                 key={song.id}
                 className="flex items-center justify-between p-4 bg-neutral-900 border border-neutral-800 rounded-2xl"
@@ -588,27 +559,20 @@ export default function PraiseApp() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setViewingSong(song)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-semibold"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-semibold cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5 text-blue-400" />
                     <span>악보 보기</span>
                   </button>
                   <button
                     onClick={() => handleOpenModal(song)}
-                    className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-neutral-300"
+                    className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-neutral-300 cursor-pointer"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={async () => {
-                      if (!confirm('곡을 삭제하시겠습니까?')) return;
-                      const updated = (currentConti.songs || []).filter((s) => s.id !== song.id);
-                      await setDoc(doc(db, 'contis', currentConti.id), {
-                        ...currentConti,
-                        songs: updated,
-                      });
-                    }}
-                    className="p-2 bg-neutral-800 hover:bg-red-950 text-neutral-400 hover:text-red-400 rounded-xl"
+                    onClick={() => handleDeleteSong(song.id)}
+                    className="p-2 bg-neutral-800 hover:bg-red-950 text-neutral-400 hover:text-red-400 rounded-xl cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -628,7 +592,7 @@ export default function PraiseApp() {
                 <Music className="w-5 h-5 text-blue-500" />
                 {editingSongId ? '찬양 곡 수정' : '찬양 곡 추가'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-neutral-400 hover:text-white">
+              <button onClick={() => setIsModalOpen(false)} className="p-1 text-neutral-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -692,7 +656,7 @@ export default function PraiseApp() {
                       <button
                         type="button"
                         onClick={() => setModalSheetUrl('')}
-                        className="p-1.5 text-neutral-400 hover:text-red-400"
+                        className="p-1.5 text-neutral-400 hover:text-red-400 cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -717,7 +681,7 @@ export default function PraiseApp() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 bg-neutral-800 rounded-xl font-semibold text-neutral-300"
+                  className="flex-1 py-2.5 bg-neutral-800 rounded-xl font-semibold text-neutral-300 cursor-pointer"
                 >
                   취소
                 </button>
