@@ -35,10 +35,11 @@ export default function UniversalScoreViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
 
+  // 드로잉 툴 상태
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [currentTool, setCurrentTool] = useState<ToolType>('pen');
   const [penColor, setPenColor] = useState('#ef4444');
-  const [penSize] = useState(3);
+  const [penSize, setPenSize] = useState(3);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -48,6 +49,7 @@ export default function UniversalScoreViewer({
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
 
+  // 1. 화면 꺼짐 방지 (Wake Lock)
   const requestWakeLock = useCallback(async () => {
     if ('wakeLock' in navigator) {
       try {
@@ -68,6 +70,7 @@ export default function UniversalScoreViewer({
     };
   }, [requestWakeLock]);
 
+  // HEX 컬러 투명도 변환
   const hexToRgba = (hex: string, alpha: number) => {
     let c = hex.replace('#', '');
     if (c.length === 3) c = c.split('').map((char) => char + char).join('');
@@ -78,14 +81,15 @@ export default function UniversalScoreViewer({
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
+  // 2. 캔버스 초기화 및 히스토리 베이스 동기화
   const syncCanvasWithImage = () => {
     const img = imageRef.current;
     const canvas = canvasRef.current;
     if (!img || !canvas) return;
 
     if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
-      canvas.width = img.naturalWidth || img.clientWidth;
-      canvas.height = img.naturalHeight || img.clientHeight;
+      canvas.width = img.naturalWidth || img.clientWidth || 800;
+      canvas.height = img.naturalHeight || img.clientHeight || 1100;
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -215,15 +219,21 @@ export default function UniversalScoreViewer({
     }
   };
 
+  // Base64 데이터 및 이미지 파일 판별 조건 수정
   const isImageSheet =
-    sheetSource?.url &&
-    (sheetSource.url.startsWith('data:image') || sheetSource.url.match(/\.(jpeg|jpg|png|gif|webp)$/i));
+    sheetSource?.type === 'image_file' ||
+    Boolean(
+      sheetSource?.url &&
+        (sheetSource.url.startsWith('data:image') ||
+          sheetSource.url.match(/\.(jpeg|jpg|png|gif|webp|bmp|svg)/i))
+    );
 
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 z-50 flex flex-col h-screen w-full bg-neutral-950 text-neutral-100 select-none overflow-hidden"
     >
+      {/* 상단 헤더 바 */}
       <header className="flex items-center justify-between px-4 py-2.5 bg-neutral-900/90 backdrop-blur border-b border-neutral-800 z-10">
         <div className="flex items-center gap-3">
           <button
@@ -293,6 +303,7 @@ export default function UniversalScoreViewer({
         </div>
       </header>
 
+      {/* 필기 전용 서브 툴바 */}
       {isDrawingMode && isImageSheet && (
         <div className="flex items-center justify-center gap-3 py-2 bg-neutral-900 border-b border-neutral-800 px-4 flex-wrap z-10 text-xs animate-in slide-in-from-top-2">
           <div className="flex items-center bg-neutral-800 p-1 rounded-lg gap-1 border border-neutral-700">
@@ -361,9 +372,12 @@ export default function UniversalScoreViewer({
         </div>
       )}
 
+      {/* 악보 뷰어 영역 */}
       <main className="flex-1 overflow-auto flex items-center justify-center p-4 relative bg-neutral-950">
         {!sheetSource?.url ? (
-          <div className="text-center text-neutral-500 text-sm">등록된 악보 이미지나 링크가 없습니다.</div>
+          <div className="text-center text-neutral-500 text-sm">
+            등록된 악보 이미지 파일이나 링크가 없습니다.
+          </div>
         ) : isImageSheet ? (
           <div
             className="relative transition-transform duration-100 origin-center flex items-center justify-center"
