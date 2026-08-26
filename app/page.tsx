@@ -14,7 +14,19 @@ import {
   CheckCircle2,
   ChevronLeft,
   PenTool,
+  Wifi,
 } from 'lucide-react';
+import { db, storage } from '@/lib/firebase';
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+} from 'firebase/firestore';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 interface SongItem {
   id: string;
@@ -35,7 +47,7 @@ export default function PraiseApp() {
   const [mounted, setMounted] = useState(false);
   const [contis, setContis] = useState<Conti[]>([]);
   const [selectedContiId, setSelectedContiId] = useState<string>('');
-  
+
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
@@ -57,44 +69,40 @@ export default function PraiseApp() {
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
 
-  // 클라이언트 마운트 후 안전하게 로컬스토리지 로드
+  // 1. Firebase 실시간 리스너 연결 (모든 기기 즉시 동기화)
   useEffect(() => {
     setMounted(true);
-    try {
-      const saved = localStorage.getItem('praise_app_final_data');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setContis(parsed);
-          setSelectedContiId(parsed[0].id);
-          return;
-        }
+    const q = query(collection(db, 'contis'), orderBy('date', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: Conti[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() } as Conti);
+      });
+      setContis(list);
+      if (list.length > 0) {
+        setSelectedContiId((prev) => (prev ? prev : list[0].id));
       }
-    } catch (e) {
-      console.error(e);
-    }
+    });
 
-    // 기본 데이터
-    const initialConti: Conti = {
-      id: 'conti_1',
-      title: '2026.08.30 주일 예배',
-      date: '2026-08-30',
-      songs: [],
-    };
-    setContis([initialConti]);
-    setSelectedContiId(initialConti.id);
+    return () => unsubscribe();
   }, []);
 
-  const saveContis = (updated: Conti[]) => {
-    setContis(updated);
-    try {
-      localStorage.setItem('praise_app_final_data', JSON.stringify(updated));
-    } catch (e) {
-      console.warn('저장 한도 경고:', e);
-    }
-  };
-
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
+
+  // 새 콘티 생성 (Firebase에 저장)
+  const handleAddConti = async () => {
+    const title = prompt('새 예배 콘티 이름을 입력하세요:', '새 예배 콘티');
+    if (!title) return;
+    const newId = `conti_${Date.now()}`;
+    const newConti: Conti = {
+      id: newId,
+      title,
+      date: new Date().toISOString().split('T')[0],
+      songs: [],
+    };
+    await setDoc(doc(db, 'contis', newId), newConti);
+    setSelectedContiId(newId);
+  };
 
   // 모달 열기
   const handleOpenModal = (song?: SongItem) => {
@@ -114,7 +122,7 @@ export default function PraiseApp() {
     setIsModalOpen(true);
   };
 
-  // 이미지 업로드 및 압축 (오류 없이 빠르고 가볍게 처리)
+  // 이미지 최적화 및 업로드 준비
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -128,8 +136,7 @@ export default function PraiseApp() {
         try {
           const canvas = document.createElement('canvas');
           let { width, height } = img;
-          const maxDim = 1500;
-
+          const maxDim = 1600;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height * maxDim) / width);
@@ -139,7 +146,6 @@ export default function PraiseApp() {
               height = maxDim;
             }
           }
-
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
@@ -147,7 +153,7 @@ export default function PraiseApp() {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
-            setModalSheetUrl(canvas.toDataURL('image/jpeg', 0.8));
+            setModalSheetUrl(canvas.toDataURL('image/jpeg', 0.85));
           } else {
             setModalSheetUrl(rawData);
           }
@@ -157,53 +163,68 @@ export default function PraiseApp() {
           setIsProcessing(false);
         }
       };
-      img.onerror = () => {
-        setIsProcessing(false);
-        alert('이미지 로드에 실패했습니다.');
-      };
       img.src = rawData;
     };
     reader.readAsDataURL(file);
   };
 
-  // 곡 저장
-  const handleSaveModal = (e: React.FormEvent) => {
+  // 곡 저장 (Firebase 클라우드 스토리지 & DB 동시 저장)
+  const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim() || !currentConti) return;
 
-    let updatedSongs: SongItem[];
-    if (editingSongId) {
-      updatedSongs = currentConti.songs.map((s) =>
-        s.id === editingSongId
-          ? {
-              ...s,
-              title: modalTitle.trim(),
-              key: modalKey,
-              bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
-              sheetUrl: modalSheetUrl,
-            }
-          : s
-      );
-    } else {
-      const newSong: SongItem = {
-        id: 'song_' + Date.now(),
-        title: modalTitle.trim(),
-        key: modalKey,
-        bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
-        sheetUrl: modalSheetUrl,
-      };
-      updatedSongs = [...currentConti.songs, newSong];
+    setIsProcessing(true);
+    let finalSheetUrl = modalSheetUrl;
+
+    try {
+      // Base64 이미지가 새로 들어온 경우 Firebase Storage로 업로드
+      if (modalSheetUrl && modalSheetUrl.startsWith('data:image')) {
+        const fileId = `sheet_${Date.now()}`;
+        const storageReference = ref(storage, `sheets/${fileId}.jpg`);
+        await uploadString(storageReference, modalSheetUrl, 'data_url');
+        finalSheetUrl = await getDownloadURL(storageReference);
+      }
+
+      let updatedSongs: SongItem[];
+      if (editingSongId) {
+        updatedSongs = (currentConti.songs || []).map((s) =>
+          s.id === editingSongId
+            ? {
+                ...s,
+                title: modalTitle.trim(),
+                key: modalKey,
+                bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
+                sheetUrl: finalSheetUrl,
+              }
+            : s
+        );
+      } else {
+        const newSong: SongItem = {
+          id: 'song_' + Date.now(),
+          title: modalTitle.trim(),
+          key: modalKey,
+          bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
+          sheetUrl: finalSheetUrl,
+        };
+        updatedSongs = [...(currentConti.songs || []), newSong];
+      }
+
+      // Firestore 동기화
+      await setDoc(doc(db, 'contis', currentConti.id), {
+        ...currentConti,
+        songs: updatedSongs,
+      });
+
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('저장 중 오류가 발생했습니다. Firebase 설정을 확인해주세요.');
+    } finally {
+      setIsProcessing(false);
     }
-
-    const updatedContis = contis.map((c) =>
-      c.id === currentConti.id ? { ...c, songs: updatedSongs } : c
-    );
-
-    saveContis(updatedContis);
-    setIsModalOpen(false);
   };
 
-  // 캔버스 크기 및 필기 복원
+  // 캔버스 초기화
   const initCanvas = () => {
     const img = imageRef.current;
     const canvas = canvasRef.current;
@@ -292,7 +313,7 @@ export default function PraiseApp() {
   };
 
   if (!mounted) {
-    return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">불러오는 중...</div>;
+    return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">클라우드 동기화 중...</div>;
   }
 
   // 뷰어 모드
@@ -426,6 +447,7 @@ export default function PraiseApp() {
                 ref={imageRef}
                 src={viewingSong.sheetUrl}
                 alt={viewingSong.title}
+                crossOrigin="anonymous"
                 onLoad={initCanvas}
                 className="max-h-[85vh] max-w-full object-contain rounded bg-white shadow-2xl block"
               />
@@ -461,40 +483,37 @@ export default function PraiseApp() {
               onChange={(e) => setSelectedContiId(e.target.value)}
               className="bg-neutral-800 border border-neutral-700 text-white font-bold rounded-xl px-3 py-2 text-sm"
             >
-              {contis.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title} ({c.songs.length}곡)
-                </option>
-              ))}
+              {contis.length === 0 ? (
+                <option>콘티 없음</option>
+              ) : (
+                contis.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title} ({(c.songs || []).length}곡)
+                  </option>
+                ))
+              )}
             </select>
             <button
-              onClick={() => {
-                const title = prompt('새 콘티 이름:', '새 예배 콘티');
-                if (!title) return;
-                const newC: Conti = {
-                  id: 'c_' + Date.now(),
-                  title,
-                  date: new Date().toISOString().split('T')[0],
-                  songs: [],
-                };
-                const updated = [newC, ...contis];
-                saveContis(updated);
-                setSelectedContiId(newC.id);
-              }}
-              className="flex items-center gap-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-xl text-xs font-semibold"
+              onClick={handleAddConti}
+              className="flex items-center gap-1 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-xs font-semibold"
             >
               <FolderPlus className="w-4 h-4 text-blue-400" />
               <span>새 콘티</span>
             </button>
           </div>
 
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/30"
-          >
-            <Plus className="w-4 h-4" />
-            <span>곡 및 악보 추가</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1.5 rounded-xl font-medium">
+              <Wifi className="w-3.5 h-3.5" /> 실시간 클라우드 연동됨
+            </span>
+            <button
+              onClick={() => handleOpenModal()}
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>곡 및 악보 추가</span>
+            </button>
+          </div>
         </div>
 
         {currentConti && (
@@ -505,12 +524,12 @@ export default function PraiseApp() {
         )}
 
         <div className="space-y-3">
-          {currentConti?.songs.length === 0 ? (
+          {!currentConti?.songs || currentConti.songs.length === 0 ? (
             <div className="text-center py-16 bg-neutral-900/50 border border-neutral-800 rounded-2xl text-neutral-500 text-sm">
               등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-400 font-semibold">[+ 곡 및 악보 추가]</span> 버튼으로 새 곡을 추가해보세요.
             </div>
           ) : (
-            currentConti?.songs.map((song, idx) => (
+            currentConti.songs.map((song, idx) => (
               <div
                 key={song.id}
                 className="flex items-center justify-between p-4 bg-neutral-900 border border-neutral-800 rounded-2xl"
@@ -543,10 +562,13 @@ export default function PraiseApp() {
                     <Edit3 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (!confirm('곡을 삭제하시겠습니까?')) return;
                       const updated = currentConti.songs.filter((s) => s.id !== song.id);
-                      saveContis(contis.map((c) => (c.id === currentConti.id ? { ...c, songs: updated } : c)));
+                      await setDoc(doc(db, 'contis', currentConti.id), {
+                        ...currentConti,
+                        songs: updated,
+                      });
                     }}
                     className="p-2 bg-neutral-800 hover:bg-red-950 text-neutral-400 hover:text-red-400 rounded-xl"
                   >
@@ -626,7 +648,7 @@ export default function PraiseApp() {
                           className="w-12 h-14 object-contain rounded bg-white border border-neutral-600"
                         />
                         <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> 악보 이미지 준비 완료
+                          <CheckCircle2 className="w-3.5 h-3.5" /> 클라우드 전송 준비 완료
                         </span>
                       </div>
                       <button
@@ -651,7 +673,7 @@ export default function PraiseApp() {
                     disabled={isProcessing}
                     className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-200"
                   />
-                  {isProcessing && <span className="text-xs text-blue-400 block animate-pulse">이미지 최적화 중...</span>}
+                  {isProcessing && <span className="text-xs text-blue-400 block animate-pulse">클라우드 업로드 및 최적화 중...</span>}
                 </div>
               </div>
 
@@ -668,7 +690,7 @@ export default function PraiseApp() {
                   disabled={isProcessing}
                   className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30"
                 >
-                  {editingSongId ? '수정 완료' : '추가 완료'}
+                  {isProcessing ? '저장 중...' : editingSongId ? '수정 완료' : '추가 완료'}
                 </button>
               </div>
             </form>
