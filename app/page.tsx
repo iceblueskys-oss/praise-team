@@ -56,10 +56,9 @@ interface Conti {
   date: string;
 }
 
-// 다가오는 주일(일요일) 날짜를 YYYY.MM.DD 포맷으로 자동 계산하는 함수
 function getUpcomingSundayTitle(): { title: string; dateStr: string } {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일 ... 6: 토요일
+  const dayOfWeek = today.getDay();
   const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
   
   const upcomingSunday = new Date(today);
@@ -83,8 +82,10 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 드래그 앤 드롭 상태
-  const [draggedSongIndex, setDraggedSongIndex] = useState<number | null>(null);
+  // 터치 & 마우스 드래그 상태
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
 
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -113,7 +114,6 @@ export default function PraiseApp() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 테마 초기화 & PDF.js 로드
   useEffect(() => {
     const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
     if (savedTheme) setTheme(savedTheme);
@@ -135,7 +135,6 @@ export default function PraiseApp() {
     localStorage.setItem('praise_app_theme', nextTheme);
   };
 
-  // 1. Firebase 실시간 동기화
   useEffect(() => {
     setMounted(true);
 
@@ -188,7 +187,6 @@ export default function PraiseApp() {
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
-  // 2. 필기 실시간 동기화
   useEffect(() => {
     if (!viewingSong || viewingSong.sheetType === 'url') return;
 
@@ -220,23 +218,37 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 드래그 앤 드롭 정렬
-  const handleDragStart = (index: number) => {
-    setDraggedSongIndex(index);
+  // 터치 기반 드래그 앤 드롭 핸들러 (화면 스크롤 방지 및 완벽 정렬)
+  const handleTouchStart = (idx: number) => {
+    setDraggedIdx(idx);
+    setDropTargetIdx(idx);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (draggedIdx === null) return;
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    const cardEl = element?.closest('[data-song-index]');
+    if (cardEl) {
+      const targetIndex = Number(cardEl.getAttribute('data-song-index'));
+      if (!isNaN(targetIndex) && targetIndex !== dropTargetIdx) {
+        setDropTargetIdx(targetIndex);
+      }
+    }
   };
 
-  const handleDrop = async (index: number) => {
-    if (draggedSongIndex === null || draggedSongIndex === index) return;
+  const handleTouchEnd = async () => {
+    if (draggedIdx !== null && dropTargetIdx !== null && draggedIdx !== dropTargetIdx) {
+      await executeReorder(draggedIdx, dropTargetIdx);
+    }
+    setDraggedIdx(null);
+    setDropTargetIdx(null);
+  };
 
+  const executeReorder = async (fromIdx: number, toIdx: number) => {
     const updated = [...currentSongs];
-    const [draggedItem] = updated.splice(draggedSongIndex, 1);
-    updated.splice(index, 0, draggedItem);
-
-    setDraggedSongIndex(null);
+    const [moved] = updated.splice(fromIdx, 1);
+    updated.splice(toIdx, 0, moved);
 
     try {
       const batch = writeBatch(db);
@@ -248,24 +260,6 @@ export default function PraiseApp() {
     } catch (e) {
       console.error(e);
       alert('순서 저장 실패');
-    }
-  };
-
-  const moveSongOneStep = async (fromIndex: number, toIndex: number) => {
-    if (toIndex < 0 || toIndex >= currentSongs.length) return;
-    const updated = [...currentSongs];
-    const [moved] = updated.splice(fromIndex, 1);
-    updated.splice(toIndex, 0, moved);
-
-    try {
-      const batch = writeBatch(db);
-      updated.forEach((song, newIdx) => {
-        const songRef = doc(db, 'songs_v2', song.id);
-        batch.update(songRef, { order: (newIdx + 1) * 10 });
-      });
-      await batch.commit();
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -283,7 +277,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 새 콘티 추가 (다가오는 주일 날짜 자동 제안)
   const handleAddConti = async () => {
     const { title: autoTitle, dateStr } = getUpcomingSundayTitle();
     const title = prompt('새 예배 콘티 이름을 입력하세요:', autoTitle);
@@ -299,7 +292,6 @@ export default function PraiseApp() {
     setSelectedContiId(newId);
   };
 
-  // 콘티 제목 수정
   const handleEditContiTitle = async () => {
     if (!currentConti) return;
     const newTitle = prompt('콘티 제목을 수정하세요:', currentConti.title);
@@ -317,7 +309,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 모달 열기
   const handleOpenModal = (song?: SongItem) => {
     if (song) {
       setEditingSongId(song.id);
@@ -348,7 +339,6 @@ export default function PraiseApp() {
     setIsModalOpen(true);
   };
 
-  // PDF 변환
   const convertPdfToImages = async (file: File): Promise<string[]> => {
     const pdfjs = (window as any).pdfjsLib;
     if (!pdfjs) throw new Error('PDF 라이브러리 로딩 중');
@@ -375,7 +365,6 @@ export default function PraiseApp() {
     return pageImages;
   };
 
-  // 파일 선택 처리
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -447,7 +436,6 @@ export default function PraiseApp() {
     setModalSheetUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // 곡 저장
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim()) {
@@ -505,7 +493,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 곡 삭제
   const handleDeleteSong = async (songId: string) => {
     if (!confirm('이 곡을 삭제하시겠습니까?')) return;
     try {
@@ -518,7 +505,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 캔버스 초기화
   const initCanvas = () => {
     const img = imageRef.current;
     const canvas = canvasRef.current;
@@ -913,7 +899,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면
+  // 2. 메인 콘티 목록 화면 (터치 제어 드래그)
   // ==========================================
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
@@ -999,14 +985,14 @@ export default function PraiseApp() {
             </div>
             {isReordering && (
               <span className="text-xs font-bold text-amber-500 animate-pulse">
-                드래그하거나 버튼으로 순서를 정렬하세요
+                손가락으로 카드를 끌어다 놓아 순서를 바꾸세요
               </span>
             )}
           </div>
         )}
 
-        {/* 곡 목록 리스트 */}
-        <div className="space-y-2.5 sm:space-y-3">
+        {/* 곡 목록 카드 리스트 (터치 드래그 연동) */}
+        <div ref={listContainerRef} className="space-y-2.5 sm:space-y-3">
           {currentSongs.length === 0 ? (
             <div className={`text-center py-12 sm:py-16 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
               등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-500 font-semibold">[+ 곡 추가]</span> 버튼으로 새 곡을 추가해보세요.
@@ -1015,25 +1001,41 @@ export default function PraiseApp() {
             currentSongs.map((song, idx) => (
               <div
                 key={song.id}
-                draggable
-                onDragStart={() => handleDragStart(idx)}
-                onDragOver={handleDragOver}
-                onDrop={() => handleDrop(idx)}
-                className={`group flex items-center justify-between p-3 sm:p-4 rounded-2xl border gap-3 transition cursor-grab active:cursor-grabbing ${
-                  draggedSongIndex === idx ? 'opacity-40 border-dashed border-blue-500 scale-[0.98]' : cardBgClass
-                } hover:border-blue-500/50 hover:shadow-md`}
+                data-song-index={idx}
+                className={`relative flex items-center justify-between p-3 sm:p-4 rounded-2xl border gap-3 transition duration-150 ${
+                  draggedIdx === idx
+                    ? 'opacity-40 scale-[0.98] border-dashed border-blue-500 shadow-inner'
+                    : dropTargetIdx === idx && draggedIdx !== null
+                    ? 'border-blue-500 bg-blue-500/10 shadow-lg'
+                    : cardBgClass
+                } hover:border-blue-500/50`}
               >
+                {/* 좌측: 터치 핸들 영역 (터치 드래그 전용 이벤트 바인딩) */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="text-neutral-500 hover:text-neutral-300 transition cursor-grab shrink-0">
-                    <GripVertical className="w-4 h-4 opacity-60 group-hover:opacity-100" />
+                  <div
+                    onTouchStart={() => handleTouchStart(idx)}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onMouseDown={() => handleTouchStart(idx)}
+                    onMouseEnter={() => {
+                      if (draggedIdx !== null) setDropTargetIdx(idx);
+                    }}
+                    onMouseUp={handleTouchEnd}
+                    style={{ touchAction: 'none' }} // 브라우저 화면 스크롤 원천 차단
+                    className="p-2 -m-2 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0 select-none"
+                    title="길게 눌러 드래그"
+                  >
+                    <GripVertical className="w-5 h-5" />
                   </div>
 
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                  {/* 넘버링 배지 */}
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 select-none ${
                     isDark ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/80' : 'bg-slate-100 text-slate-700 border border-slate-200'
                   }`}>
                     {String(idx + 1).padStart(2, '0')}
                   </div>
 
+                  {/* 곡 정보 */}
                   <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm sm:text-base font-bold truncate max-w-[180px] sm:max-w-sm">
@@ -1077,18 +1079,19 @@ export default function PraiseApp() {
                   </div>
                 </div>
 
+                {/* 우측 버튼 */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   {isReordering ? (
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => moveSongOneStep(idx, idx - 1)}
+                        onClick={() => executeReorder(idx, idx - 1)}
                         disabled={idx === 0}
                         className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
                       >
                         위로
                       </button>
                       <button
-                        onClick={() => moveSongOneStep(idx, idx + 1)}
+                        onClick={() => executeReorder(idx, idx + 1)}
                         disabled={idx === currentSongs.length - 1}
                         className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
                       >
