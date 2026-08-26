@@ -13,8 +13,10 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   PenTool,
   Wifi,
+  Layers,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -33,7 +35,7 @@ interface SongItem {
   title: string;
   key: string;
   bpm?: number | null;
-  sheetUrl: string;
+  sheetUrls: string[]; // 다중 페이지 지원 (배열)
   order: number;
 }
 
@@ -55,11 +57,12 @@ export default function PraiseApp() {
   const [modalTitle, setModalTitle] = useState('');
   const [modalKey, setModalKey] = useState('C');
   const [modalBpm, setModalBpm] = useState('');
-  const [modalSheetUrl, setModalSheetUrl] = useState('');
+  const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 뷰어 및 필기 상태
+  // 뷰어 상태
   const [viewingSong, setViewingSong] = useState<SongItem | null>(null);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [scale, setScale] = useState(1.0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser'>('pen');
@@ -88,7 +91,25 @@ export default function PraiseApp() {
     const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
     const unsubSongs = onSnapshot(qSongs, (snapshot) => {
       const sList: SongItem[] = [];
-      snapshot.forEach((d) => sList.push({ id: d.id, ...d.data() } as SongItem));
+      snapshot.forEach((d) => {
+        const data = d.data();
+        // 기존 단일 sheetUrl과 신규 sheetUrls 호환 처리
+        let sheets: string[] = [];
+        if (Array.isArray(data.sheetUrls)) {
+          sheets = data.sheetUrls;
+        } else if (data.sheetUrl) {
+          sheets = [data.sheetUrl];
+        }
+        sList.push({
+          id: d.id,
+          contiId: data.contiId,
+          title: data.title,
+          key: data.key,
+          bpm: data.bpm,
+          sheetUrls: sheets,
+          order: data.order,
+        });
+      });
       setAllSongs(sList);
     });
 
@@ -98,11 +119,13 @@ export default function PraiseApp() {
     };
   }, []);
 
-  // 2. 실시간 악보 필기 동기화
+  // 2. 현재 열린 곡의 특정 페이지 필기 동기화 (곡ID + 페이지번호)
   useEffect(() => {
     if (!viewingSong) return;
 
-    const drawDocRef = doc(db, 'drawings_v2', viewingSong.id);
+    const pageDrawId = `${viewingSong.id}_p${currentPageIndex}`;
+    const drawDocRef = doc(db, 'drawings_v2', pageDrawId);
+
     const unsubDraw = onSnapshot(drawDocRef, (docSnap) => {
       if (isLocalDrawing.current) return;
 
@@ -126,7 +149,7 @@ export default function PraiseApp() {
     });
 
     return () => unsubDraw();
-  }, [viewingSong]);
+  }, [viewingSong, currentPageIndex]);
 
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const currentSongs = allSongs.filter((s) => s.contiId === currentConti?.id);
@@ -152,59 +175,80 @@ export default function PraiseApp() {
       setModalTitle(song.title);
       setModalKey(song.key);
       setModalBpm(song.bpm ? String(song.bpm) : '');
-      setModalSheetUrl(song.sheetUrl || '');
+      setModalSheetUrls(song.sheetUrls || []);
     } else {
       setEditingSongId(null);
       setModalTitle('');
       setModalKey('C');
       setModalBpm('');
-      setModalSheetUrl('');
+      setModalSheetUrls([]);
     }
     setIsProcessing(false);
     setIsModalOpen(true);
   };
 
-  // 이미지 선택 및 리사이징 압축
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // 다중 이미지 업로드 및 개별 압축
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsProcessing(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const rawData = event.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          let { width, height } = img;
-          const MAX_WIDTH = 1100;
+    const newSheets: string[] = [];
 
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-            setModalSheetUrl(canvas.toDataURL('image/jpeg', 0.7));
-          } else {
-            setModalSheetUrl(rawData);
-          }
-        } catch {
-          setModalSheetUrl(rawData);
-        } finally {
-          setIsProcessing(false);
-        }
-      };
-      img.src = rawData;
+    const processFile = (file: File): Promise<string> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const rawData = event.target?.result as string;
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              let { width, height } = img;
+              const MAX_WIDTH = 1100;
+              if (width > MAX_WIDTH) {
+                height = Math.round((height * MAX_WIDTH) / width);
+                width = MAX_WIDTH;
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+              } else {
+                resolve(rawData);
+              }
+            } catch {
+              resolve(rawData);
+            }
+          };
+          img.onerror = () => resolve(rawData);
+          img.src = rawData;
+        };
+        reader.readAsDataURL(file);
+      });
     };
-    reader.readAsDataURL(file);
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const compressed = await processFile(files[i]);
+        newSheets.push(compressed);
+      }
+      setModalSheetUrls((prev) => [...prev, ...newSheets]);
+    } catch (err) {
+      console.error(err);
+      alert('이미지 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // 특정 페이지만 삭제
+  const handleRemoveSheetPage = (indexToRemove: number) => {
+    setModalSheetUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   // 곡 저장
@@ -236,7 +280,7 @@ export default function PraiseApp() {
         title: modalTitle.trim(),
         key: modalKey || 'C',
         bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
-        sheetUrl: modalSheetUrl || '',
+        sheetUrls: modalSheetUrls,
         order: editingSongId
           ? allSongs.find((s) => s.id === editingSongId)?.order || Date.now()
           : Date.now(),
@@ -257,7 +301,6 @@ export default function PraiseApp() {
     if (!confirm('이 곡을 삭제하시겠습니까?')) return;
     try {
       await deleteDoc(doc(db, 'songs_v2', songId));
-      await deleteDoc(doc(db, 'drawings_v2', songId));
     } catch (e) {
       console.error(e);
       alert('삭제 중 오류가 발생했습니다.');
@@ -334,8 +377,9 @@ export default function PraiseApp() {
     history.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
 
     try {
+      const pageDrawId = `${viewingSong.id}_p${currentPageIndex}`;
       const dataUrl = canvas.toDataURL('image/png');
-      await setDoc(doc(db, 'drawings_v2', viewingSong.id), {
+      await setDoc(doc(db, 'drawings_v2', pageDrawId), {
         drawingData: dataUrl,
         updatedAt: Date.now(),
       });
@@ -347,7 +391,7 @@ export default function PraiseApp() {
   };
 
   const handleClearDrawing = async () => {
-    if (!confirm('작성된 필기를 모두 지우시겠습니까? 모든 기기에서도 함께 삭제됩니다.')) return;
+    if (!confirm(`현재 페이지(${currentPageIndex + 1}p)의 필기를 모두 지우시겠습니까?`)) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas || !viewingSong) return;
@@ -355,7 +399,8 @@ export default function PraiseApp() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     history.current = [];
     try {
-      await deleteDoc(doc(db, 'drawings_v2', viewingSong.id));
+      const pageDrawId = `${viewingSong.id}_p${currentPageIndex}`;
+      await deleteDoc(doc(db, 'drawings_v2', pageDrawId));
     } catch (e) {
       console.error(e);
     }
@@ -371,36 +416,60 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 1. 악보 뷰어 화면 (모바일 & 태블릿 최적화)
+  // 1. 악보 뷰어 화면 (다중 페이지 지원)
   // ==========================================
   if (viewingSong) {
+    const totalPages = viewingSong.sheetUrls?.length || 0;
+    const currentSheetUrl = viewingSong.sheetUrls?.[currentPageIndex] || '';
+
     return (
       <div className="fixed inset-0 z-50 flex flex-col h-screen w-full bg-neutral-950 text-neutral-100 select-none overflow-hidden">
         {/* 상단 뷰어 네비게이션 헤더 */}
         <header className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 bg-neutral-900 border-b border-neutral-800 z-20 shrink-0 gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <button
-              onClick={() => setViewingSong(null)}
+              onClick={() => {
+                setViewingSong(null);
+                setCurrentPageIndex(0);
+              }}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-xs font-semibold border border-neutral-700 shrink-0 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">목록으로</span>
+              <span className="hidden sm:inline">목록</span>
             </button>
-            <h1 className="font-bold text-sm sm:text-base text-white truncate max-w-[120px] xs:max-w-[180px] sm:max-w-xs">
+            <h1 className="font-bold text-sm sm:text-base text-white truncate max-w-[120px] xs:max-w-[160px] sm:max-w-xs">
               {viewingSong.title}
             </h1>
             <span className="px-2 py-0.5 text-[11px] sm:text-xs font-bold bg-blue-600 rounded-md sm:rounded-full text-white shrink-0">
               {viewingSong.key}
             </span>
-            {viewingSong.bpm && (
-              <span className="hidden md:inline px-2 py-0.5 text-xs bg-neutral-800 text-neutral-400 rounded shrink-0">
-                BPM {viewingSong.bpm}
-              </span>
-            )}
           </div>
 
+          {/* 중앙/우측: 페이지 넘김 컨트롤 & 필기/확대 툴 */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {viewingSong.sheetUrl && (
+            {totalPages > 1 && (
+              <div className="flex items-center bg-neutral-800 rounded-lg border border-neutral-700 p-0.5">
+                <button
+                  onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
+                  disabled={currentPageIndex === 0}
+                  className="w-7 h-7 flex items-center justify-center text-xs font-bold text-neutral-300 disabled:opacity-30 hover:text-white"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-[11px] font-bold text-blue-400 px-1.5 min-w-[36px] text-center">
+                  {currentPageIndex + 1} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
+                  disabled={currentPageIndex === totalPages - 1}
+                  className="w-7 h-7 flex items-center justify-center text-xs font-bold text-neutral-300 disabled:opacity-30 hover:text-white"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {currentSheetUrl && (
               <button
                 onClick={() => setIsDrawingMode(!isDrawingMode)}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition ${
@@ -419,9 +488,6 @@ export default function PraiseApp() {
               >
                 -
               </button>
-              <span className="text-[11px] text-neutral-400 w-9 text-center hidden xs:inline-block">
-                {Math.round(scale * 100)}%
-              </span>
               <button
                 onClick={() => setScale((s) => Math.min(s + 0.1, 2.0))}
                 className="w-7 h-7 flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white"
@@ -432,7 +498,7 @@ export default function PraiseApp() {
           </div>
         </header>
 
-        {/* 필기 서브 툴바 (모바일 가로 스크롤 및 컴팩트 배치) */}
+        {/* 필기 서브 툴바 */}
         {isDrawingMode && (
           <div className="flex items-center justify-between sm:justify-center gap-2 py-2 px-3 bg-neutral-900/95 backdrop-blur border-b border-neutral-800 z-20 overflow-x-auto text-xs shrink-0 no-scrollbar">
             <div className="flex items-center bg-neutral-800 p-1 rounded-lg gap-1 border border-neutral-700 shrink-0">
@@ -473,14 +539,14 @@ export default function PraiseApp() {
               onClick={handleClearDrawing}
               className="px-2.5 py-1 bg-neutral-800 hover:bg-red-950/80 text-red-400 border border-neutral-700 rounded-lg shrink-0"
             >
-              초기화
+              {currentPageIndex + 1}p 필기 초기화
             </button>
           </div>
         )}
 
         {/* 악보 본문 뷰어 */}
-        <main className="flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 bg-neutral-950">
-          {!viewingSong.sheetUrl ? (
+        <main className="flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 bg-neutral-950 relative">
+          {!currentSheetUrl ? (
             <div className="text-center p-6 bg-neutral-900 border border-neutral-800 rounded-2xl max-w-xs">
               <p className="text-white font-bold text-sm mb-1">등록된 악보 이미지가 없습니다.</p>
               <p className="text-xs text-neutral-400">목록에서 수정 버튼을 눌러 악보를 등록해주세요.</p>
@@ -493,8 +559,9 @@ export default function PraiseApp() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 ref={imageRef}
-                src={viewingSong.sheetUrl}
-                alt={viewingSong.title}
+                key={currentSheetUrl}
+                src={currentSheetUrl}
+                alt={`${viewingSong.title} - ${currentPageIndex + 1}페이지`}
                 onLoad={initCanvas}
                 className="max-h-[85vh] w-auto max-w-full object-contain rounded bg-white shadow-2xl block select-none pointer-events-none"
               />
@@ -514,20 +581,42 @@ export default function PraiseApp() {
               />
             </div>
           )}
+
+          {/* 모바일 화면 하단 플로팅 넘김 버튼 (페이지가 2장 이상일 때) */}
+          {totalPages > 1 && (
+            <div className="absolute bottom-4 inset-x-0 flex justify-center items-center gap-4 pointer-events-none">
+              <button
+                onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
+                disabled={currentPageIndex === 0}
+                className="pointer-events-auto px-4 py-2 bg-neutral-900/90 backdrop-blur border border-neutral-700 text-white rounded-full text-xs font-bold shadow-xl disabled:opacity-20 active:scale-95 transition"
+              >
+                ◀ 이전 장
+              </button>
+              <span className="bg-neutral-900/90 backdrop-blur border border-neutral-700 text-blue-400 px-3 py-1.5 rounded-full text-xs font-bold shadow-xl">
+                {currentPageIndex + 1} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
+                disabled={currentPageIndex === totalPages - 1}
+                className="pointer-events-auto px-4 py-2 bg-neutral-900/90 backdrop-blur border border-neutral-700 text-white rounded-full text-xs font-bold shadow-xl disabled:opacity-20 active:scale-95 transition"
+              >
+                다음 장 ▶
+              </button>
+            </div>
+          )}
         </main>
       </div>
     );
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면 (모바일 & 태블릿 최적화)
+  // 2. 메인 콘티 목록 화면
   // ==========================================
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-3 sm:p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
         {/* 상단 컨트롤 카드 */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-neutral-900 border border-neutral-800 p-3.5 sm:p-4 rounded-2xl shadow-lg">
-          {/* 콘티 셀렉트 및 새 콘티 버튼 */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <select
               value={selectedContiId}
@@ -553,7 +642,6 @@ export default function PraiseApp() {
             </button>
           </div>
 
-          {/* 클라우드 상태 배지 및 곡 추가 버튼 */}
           <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             <span className="flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1.5 rounded-xl font-medium">
               <Wifi className="w-3.5 h-3.5" /> 실시간 동기화
@@ -578,7 +666,7 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 곡 목록 카드 리스트 */}
+        {/* 곡 목록 리스트 */}
         <div className="space-y-2.5 sm:space-y-3">
           {currentSongs.length === 0 ? (
             <div className="text-center py-12 sm:py-16 bg-neutral-900/50 border border-neutral-800/80 rounded-2xl text-neutral-500 text-xs sm:text-sm px-4">
@@ -590,7 +678,6 @@ export default function PraiseApp() {
                 key={song.id}
                 className="flex flex-col xs:flex-row items-start xs:items-center justify-between p-3.5 sm:p-4 bg-neutral-900 border border-neutral-800/90 rounded-2xl gap-3 hover:border-neutral-700 transition"
               >
-                {/* 곡 정보 */}
                 <div className="flex items-center gap-3 min-w-0 w-full xs:w-auto">
                   <span className="w-6 text-center font-black text-neutral-500 text-xs sm:text-sm shrink-0">
                     {idx + 1}
@@ -603,6 +690,11 @@ export default function PraiseApp() {
                       <span className="px-2 py-0.5 text-[11px] font-bold bg-blue-600/30 border border-blue-500/40 text-blue-300 rounded-md shrink-0">
                         {song.key} Key
                       </span>
+                      {song.sheetUrls && song.sheetUrls.length > 1 && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold bg-purple-600/30 border border-purple-500/40 text-purple-300 rounded-md shrink-0">
+                          <Layers className="w-3 h-3" /> {song.sheetUrls.length}장
+                        </span>
+                      )}
                       {song.bpm && (
                         <span className="text-[11px] text-neutral-400 font-medium shrink-0">
                           BPM {song.bpm}
@@ -612,10 +704,12 @@ export default function PraiseApp() {
                   </div>
                 </div>
 
-                {/* 조작 버튼 그룹 */}
                 <div className="flex items-center justify-end gap-1.5 w-full xs:w-auto pt-2 xs:pt-0 border-t xs:border-t-0 border-neutral-800/80">
                   <button
-                    onClick={() => setViewingSong(song)}
+                    onClick={() => {
+                      setViewingSong(song);
+                      setCurrentPageIndex(0);
+                    }}
                     className="flex-1 xs:flex-none flex items-center justify-center gap-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px]"
                   >
                     <Eye className="w-3.5 h-3.5 text-blue-400" />
@@ -643,7 +737,7 @@ export default function PraiseApp() {
       </div>
 
       {/* ==========================================
-          3. 모달 팝업 (모바일 바텀 시트 반응형)
+          3. 모달 팝업 (다중 악보 업로드 지원)
          ========================================== */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4">
@@ -701,43 +795,54 @@ export default function PraiseApp() {
                 </div>
               </div>
 
+              {/* 다중 악보 이미지 등록 영역 */}
               <div>
-                <label className="block text-xs font-semibold text-neutral-400 mb-1">악보 이미지 파일</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-neutral-400">
+                    악보 이미지 ({modalSheetUrls.length}장)
+                  </label>
+                  <span className="text-[11px] text-neutral-500">여러 장 동시 선택 가능</span>
+                </div>
+
                 <div className="space-y-2">
-                  {modalSheetUrl ? (
-                    <div className="flex items-center justify-between p-2.5 bg-neutral-800 border border-neutral-700 rounded-xl">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={modalSheetUrl}
-                          alt="악보 미리보기"
-                          className="w-10 h-12 sm:w-12 sm:h-14 object-contain rounded bg-white border border-neutral-600 shrink-0"
-                        />
-                        <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 truncate">
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> 준비 완료
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setModalSheetUrl('')}
-                        className="p-1.5 text-neutral-400 hover:text-red-400"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 p-2.5 bg-neutral-800/60 border border-dashed border-neutral-700 rounded-xl text-neutral-400">
-                      <ImageIcon className="w-4 h-4 text-neutral-500 ml-1" />
-                      <span className="text-xs">파일을 선택해 악보를 등록해주세요.</span>
+                  {modalSheetUrls.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 p-2.5 bg-neutral-800/80 border border-neutral-700 rounded-xl max-h-48 overflow-y-auto">
+                      {modalSheetUrls.map((url, index) => (
+                        <div key={index} className="relative group bg-neutral-900 border border-neutral-700 rounded-lg p-1 flex flex-col items-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`${index + 1}p`}
+                            className="w-full h-16 object-contain rounded bg-white"
+                          />
+                          <span className="text-[10px] font-bold text-neutral-300 mt-1">
+                            {index + 1} 페이지
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSheetPage(index)}
+                            className="absolute -top-1.5 -right-1.5 p-1 bg-red-600 hover:bg-red-500 text-white rounded-full shadow"
+                            title="이 페이지 삭제"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
 
                   <input
                     type="file"
                     accept="image/*"
+                    multiple // 다중 파일 선택 활성화
                     onChange={handleFileChange}
                     className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-200 cursor-pointer"
                   />
+                  {isProcessing && (
+                    <span className="text-xs text-blue-400 block animate-pulse">
+                      다중 악보 이미지 최적화 중...
+                    </span>
+                  )}
                 </div>
               </div>
 
