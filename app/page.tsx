@@ -17,6 +17,7 @@ import {
   PenTool,
   Wifi,
   Layers,
+  FileText,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -35,7 +36,7 @@ interface SongItem {
   title: string;
   key: string;
   bpm?: number | null;
-  sheetUrls: string[]; // 다중 페이지 지원 (배열)
+  sheetUrls: string[];
   order: number;
 }
 
@@ -59,6 +60,7 @@ export default function PraiseApp() {
   const [modalBpm, setModalBpm] = useState('');
   const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMsg, setProcessingMsg] = useState('');
 
   // 뷰어 상태
   const [viewingSong, setViewingSong] = useState<SongItem | null>(null);
@@ -73,6 +75,19 @@ export default function PraiseApp() {
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
+
+  // PDF.js 라이브러리 동적 로드
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+      script.onload = () => {
+        (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+      };
+      document.body.appendChild(script);
+    }
+  }, []);
 
   // 1. Firebase 실시간 동기화
   useEffect(() => {
@@ -93,7 +108,6 @@ export default function PraiseApp() {
       const sList: SongItem[] = [];
       snapshot.forEach((d) => {
         const data = d.data();
-        // 기존 단일 sheetUrl과 신규 sheetUrls 호환 처리
         let sheets: string[] = [];
         if (Array.isArray(data.sheetUrls)) {
           sheets = data.sheetUrls;
@@ -119,7 +133,7 @@ export default function PraiseApp() {
     };
   }, []);
 
-  // 2. 현재 열린 곡의 특정 페이지 필기 동기화 (곡ID + 페이지번호)
+  // 2. 현재 열린 곡의 특정 페이지 필기 동기화
   useEffect(() => {
     if (!viewingSong) return;
 
@@ -187,7 +201,34 @@ export default function PraiseApp() {
     setIsModalOpen(true);
   };
 
-  // 다중 이미지 업로드 및 개별 압축
+  // PDF 파일을 페이지별 고화질 이미지로 변환
+  const convertPdfToImages = async (file: File): Promise<string[]> => {
+    const pdfjs = (window as any).pdfjsLib;
+    if (!pdfjs) throw new Error('PDF 처리 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    const pageImages: string[] = [];
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      setProcessingMsg(`PDF 변환 중... (${pageNum}/${pdf.numPages}페이지)`);
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.5 }); // 가독성 높은 해상도
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      if (context) {
+        await page.render({ canvasContext: context, viewport }).promise;
+        pageImages.push(canvas.toDataURL('image/jpeg', 0.75));
+      }
+    }
+    return pageImages;
+  };
+
+  // 파일 선택 처리 (이미지 + PDF 지원)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -195,7 +236,7 @@ export default function PraiseApp() {
     setIsProcessing(true);
     const newSheets: string[] = [];
 
-    const processFile = (file: File): Promise<string> => {
+    const processImageFile = (file: File): Promise<string> => {
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -234,19 +275,27 @@ export default function PraiseApp() {
 
     try {
       for (let i = 0; i < files.length; i++) {
-        const compressed = await processFile(files[i]);
-        newSheets.push(compressed);
+        const file = files[i];
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          setProcessingMsg('PDF 악보 파싱 중...');
+          const pdfSheets = await convertPdfToImages(file);
+          newSheets.push(...pdfSheets);
+        } else {
+          setProcessingMsg('이미지 최적화 중...');
+          const compressed = await processImageFile(file);
+          newSheets.push(compressed);
+        }
       }
       setModalSheetUrls((prev) => [...prev, ...newSheets]);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('이미지 처리 중 오류가 발생했습니다.');
+      alert('파일 처리 오류: ' + (err?.message || '파일을 읽지 못했습니다.'));
     } finally {
       setIsProcessing(false);
+      setProcessingMsg('');
     }
   };
 
-  // 특정 페이지만 삭제
   const handleRemoveSheetPage = (indexToRemove: number) => {
     setModalSheetUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
@@ -301,6 +350,7 @@ export default function PraiseApp() {
     if (!confirm('이 곡을 삭제하시겠습니까?')) return;
     try {
       await deleteDoc(doc(db, 'songs_v2', songId));
+      await deleteDoc(doc(db, 'drawings_v2', songId));
     } catch (e) {
       console.error(e);
       alert('삭제 중 오류가 발생했습니다.');
@@ -416,7 +466,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 1. 악보 뷰어 화면 (다중 페이지 지원)
+  // 1. 악보 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -424,7 +474,6 @@ export default function PraiseApp() {
 
     return (
       <div className="fixed inset-0 z-50 flex flex-col h-screen w-full bg-neutral-950 text-neutral-100 select-none overflow-hidden">
-        {/* 상단 뷰어 네비게이션 헤더 */}
         <header className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 bg-neutral-900 border-b border-neutral-800 z-20 shrink-0 gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <button
@@ -445,7 +494,6 @@ export default function PraiseApp() {
             </span>
           </div>
 
-          {/* 중앙/우측: 페이지 넘김 컨트롤 & 필기/확대 툴 */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {totalPages > 1 && (
               <div className="flex items-center bg-neutral-800 rounded-lg border border-neutral-700 p-0.5">
@@ -498,7 +546,6 @@ export default function PraiseApp() {
           </div>
         </header>
 
-        {/* 필기 서브 툴바 */}
         {isDrawingMode && (
           <div className="flex items-center justify-between sm:justify-center gap-2 py-2 px-3 bg-neutral-900/95 backdrop-blur border-b border-neutral-800 z-20 overflow-x-auto text-xs shrink-0 no-scrollbar">
             <div className="flex items-center bg-neutral-800 p-1 rounded-lg gap-1 border border-neutral-700 shrink-0">
@@ -544,7 +591,6 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 악보 본문 뷰어 */}
         <main className="flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 bg-neutral-950 relative">
           {!currentSheetUrl ? (
             <div className="text-center p-6 bg-neutral-900 border border-neutral-800 rounded-2xl max-w-xs">
@@ -582,7 +628,6 @@ export default function PraiseApp() {
             </div>
           )}
 
-          {/* 모바일 화면 하단 플로팅 넘김 버튼 (페이지가 2장 이상일 때) */}
           {totalPages > 1 && (
             <div className="absolute bottom-4 inset-x-0 flex justify-center items-center gap-4 pointer-events-none">
               <button
@@ -615,7 +660,6 @@ export default function PraiseApp() {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-3 sm:p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
-        {/* 상단 컨트롤 카드 */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-neutral-900 border border-neutral-800 p-3.5 sm:p-4 rounded-2xl shadow-lg">
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <select
@@ -656,7 +700,6 @@ export default function PraiseApp() {
           </div>
         </div>
 
-        {/* 현재 콘티 타이틀 */}
         {currentConti && (
           <div className="flex items-center justify-between px-1">
             <h1 className="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
@@ -666,7 +709,6 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 곡 목록 리스트 */}
         <div className="space-y-2.5 sm:space-y-3">
           {currentSongs.length === 0 ? (
             <div className="text-center py-12 sm:py-16 bg-neutral-900/50 border border-neutral-800/80 rounded-2xl text-neutral-500 text-xs sm:text-sm px-4">
@@ -736,9 +778,7 @@ export default function PraiseApp() {
         </div>
       </div>
 
-      {/* ==========================================
-          3. 모달 팝업 (다중 악보 업로드 지원)
-         ========================================== */}
+      {/* 모달 (이미지 + PDF 동시 지원) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 text-neutral-100 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -795,13 +835,12 @@ export default function PraiseApp() {
                 </div>
               </div>
 
-              {/* 다중 악보 이미지 등록 영역 */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-semibold text-neutral-400">
-                    악보 이미지 ({modalSheetUrls.length}장)
+                    악보 파일 ({modalSheetUrls.length}장)
                   </label>
-                  <span className="text-[11px] text-neutral-500">여러 장 동시 선택 가능</span>
+                  <span className="text-[11px] text-blue-400 font-medium">PDF 또는 이미지 가능</span>
                 </div>
 
                 <div className="space-y-2">
@@ -833,14 +872,14 @@ export default function PraiseApp() {
 
                   <input
                     type="file"
-                    accept="image/*"
-                    multiple // 다중 파일 선택 활성화
+                    accept="image/*,application/pdf,.pdf"
+                    multiple
                     onChange={handleFileChange}
                     className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-200 cursor-pointer"
                   />
                   {isProcessing && (
                     <span className="text-xs text-blue-400 block animate-pulse">
-                      다중 악보 이미지 최적화 중...
+                      {processingMsg || '악보 처리 중...'}
                     </span>
                   )}
                 </div>
