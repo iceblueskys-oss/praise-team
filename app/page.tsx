@@ -16,7 +16,7 @@ import {
   PenTool,
   Wifi,
 } from 'lucide-react';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import {
   collection,
   doc,
@@ -26,7 +26,6 @@ import {
   query,
   orderBy,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 interface SongItem {
   id: string;
@@ -69,27 +68,39 @@ export default function PraiseApp() {
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
 
-  // 1. Firebase 실시간 리스너 연결 (모든 기기 즉시 동기화)
+  // 1. Firebase 실시간 동기화
   useEffect(() => {
     setMounted(true);
-    const q = query(collection(db, 'contis'), orderBy('date', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list: Conti[] = [];
-      snapshot.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ...docSnap.data() } as Conti);
-      });
-      setContis(list);
-      if (list.length > 0) {
-        setSelectedContiId((prev) => (prev ? prev : list[0].id));
-      }
-    });
+    let unsubscribe = () => {};
+
+    try {
+      const q = query(collection(db, 'contis'), orderBy('date', 'desc'));
+      unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const list: Conti[] = [];
+          snapshot.forEach((docSnap) => {
+            list.push({ id: docSnap.id, ...docSnap.data() } as Conti);
+          });
+          setContis(list);
+          if (list.length > 0) {
+            setSelectedContiId((prev) => (prev ? prev : list[0].id));
+          }
+        },
+        (error) => {
+          console.warn('Firebase snapshot warning:', error);
+        }
+      );
+    } catch (e) {
+      console.error('Firebase init error:', e);
+    }
 
     return () => unsubscribe();
   }, []);
 
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
 
-  // 새 콘티 생성 (Firebase에 저장)
+  // 콘티 추가
   const handleAddConti = async () => {
     const title = prompt('새 예배 콘티 이름을 입력하세요:', '새 예배 콘티');
     if (!title) return;
@@ -100,8 +111,13 @@ export default function PraiseApp() {
       date: new Date().toISOString().split('T')[0],
       songs: [],
     };
-    await setDoc(doc(db, 'contis', newId), newConti);
-    setSelectedContiId(newId);
+    try {
+      await setDoc(doc(db, 'contis', newId), newConti);
+      setSelectedContiId(newId);
+    } catch (e) {
+      console.error(e);
+      alert('콘티 생성 중 오류가 발생했습니다.');
+    }
   };
 
   // 모달 열기
@@ -119,10 +135,11 @@ export default function PraiseApp() {
       setModalBpm('');
       setModalSheetUrl('');
     }
+    setIsProcessing(false);
     setIsModalOpen(true);
   };
 
-  // 이미지 최적화 및 업로드 준비
+  // 이미지 선택 시 Firestore 저장용 경량 JPEG 압축 (최적 해상도 유지)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -136,16 +153,13 @@ export default function PraiseApp() {
         try {
           const canvas = document.createElement('canvas');
           let { width, height } = img;
-          const maxDim = 1600;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
+          const MAX_WIDTH = 1200;
+
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
           }
+
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
@@ -153,7 +167,8 @@ export default function PraiseApp() {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
-            setModalSheetUrl(canvas.toDataURL('image/jpeg', 0.85));
+            // 75% 퀄리티로 가볍게 압축 (용량 150KB 내외로 Firestore에 바로 저장 가능)
+            setModalSheetUrl(canvas.toDataURL('image/jpeg', 0.75));
           } else {
             setModalSheetUrl(rawData);
           }
@@ -163,38 +178,56 @@ export default function PraiseApp() {
           setIsProcessing(false);
         }
       };
+      img.onerror = () => {
+        setIsProcessing(false);
+        alert('이미지 로드에 실패했습니다.');
+      };
       img.src = rawData;
+    };
+    reader.onerror = () => {
+      setIsProcessing(false);
+      alert('파일을 읽지 못했습니다.');
     };
     reader.readAsDataURL(file);
   };
 
-  // 곡 저장 (Firebase 클라우드 스토리지 & DB 동시 저장)
+  // 곡 저장 (Storage 없이 Firestore에 즉시 클라우드 저장)
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!modalTitle.trim() || !currentConti) return;
+    if (!modalTitle.trim()) {
+      alert('곡 제목을 입력해주세요.');
+      return;
+    }
 
     setIsProcessing(true);
-    let finalSheetUrl = modalSheetUrl;
 
     try {
-      // Base64 이미지가 새로 들어온 경우 Firebase Storage로 업로드
-      if (modalSheetUrl && modalSheetUrl.startsWith('data:image')) {
-        const fileId = `sheet_${Date.now()}`;
-        const storageReference = ref(storage, `sheets/${fileId}.jpg`);
-        await uploadString(storageReference, modalSheetUrl, 'data_url');
-        finalSheetUrl = await getDownloadURL(storageReference);
+      let activeContiId = currentConti?.id;
+      let existingSongs = currentConti?.songs || [];
+
+      if (!activeContiId) {
+        activeContiId = `conti_${Date.now()}`;
+        const autoConti: Conti = {
+          id: activeContiId,
+          title: '새 예배 콘티',
+          date: new Date().toISOString().split('T')[0],
+          songs: [],
+        };
+        await setDoc(doc(db, 'contis', activeContiId), autoConti);
+        setSelectedContiId(activeContiId);
+        existingSongs = [];
       }
 
       let updatedSongs: SongItem[];
       if (editingSongId) {
-        updatedSongs = (currentConti.songs || []).map((s) =>
+        updatedSongs = existingSongs.map((s) =>
           s.id === editingSongId
             ? {
                 ...s,
                 title: modalTitle.trim(),
                 key: modalKey,
                 bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
-                sheetUrl: finalSheetUrl,
+                sheetUrl: modalSheetUrl,
               }
             : s
         );
@@ -204,21 +237,27 @@ export default function PraiseApp() {
           title: modalTitle.trim(),
           key: modalKey,
           bpm: modalBpm ? parseInt(modalBpm, 10) : undefined,
-          sheetUrl: finalSheetUrl,
+          sheetUrl: modalSheetUrl,
         };
-        updatedSongs = [...(currentConti.songs || []), newSong];
+        updatedSongs = [...existingSongs, newSong];
       }
 
-      // Firestore 동기화
-      await setDoc(doc(db, 'contis', currentConti.id), {
-        ...currentConti,
-        songs: updatedSongs,
-      });
+      // Firestore 클라우드에 직접 반영
+      await setDoc(
+        doc(db, 'contis', activeContiId),
+        {
+          id: activeContiId,
+          title: currentConti?.title || '새 예배 콘티',
+          date: currentConti?.date || new Date().toISOString().split('T')[0],
+          songs: updatedSongs,
+        },
+        { merge: true }
+      );
 
       setIsModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('저장 중 오류가 발생했습니다. Firebase 설정을 확인해주세요.');
+      alert('저장 실패: Firestore 규칙을 확인해주세요.');
     } finally {
       setIsProcessing(false);
     }
@@ -290,7 +329,7 @@ export default function PraiseApp() {
   };
 
   const onDraw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing.current || !isDrawingMode) return;
+    if (!isDrawingMode || !isDrawing.current) return;
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
     const { x, y } = getCanvasCoords(e);
@@ -447,7 +486,6 @@ export default function PraiseApp() {
                 ref={imageRef}
                 src={viewingSong.sheetUrl}
                 alt={viewingSong.title}
-                crossOrigin="anonymous"
                 onLoad={initCanvas}
                 className="max-h-[85vh] max-w-full object-contain rounded bg-white shadow-2xl block"
               />
@@ -472,7 +510,7 @@ export default function PraiseApp() {
     );
   }
 
-  // 메인 목록 렌더링
+  // 메인 콘티 목록
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-4 sm:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -484,7 +522,7 @@ export default function PraiseApp() {
               className="bg-neutral-800 border border-neutral-700 text-white font-bold rounded-xl px-3 py-2 text-sm"
             >
               {contis.length === 0 ? (
-                <option>콘티 없음</option>
+                <option value="">콘티 없음 (곡 추가 시 생성)</option>
               ) : (
                 contis.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -564,7 +602,7 @@ export default function PraiseApp() {
                   <button
                     onClick={async () => {
                       if (!confirm('곡을 삭제하시겠습니까?')) return;
-                      const updated = currentConti.songs.filter((s) => s.id !== song.id);
+                      const updated = (currentConti.songs || []).filter((s) => s.id !== song.id);
                       await setDoc(doc(db, 'contis', currentConti.id), {
                         ...currentConti,
                         songs: updated,
@@ -648,7 +686,7 @@ export default function PraiseApp() {
                           className="w-12 h-14 object-contain rounded bg-white border border-neutral-600"
                         />
                         <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> 클라우드 전송 준비 완료
+                          <CheckCircle2 className="w-3.5 h-3.5" /> 악보 준비 완료
                         </span>
                       </div>
                       <button
@@ -670,10 +708,8 @@ export default function PraiseApp() {
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    disabled={isProcessing}
-                    className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-200"
+                    className="w-full text-xs text-neutral-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-200 cursor-pointer"
                   />
-                  {isProcessing && <span className="text-xs text-blue-400 block animate-pulse">클라우드 업로드 및 최적화 중...</span>}
                 </div>
               </div>
 
@@ -688,9 +724,9 @@ export default function PraiseApp() {
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30 cursor-pointer"
                 >
-                  {isProcessing ? '저장 중...' : editingSongId ? '수정 완료' : '추가 완료'}
+                  {isProcessing ? '처리 중...' : editingSongId ? '수정 완료' : '추가 완료'}
                 </button>
               </div>
             </form>
