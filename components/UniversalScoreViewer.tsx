@@ -35,11 +35,10 @@ export default function UniversalScoreViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
 
-  // 드로잉 툴 상태
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [currentTool, setCurrentTool] = useState<ToolType>('pen');
-  const [penColor, setPenColor] = useState('#ef4444'); // 기본 빨강
-  const [penSize, setPenSize] = useState(3);
+  const [penColor, setPenColor] = useState('#ef4444');
+  const [penSize] = useState(3);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -49,7 +48,6 @@ export default function UniversalScoreViewer({
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
 
-  // 1. 화면 꺼짐 방지 (Wake Lock)
   const requestWakeLock = useCallback(async () => {
     if ('wakeLock' in navigator) {
       try {
@@ -70,12 +68,9 @@ export default function UniversalScoreViewer({
     };
   }, [requestWakeLock]);
 
-  // HEX 컬러를 투명도가 적용된 RGBA로 변환하는 유틸
   const hexToRgba = (hex: string, alpha: number) => {
     let c = hex.replace('#', '');
-    if (c.length === 3) {
-      c = c.split('').map((char) => char + char).join('');
-    }
+    if (c.length === 3) c = c.split('').map((char) => char + char).join('');
     const num = parseInt(c, 16);
     const r = (num >> 16) & 255;
     const g = (num >> 8) & 255;
@@ -83,7 +78,6 @@ export default function UniversalScoreViewer({
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
-  // 2. 캔버스 초기화 및 히스토리 베이스 설정
   const syncCanvasWithImage = () => {
     const img = imageRef.current;
     const canvas = canvasRef.current;
@@ -119,7 +113,6 @@ export default function UniversalScoreViewer({
     const currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
     history.current.push(currentState);
     if (history.current.length > 25) history.current.shift();
-
     localStorage.setItem(`drawing_${songTitle}`, canvas.toDataURL());
   };
 
@@ -139,7 +132,6 @@ export default function UniversalScoreViewer({
     };
   };
 
-  // 3. 드로잉 이벤트 핸들러 (글씨가 비치는 multiply 블렌딩 적용)
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawingMode) return;
     const canvas = canvasRef.current;
@@ -159,7 +151,6 @@ export default function UniversalScoreViewer({
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
     } else if (currentTool === 'highlighter') {
-      // multiply 모드로 설정하여 가사와 음표(검정색)가 선명하게 투과됨
       ctx.globalCompositeOperation = 'multiply';
       ctx.strokeStyle = hexToRgba(penColor === '#000000' ? '#eab308' : penColor, 0.4);
       ctx.lineWidth = penSize * 8;
@@ -192,7 +183,6 @@ export default function UniversalScoreViewer({
     saveToHistory();
   };
 
-  // 실행 취소 (Undo)
   const handleUndo = () => {
     const canvas = canvasRef.current;
     if (!canvas || history.current.length <= 1) return;
@@ -234,7 +224,6 @@ export default function UniversalScoreViewer({
       ref={containerRef}
       className="fixed inset-0 z-50 flex flex-col h-screen w-full bg-neutral-950 text-neutral-100 select-none overflow-hidden"
     >
-      {/* 상단 헤더 바 */}
       <header className="flex items-center justify-between px-4 py-2.5 bg-neutral-900/90 backdrop-blur border-b border-neutral-800 z-10">
         <div className="flex items-center gap-3">
           <button
@@ -304,7 +293,6 @@ export default function UniversalScoreViewer({
         </div>
       </header>
 
-      {/* 필기 서브 툴바 */}
       {isDrawingMode && isImageSheet && (
         <div className="flex items-center justify-center gap-3 py-2 bg-neutral-900 border-b border-neutral-800 px-4 flex-wrap z-10 text-xs animate-in slide-in-from-top-2">
           <div className="flex items-center bg-neutral-800 p-1 rounded-lg gap-1 border border-neutral-700">
@@ -339,7 +327,6 @@ export default function UniversalScoreViewer({
             </button>
           </div>
 
-          {/* 색상 선택 */}
           {currentTool !== 'eraser' && (
             <div className="flex items-center gap-1.5 bg-neutral-800 px-2.5 py-1 rounded-lg border border-neutral-700">
               {['#ef4444', '#3b82f6', '#10b981', '#000000', '#eab308', '#a855f7'].map((color) => (
@@ -355,7 +342,6 @@ export default function UniversalScoreViewer({
             </div>
           )}
 
-          {/* 실행 취소 & 전체 지우기 */}
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleUndo}
@@ -375,7 +361,6 @@ export default function UniversalScoreViewer({
         </div>
       )}
 
-      {/* 메인 뷰어 영역 (mix-blend-multiply 적용) */}
       <main className="flex-1 overflow-auto flex items-center justify-center p-4 relative bg-neutral-950">
         {!sheetSource?.url ? (
           <div className="text-center text-neutral-500 text-sm">등록된 악보 이미지나 링크가 없습니다.</div>
@@ -384,7 +369,6 @@ export default function UniversalScoreViewer({
             className="relative transition-transform duration-100 origin-center flex items-center justify-center"
             style={{ transform: `scale(${scale})` }}
           >
-            {/* 1. 악보 이미지 */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={imageRef}
@@ -393,7 +377,6 @@ export default function UniversalScoreViewer({
               onLoad={syncCanvasWithImage}
               className="max-h-[85vh] max-w-full object-contain rounded shadow-2xl bg-white select-none pointer-events-none"
             />
-            {/* 2. 드로잉 캔버스: mix-blend-multiply가 적용되어 글씨가 완전히 투과됨 */}
             <canvas
               ref={canvasRef}
               onMouseDown={startDrawing}
