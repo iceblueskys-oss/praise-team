@@ -12,8 +12,6 @@ import {
   Music,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  ChevronDown,
   PenTool,
   Wifi,
   Layers,
@@ -25,6 +23,8 @@ import {
   MessageSquare,
   SkipBack,
   SkipForward,
+  GripVertical,
+  Check,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -56,12 +56,35 @@ interface Conti {
   date: string;
 }
 
+// 다가오는 주일(일요일) 날짜를 YYYY.MM.DD 포맷으로 자동 계산하는 함수
+function getUpcomingSundayTitle(): { title: string; dateStr: string } {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일 ... 6: 토요일
+  const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+  
+  const upcomingSunday = new Date(today);
+  upcomingSunday.setDate(today.getDate() + daysUntilSunday);
+
+  const year = upcomingSunday.getFullYear();
+  const month = String(upcomingSunday.getMonth() + 1).padStart(2, '0');
+  const date = String(upcomingSunday.getDate()).padStart(2, '0');
+
+  return {
+    title: `${year}.${month}.${date} 주일 예배`,
+    dateStr: `${year}-${month}-${date}`,
+  };
+}
+
 export default function PraiseApp() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [contis, setContis] = useState<Conti[]>([]);
   const [allSongs, setAllSongs] = useState<SongItem[]>([]);
   const [selectedContiId, setSelectedContiId] = useState<string>('');
+  const [isReordering, setIsReordering] = useState(false);
+
+  // 드래그 앤 드롭 상태
+  const [draggedSongIndex, setDraggedSongIndex] = useState<number | null>(null);
 
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -90,12 +113,10 @@ export default function PraiseApp() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 테마 초기화 & PDF.js 라이브러리 로드
+  // 테마 초기화 & PDF.js 로드
   useEffect(() => {
     const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
+    if (savedTheme) setTheme(savedTheme);
 
     if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
       const script = document.createElement('script');
@@ -114,7 +135,7 @@ export default function PraiseApp() {
     localStorage.setItem('praise_app_theme', nextTheme);
   };
 
-  // 1. Firebase 실시간 콘티/곡 목록 동기화
+  // 1. Firebase 실시간 동기화
   useEffect(() => {
     setMounted(true);
 
@@ -199,34 +220,55 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 곡 순서 변경 (위로 / 아래로)
-  const handleMoveSongOrder = async (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= currentSongs.length) return;
+  // 드래그 앤 드롭 정렬
+  const handleDragStart = (index: number) => {
+    setDraggedSongIndex(index);
+  };
 
-    const currentSong = currentSongs[index];
-    const targetSong = currentSongs[targetIndex];
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (index: number) => {
+    if (draggedSongIndex === null || draggedSongIndex === index) return;
+
+    const updated = [...currentSongs];
+    const [draggedItem] = updated.splice(draggedSongIndex, 1);
+    updated.splice(index, 0, draggedItem);
+
+    setDraggedSongIndex(null);
 
     try {
       const batch = writeBatch(db);
-      const currentRef = doc(db, 'songs_v2', currentSong.id);
-      const targetRef = doc(db, 'songs_v2', targetSong.id);
-
-      // 서로의 order 값을 맞교환
-      const tempOrder = currentSong.order === targetSong.order ? index * 10 : currentSong.order;
-      const targetOrder = targetSong.order === currentSong.order ? targetIndex * 10 : targetSong.order;
-
-      batch.update(currentRef, { order: targetOrder });
-      batch.update(targetRef, { order: tempOrder });
-
+      updated.forEach((song, newIdx) => {
+        const songRef = doc(db, 'songs_v2', song.id);
+        batch.update(songRef, { order: (newIdx + 1) * 10 });
+      });
       await batch.commit();
     } catch (e) {
-      console.error('순서 변경 오류:', e);
-      alert('순서 변경 중 오류가 발생했습니다.');
+      console.error(e);
+      alert('순서 저장 실패');
     }
   };
 
-  // 이전 곡 / 다음 곡 이동
+  const moveSongOneStep = async (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= currentSongs.length) return;
+    const updated = [...currentSongs];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((song, newIdx) => {
+        const songRef = doc(db, 'songs_v2', song.id);
+        batch.update(songRef, { order: (newIdx + 1) * 10 });
+      });
+      await batch.commit();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handlePrevSong = () => {
     if (currentSongIndex > 0) {
       setViewingSongId(currentSongs[currentSongIndex - 1].id);
@@ -241,15 +283,17 @@ export default function PraiseApp() {
     }
   };
 
-  // 콘티 추가
+  // 새 콘티 추가 (다가오는 주일 날짜 자동 제안)
   const handleAddConti = async () => {
-    const title = prompt('새 예배 콘티 이름을 입력하세요:', '새 예배 콘티');
+    const { title: autoTitle, dateStr } = getUpcomingSundayTitle();
+    const title = prompt('새 예배 콘티 이름을 입력하세요:', autoTitle);
     if (!title) return;
+
     const newId = `c_${Date.now()}`;
     const newConti: Conti = {
       id: newId,
-      title,
-      date: new Date().toISOString().split('T')[0],
+      title: title.trim(),
+      date: dateStr,
     };
     await setDoc(doc(db, 'contis_v2', newId), newConti);
     setSelectedContiId(newId);
@@ -403,7 +447,7 @@ export default function PraiseApp() {
     setModalSheetUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // 곡 저장 (순서 order 자동 책정)
+  // 곡 저장
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim()) {
@@ -416,11 +460,12 @@ export default function PraiseApp() {
     try {
       let activeContiId = currentConti?.id;
       if (!activeContiId) {
+        const { title: autoTitle, dateStr } = getUpcomingSundayTitle();
         activeContiId = `c_${Date.now()}`;
         await setDoc(doc(db, 'contis_v2', activeContiId), {
           id: activeContiId,
-          title: '새 예배 콘티',
-          date: new Date().toISOString().split('T')[0],
+          title: autoTitle,
+          date: dateStr,
         });
         setSelectedContiId(activeContiId);
       }
@@ -433,8 +478,6 @@ export default function PraiseApp() {
           : modalSheetUrls;
 
       const songDocId = editingSongId || `song_${Date.now()}`;
-      
-      // 새 곡인 경우 맨 뒤 순서로 지정
       const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order)) : 0;
       const songOrder = editingSongId
         ? allSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
@@ -583,7 +626,6 @@ export default function PraiseApp() {
     );
   }
 
-  // 테마별 색상
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-100 text-slate-800';
   const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
@@ -653,7 +695,6 @@ export default function PraiseApp() {
                   onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
                   disabled={currentPageIndex === 0}
                   className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30"
-                  title="이전 페이지"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -664,7 +705,6 @@ export default function PraiseApp() {
                   onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
                   disabled={currentPageIndex === totalPages - 1}
                   className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30"
-                  title="다음 페이지"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -816,7 +856,6 @@ export default function PraiseApp() {
             </div>
           )}
 
-          {/* 하단 플로팅 넘김 바 */}
           <div className="absolute bottom-4 inset-x-0 flex justify-center items-center gap-2 pointer-events-none px-2">
             <button
               onClick={handlePrevSong}
@@ -874,7 +913,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면 (순서 변경 버튼 탑재)
+  // 2. 메인 콘티 목록 화면
   // ==========================================
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
@@ -920,11 +959,19 @@ export default function PraiseApp() {
               <span>{isDark ? '밝은 모드' : '어두운 모드'}</span>
             </button>
 
-            <span className={`hidden xs:flex items-center gap-1 text-[11px] border px-2.5 py-1.5 rounded-xl font-medium ${
-              isDark ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/60' : 'text-emerald-700 bg-emerald-50 border-emerald-200'
-            }`}>
-              <Wifi className="w-3.5 h-3.5" /> 실시간 동기화
-            </span>
+            {currentSongs.length > 1 && (
+              <button
+                onClick={() => setIsReordering(!isReordering)}
+                className={`flex items-center gap-1 px-3 py-2 border rounded-xl text-xs font-bold transition active:scale-95 ${
+                  isReordering
+                    ? 'bg-amber-500 border-amber-400 text-neutral-950'
+                    : subCardBg
+                }`}
+              >
+                {isReordering ? <Check className="w-3.5 h-3.5" /> : <GripVertical className="w-3.5 h-3.5" />}
+                <span>{isReordering ? '완료' : '순서 편집'}</span>
+              </button>
+            )}
 
             <button
               onClick={() => handleOpenModal()}
@@ -950,10 +997,15 @@ export default function PraiseApp() {
                 <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
               </button>
             </div>
+            {isReordering && (
+              <span className="text-xs font-bold text-amber-500 animate-pulse">
+                드래그하거나 버튼으로 순서를 정렬하세요
+              </span>
+            )}
           </div>
         )}
 
-        {/* 곡 목록 리스트 (순서 변경 버튼 추가) */}
+        {/* 곡 목록 리스트 */}
         <div className="space-y-2.5 sm:space-y-3">
           {currentSongs.length === 0 ? (
             <div className={`text-center py-12 sm:py-16 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
@@ -963,35 +1015,26 @@ export default function PraiseApp() {
             currentSongs.map((song, idx) => (
               <div
                 key={song.id}
-                className={`flex flex-col xs:flex-row items-start xs:items-center justify-between p-3 sm:p-3.5 rounded-2xl border gap-3 transition ${cardBgClass}`}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(idx)}
+                className={`group flex items-center justify-between p-3 sm:p-4 rounded-2xl border gap-3 transition cursor-grab active:cursor-grabbing ${
+                  draggedSongIndex === idx ? 'opacity-40 border-dashed border-blue-500 scale-[0.98]' : cardBgClass
+                } hover:border-blue-500/50 hover:shadow-md`}
               >
-                {/* 순서 변경 버튼 & 곡 정보 */}
-                <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 w-full xs:w-auto flex-1">
-                  {/* 순서 변경 화살표 버튼 컨트롤 */}
-                  <div className="flex flex-col items-center justify-center shrink-0 -my-0.5">
-                    <button
-                      onClick={() => handleMoveSongOrder(idx, 'up')}
-                      disabled={idx === 0}
-                      className={`p-1 rounded-md border text-neutral-400 hover:text-blue-500 disabled:opacity-20 disabled:hover:text-neutral-400 transition ${subCardBg}`}
-                      title="위로 이동"
-                    >
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-xs font-black opacity-70 my-0.5 min-w-[20px] text-center">
-                      {idx + 1}
-                    </span>
-                    <button
-                      onClick={() => handleMoveSongOrder(idx, 'down')}
-                      disabled={idx === currentSongs.length - 1}
-                      className={`p-1 rounded-md border text-neutral-400 hover:text-blue-500 disabled:opacity-20 disabled:hover:text-neutral-400 transition ${subCardBg}`}
-                      title="아래로 이동"
-                    >
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    </button>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="text-neutral-500 hover:text-neutral-300 transition cursor-grab shrink-0">
+                    <GripVertical className="w-4 h-4 opacity-60 group-hover:opacity-100" />
                   </div>
 
-                  {/* 곡 타이틀 및 태그 */}
-                  <div className="min-w-0 flex-1 space-y-1">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                    isDark ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/80' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                  }`}>
+                    {String(idx + 1).padStart(2, '0')}
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm sm:text-base font-bold truncate max-w-[180px] sm:max-w-sm">
                         {song.title}
@@ -1034,36 +1077,56 @@ export default function PraiseApp() {
                   </div>
                 </div>
 
-                {/* 우측 조작 버튼 그룹 */}
-                <div className={`flex items-center justify-end gap-1.5 w-full xs:w-auto pt-2 xs:pt-0 border-t xs:border-t-0 ${isDark ? 'border-neutral-800' : 'border-slate-100'}`}>
-                  <button
-                    onClick={() => {
-                      setViewingSongId(song.id);
-                      setCurrentPageIndex(0);
-                    }}
-                    className={`flex-1 xs:flex-none flex items-center justify-center gap-1 px-3 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
-                      isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
-                    }`}
-                  >
-                    <Eye className="w-3.5 h-3.5 text-blue-500" />
-                    <span>악보 보기</span>
-                  </button>
-                  <button
-                    onClick={() => handleOpenModal(song)}
-                    className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${subCardBg}`}
-                    title="곡 수정"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteSong(song.id)}
-                    className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${
-                      isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
-                    }`}
-                    title="곡 삭제"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {isReordering ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => moveSongOneStep(idx, idx - 1)}
+                        disabled={idx === 0}
+                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                      >
+                        위로
+                      </button>
+                      <button
+                        onClick={() => moveSongOneStep(idx, idx + 1)}
+                        disabled={idx === currentSongs.length - 1}
+                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                      >
+                        아래로
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setViewingSongId(song.id);
+                          setCurrentPageIndex(0);
+                        }}
+                        className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
+                          isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
+                        }`}
+                      >
+                        <Eye className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="hidden xs:inline">악보 보기</span>
+                      </button>
+                      <button
+                        onClick={() => handleOpenModal(song)}
+                        className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${subCardBg}`}
+                        title="곡 수정"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSong(song.id)}
+                        className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${
+                          isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                        }`}
+                        title="곡 삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))
