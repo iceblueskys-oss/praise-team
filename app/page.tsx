@@ -40,6 +40,7 @@ import {
   RefreshCw,
   Wand2,
   Tag,
+  RotateCcw,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -121,46 +122,51 @@ function formatImageUrl(url: string): string {
   return trimmed;
 }
 
-// 🌟 악보 가사 특화 스마트 정제 함수 🌟
-function cleanSheetMusicLyrics(rawText: string): string {
-  if (!rawText) return '';
+// 🌟 고도화된 악보 가사 스마트 정제 알고리즘 🌟
+function performAdvancedLyricsClean(text: string): string {
+  if (!text) return '';
 
   const chordRegex = /\b[A-G](#|b)?(m|maj|dim|aug|sus|add|M)?[0-9]?(\/[A-G](#|b)?)?\b/g;
 
-  const lines = rawText.split('\n');
-  const cleanedLines: string[] = [];
+  // 1. 줄 단위 분석 및 노이즈 소거
+  const rawLines = text.split('\n');
+  const processedLines: string[] = [];
 
-  for (let line of lines) {
+  for (let line of rawLines) {
     let l = line.trim();
     if (!l) continue;
 
-    // 1. 단독 코드 라인 제외
-    const words = l.split(/\s+/);
-    const chordMatches = words.filter((w) => chordRegex.test(w) || /^[A-G]$/.test(w));
-    if (words.length > 0 && chordMatches.length / words.length >= 0.7) {
+    // 단독 코드 라인 제외 (코드 비중이 60% 이상인 경우)
+    const tokens = l.split(/\s+/);
+    const chords = tokens.filter((t) => chordRegex.test(t) || /^[A-G]$/.test(t));
+    if (tokens.length > 0 && chords.length / tokens.length >= 0.6) {
       continue;
     }
 
-    // 2. 오선지 및 마디선 잡음 제거
+    // 악보 기호, 오선지 잔상, 마디 구분선 제거
     l = l.replace(/[|│┃_—=\-~`'"*^·#]+/g, ' ');
     l = l.replace(/\b[0-9]{1,2}\/[0-9]{1,2}\b/g, ''); // 박자표 제거
     l = l.replace(/\b(Intro|Verse|Chorus|Bridge|Interlude|Outro|Ending)\b/gi, '');
+    l = l.replace(/\b[a-zA-Z]\b/g, ''); // 외톨이 알파벳 제거
+    l = l.replace(/\b[ㄱ-ㅎㅏ-ㅣ]\b/g, ''); // 외톨이 자모음 제거
 
-    // 3. 한 글자씩 띄어쓰기된 가사 이어붙이기 (예: "하 나 님 의" -> "하나님의")
+    // 2. 음표 간격으로 인해 낱글자로 벌어진 한글 단어 결합 처리
+    // 예: "주   품   에   품   으   소   서" -> "주품에 품으소서"
+    l = l.replace(/([가-힣])\s+([가-힣])\s+([가-힣])\s+([가-힣])\s+([가-힣])/g, '$1$2$3$4$5');
     l = l.replace(/([가-힣])\s+([가-힣])\s+([가-힣])\s+([가-힣])/g, '$1$2$3$4');
     l = l.replace(/([가-힣])\s+([가-힣])\s+([가-힣])/g, '$1$2$3');
     l = l.replace(/([가-힣])\s+([가-힣])/g, '$1$2');
 
-    // 4. 다중 공백 정리
+    // 다중 공백 정리
     l = l.replace(/\s+/g, ' ').trim();
 
-    // 5. 의미 있는 한글/영문 가사 라인만 유지
     if (l.length >= 2 && /[가-힣a-zA-Z0-9]/.test(l)) {
-      cleanedLines.push(l);
+      processedLines.push(l);
     }
   }
 
-  return cleanedLines.join('\n');
+  // 3. 문장 단위로 보기 좋게 줄바꿈 정렬
+  return processedLines.join('\n');
 }
 
 export default function PraiseApp() {
@@ -184,9 +190,11 @@ export default function PraiseApp() {
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
 
-  // 가사 추출(OCR) 모달 상태
+  // 🌟 가사 추출(OCR) 모달 & 원본/정제 상태 🌟
   const [isLyricsModalOpen, setIsLyricsModalOpen] = useState(false);
   const [extractedLyrics, setExtractedLyrics] = useState('');
+  const [rawExtractedBackup, setRawExtractedBackup] = useState(''); // 원본 백업
+  const [isCleanedMode, setIsCleanedMode] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [ocrProgressMsg, setOcrProgressMsg] = useState('');
   const [ocrProgressPercent, setOcrProgressPercent] = useState<number>(0);
@@ -339,7 +347,7 @@ export default function PraiseApp() {
     };
   }, []);
 
-  // 기존 등록된 모든 곡을 찬양 보관소에 자동 동기화
+  // 기존 등록된 모든 곡 찬양 보관소 자동 동기화
   useEffect(() => {
     if (allSongs.length > 0) {
       syncAllSongsToLibrary(false);
@@ -425,7 +433,7 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 🌟 원본 품질 보존 가사 OCR 추출 🌟
+  // 🌟 고정밀 가사 OCR 추출 🌟
   const handleExtractLyricsFromImage = async (imageUrl: string) => {
     if (isExtracting) return;
 
@@ -443,6 +451,7 @@ export default function PraiseApp() {
     setOcrProgressPercent(15);
     setOcrProgressMsg('악보 이미지 로딩 및 한국어 AI 엔진 준비 중...');
     setIsLyricsModalOpen(true);
+    setIsCleanedMode(false);
 
     try {
       const worker = await Tesseract.createWorker('kor+kor_vert', 1, {
@@ -455,16 +464,14 @@ export default function PraiseApp() {
         },
       });
 
-      // 왜곡 없이 고해상도 원본 이미지 그대로 인식 수행
       const ret = await worker.recognize(imageUrl);
-      setOcrProgressPercent(96);
-      setOcrProgressMsg('가사 띄어쓰기 및 노이즈 보정 중...');
+      setOcrProgressPercent(100);
 
       await worker.terminate();
 
-      const cleaned = cleanSheetMusicLyrics(ret.data.text);
-      setExtractedLyrics(cleaned || ret.data.text || '추출된 가사가 없습니다.');
-      setOcrProgressPercent(100);
+      const raw = ret.data.text || '추출된 텍스트가 없습니다.';
+      setRawExtractedBackup(raw);
+      setExtractedLyrics(raw);
     } catch (err) {
       console.error(err);
       alert('가사 추출 중 오류가 발생했습니다.');
@@ -475,12 +482,21 @@ export default function PraiseApp() {
     }
   };
 
-  // 🌟 스마트 재정제 버튼 동작 (가사 띄어쓰기 결합 & 잡음 정리) 🌟
-  const handleAutoCleanCurrentLyrics = () => {
-    if (!extractedLyrics) return;
-    const recleaned = cleanSheetMusicLyrics(extractedLyrics);
-    setExtractedLyrics(recleaned);
-    alert('가사 띄어쓰기 및 악보 잡음이 정리되었습니다.');
+  // 🌟 스마트 띄어쓰기 정제 토글 (정제 ↔ 원본 복원) 🌟
+  const handleToggleSmartClean = () => {
+    if (!extractedLyrics && !rawExtractedBackup) return;
+
+    if (!isCleanedMode) {
+      // 정제 실행
+      const targetText = rawExtractedBackup || extractedLyrics;
+      const cleaned = performAdvancedLyricsClean(targetText);
+      setExtractedLyrics(cleaned || targetText);
+      setIsCleanedMode(true);
+    } else {
+      // 원본 복원
+      setExtractedLyrics(rawExtractedBackup);
+      setIsCleanedMode(false);
+    }
   };
 
   const handleCopyLyrics = () => {
@@ -1225,7 +1241,7 @@ export default function PraiseApp() {
   const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
-  // 🌟 가사 추출 결과 팝업 오버레이 (z-[60] 최상단 레이어) 🌟
+  // 🌟 상호작용 가능한 가사 추출 팝업 모달 (최상단 z-[60]) 🌟
   const LyricsModalElement = isLyricsModalOpen && (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
       <div className={`rounded-2xl w-full max-w-md p-5 shadow-2xl border flex flex-col max-h-[85vh] ${
@@ -1234,7 +1250,7 @@ export default function PraiseApp() {
         <div className={`flex items-center justify-between pb-3 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
           <h2 className="text-sm sm:text-base font-bold flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-purple-400" />
-            악보 가사 추출 & 스마트 보정
+            악보 가사 추출 결과
           </h2>
           <button 
             onClick={() => setIsLyricsModalOpen(false)} 
@@ -1264,29 +1280,46 @@ export default function PraiseApp() {
 
               <p className="text-xs font-bold text-purple-300 animate-pulse">{ocrProgressMsg || '가사 분석 중...'}</p>
               <p className="text-[11px] opacity-50 leading-relaxed">
-                원본 해상도를 유지하며 한국어 AI 엔진으로 가사를 읽어내는 중입니다.
+                원본 해상도를 유지하며 한국어 AI 엔진으로 악보 속 가사를 읽어내고 있습니다.
               </p>
             </div>
           ) : (
             <div className="flex-1 flex flex-col space-y-2 min-h-0">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] opacity-70">
-                  추출 및 보정된 가사입니다 (직접 수정 가능):
-                </p>
+                <span className="text-[11px] font-semibold opacity-70">
+                  {isCleanedMode ? '✨ 스마트 띄어쓰기 정제 완료됨' : '📝 원본 추출 텍스트'}
+                </span>
+
+                {/* 🌟 인터랙티브 정제 / 복원 토글 버튼 🌟 */}
                 <button
                   type="button"
-                  onClick={handleAutoCleanCurrentLyrics}
-                  className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                  title="벌어진 띄어쓰기 결합 및 노이즈 재정제"
+                  onClick={handleToggleSmartClean}
+                  className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition active:scale-95 ${
+                    isCleanedMode
+                      ? 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'
+                      : 'bg-purple-600/30 border-purple-500/50 text-purple-300 hover:bg-purple-600/40'
+                  }`}
+                  title={isCleanedMode ? '처음 추출된 원본으로 되돌리기' : '음표 띄어쓰기 결합 및 잡음 정리'}
                 >
-                  <Wand2 className="w-3 h-3" />
-                  <span>스마트 띄어쓰기 정제</span>
+                  {isCleanedMode ? (
+                    <>
+                      <RotateCcw className="w-3 h-3 text-neutral-400" />
+                      <span>원본으로 복원</span>
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-3 h-3 text-purple-400" />
+                      <span>스마트 띄어쓰기 정제</span>
+                    </>
+                  )}
                 </button>
               </div>
+
               <textarea
                 value={extractedLyrics}
                 onChange={(e) => setExtractedLyrics(e.target.value)}
                 rows={10}
+                placeholder="추출된 가사가 여기에 표시됩니다."
                 className={`w-full flex-1 p-3 rounded-xl border text-xs sm:text-sm font-medium leading-relaxed focus:outline-none focus:border-purple-500 resize-none ${
                   isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
