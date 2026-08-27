@@ -38,6 +38,8 @@ import {
   Copy,
   Loader2,
   RefreshCw,
+  Wand2,
+  Tag,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -55,6 +57,7 @@ import {
 interface SongItem {
   id: string;
   contiId: string;
+  headerTag?: string; // 🌟 예배 순서 헤더 (예: <입례>, <파송>, <헌금>)
   title: string;
   key?: string | null;
   bpm?: number | null;
@@ -118,6 +121,88 @@ function formatImageUrl(url: string): string {
   return trimmed;
 }
 
+// 악보 이미지 고대비 흑백 전처리
+function preprocessSheetImage(imageSrc: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(imageSrc);
+          return;
+        }
+
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i];
+          const g = d[i + 1];
+          const b = d[i + 2];
+          let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+          
+          if (gray > 165) {
+            gray = 255;
+          } else {
+            gray = gray * 0.7;
+          }
+
+          d[i] = gray;
+          d[i + 1] = gray;
+          d[i + 2] = gray;
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        resolve(imageSrc);
+      }
+    };
+    img.onerror = () => resolve(imageSrc);
+    img.src = imageSrc;
+  });
+}
+
+// 악보 가사 노이즈 필터링
+function cleanSheetMusicLyrics(rawText: string): string {
+  if (!rawText) return '';
+
+  const chordRegex = /\b[A-G](#|b)?(m|maj|dim|aug|sus|add|M)?[0-9]?(\/[A-G](#|b)?)?\b/g;
+  const lines = rawText.split('\n');
+  const cleanedLines: string[] = [];
+
+  for (let line of lines) {
+    let l = line.trim();
+    if (!l) continue;
+
+    const words = l.split(/\s+/);
+    const chordCount = words.filter((w) => chordRegex.test(w) || /^[A-G]$/.test(w)).length;
+    if (words.length > 0 && chordCount / words.length >= 0.6) {
+      continue;
+    }
+
+    l = l.replace(/[|│┃_—=\-~`'"*^·#]+/g, ' ');
+    l = l.replace(/\b[0-9]{1,2}\/[0-9]{1,2}\b/g, '');
+    l = l.replace(/\b(Intro|Verse|Chorus|Bridge|Interlude|Outro|Ending)\b/gi, '');
+    l = l.replace(/\b[a-zA-Z]\b/g, '');
+    l = l.replace(/\b[ㄱ-ㅎㅏ-ㅣ]\b/g, '');
+    l = l.replace(/\s+/g, ' ').trim();
+
+    if (l.length >= 2 && /[가-힣a-zA-Z0-9]/.test(l)) {
+      cleanedLines.push(l);
+    }
+  }
+
+  return cleanedLines.join('\n');
+}
+
 export default function PraiseApp() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -167,6 +252,7 @@ export default function PraiseApp() {
   // 곡 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
+  const [modalHeaderTag, setModalHeaderTag] = useState(''); // 🌟 예배 순서 헤더 (예: <입례>)
   const [modalTitle, setModalTitle] = useState('');
   const [modalKey, setModalKey] = useState('');
   const [modalBpm, setModalBpm] = useState('');
@@ -256,6 +342,7 @@ export default function PraiseApp() {
         sList.push({
           id: d.id,
           contiId: data.contiId,
+          headerTag: data.headerTag || '',
           title: data.title,
           key: data.key || null,
           bpm: data.bpm,
@@ -291,12 +378,12 @@ export default function PraiseApp() {
     };
   }, []);
 
-  // 🌟 기존 등록된 곡들을 찬양 보관소(song_library)로 자동 마이그레이션 🌟
+  // 🌟 기존 등록된 모든 곡을 찬양 보관소(song_library)에 자동 등록 (순수 제목 기준) 🌟
   useEffect(() => {
-    if (allSongs.length > 0 && librarySongs.length === 0 && !isSyncingLib) {
+    if (allSongs.length > 0) {
       syncAllSongsToLibrary(false);
     }
-  }, [allSongs, librarySongs]);
+  }, [allSongs]);
 
   const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
     if (allSongs.length === 0) {
@@ -307,14 +394,16 @@ export default function PraiseApp() {
     try {
       const batch = writeBatch(db);
       allSongs.forEach((song) => {
+        const cleanTitle = song.title.trim();
         const cleanKey = song.key ? song.key.trim().toUpperCase() : 'NOKEY';
-        const libDocId = `lib_${song.title.trim().replace(/\s+/g, '_')}_${cleanKey}`;
+        const libDocId = `lib_${cleanTitle.replace(/\s+/g, '_')}_${cleanKey}`;
         const libRef = doc(db, 'song_library', libDocId);
+        
         batch.set(
           libRef,
           {
             id: libDocId,
-            title: song.title.trim(),
+            title: cleanTitle,
             key: song.key || null,
             bpm: song.bpm || null,
             comment: song.comment || '',
@@ -327,7 +416,7 @@ export default function PraiseApp() {
       });
       await batch.commit();
       if (showSuccessAlert) {
-        alert('기존 콘티의 모든 찬양이 보관소로 안전하게 동기화되었습니다!');
+        alert('기존 콘티의 모든 찬양이 보관소로 안전하게 자동 동기화되었습니다!');
       }
     } catch (e) {
       console.error('보관소 자동 동기화 오류:', e);
@@ -388,29 +477,24 @@ export default function PraiseApp() {
     }
 
     setIsExtracting(true);
-    setOcrProgressMsg('가사 추출 엔진 초기화 중...');
+    setOcrProgressMsg('악보 이미지 선명화 및 노이즈 제거 전처리 중...');
     setIsLyricsModalOpen(true);
 
     try {
+      const preprocessedUrl = await preprocessSheetImage(imageUrl);
+      setOcrProgressMsg('가사 인식 엔진 실행 중...');
       const worker = await Tesseract.createWorker('kor+eng', 1, {
         logger: (m: any) => {
           if (m.status === 'recognizing text') {
-            setOcrProgressMsg(`가사 분석 및 인식 중... (${Math.round((m.progress || 0) * 100)}%)`);
-          } else if (m.status === 'loading tesseract core') {
-            setOcrProgressMsg('한글 사전 데이터 로딩 중...');
+            setOcrProgressMsg(`가사 분석 및 텍스트 변환 중... (${Math.round((m.progress || 0) * 100)}%)`);
           }
         },
       });
 
-      const ret = await worker.recognize(imageUrl);
+      const ret = await worker.recognize(preprocessedUrl);
       await worker.terminate();
 
-      const rawLines = ret.data.text.split('\n');
-      const cleaned = rawLines
-        .map((l: string) => l.trim())
-        .filter((l: string) => l.length > 1 && !/^[0-9\-_=+#@$%&*()^!/\\|]+$/.test(l))
-        .join('\n');
-
+      const cleaned = cleanSheetMusicLyrics(ret.data.text);
       setExtractedLyrics(cleaned || '추출된 가사가 없습니다. 악보 이미지 상태를 확인해주세요.');
     } catch (err) {
       console.error(err);
@@ -420,6 +504,13 @@ export default function PraiseApp() {
       setIsExtracting(false);
       setOcrProgressMsg('');
     }
+  };
+
+  const handleAutoCleanCurrentLyrics = () => {
+    if (!extractedLyrics) return;
+    const recleaned = cleanSheetMusicLyrics(extractedLyrics);
+    setExtractedLyrics(recleaned);
+    alert('가사 노이즈 및 공백이 스마트 정제되었습니다.');
   };
 
   const handleCopyLyrics = () => {
@@ -755,6 +846,7 @@ export default function PraiseApp() {
     }
     if (song) {
       setEditingSongId(song.id);
+      setModalHeaderTag(song.headerTag || '');
       setModalTitle(song.title);
       setModalKey(song.key || '');
       setModalBpm(song.bpm ? String(song.bpm) : '');
@@ -765,6 +857,7 @@ export default function PraiseApp() {
       setModalUrlInput(song.sheetUrls?.[0]?.startsWith('http') ? song.sheetUrls[0] : '');
     } else {
       setEditingSongId(null);
+      setModalHeaderTag('');
       setModalTitle('');
       setModalKey('');
       setModalBpm('');
@@ -779,6 +872,7 @@ export default function PraiseApp() {
     setIsModalOpen(true);
   };
 
+  // 🌟 라이브러리에서 곡 선택 (순수 제목만 가져옴) 🌟
   const handleSelectFromLibrary = (libSong: LibrarySong) => {
     setModalTitle(libSong.title);
     setModalKey(libSong.key || '');
@@ -907,6 +1001,7 @@ export default function PraiseApp() {
     setModalSheetUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  // 🌟 곡 저장 (콘티에는 headerTag 포함 저장, 찬양보관소에는 순수 곡명으로만 보관) 🌟
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim()) {
@@ -945,10 +1040,14 @@ export default function PraiseApp() {
         ? allSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
         : maxOrder + 10;
 
+      const cleanTitle = modalTitle.trim();
+      const cleanHeader = modalHeaderTag.trim();
+
       const songData: SongItem = {
         id: songDocId,
         contiId: activeContiId,
-        title: modalTitle.trim(),
+        headerTag: cleanHeader, // 순서 헤더 분리 보관
+        title: cleanTitle,
         key: modalKey.trim() ? modalKey.trim() : null,
         bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
         comment: modalComment.trim(),
@@ -957,16 +1056,18 @@ export default function PraiseApp() {
         order: songOrder,
       };
 
+      // 1. 콘티에 곡 저장
       await setDoc(doc(db, 'songs_v2', songDocId), songData);
 
+      // 2. 🌟 찬양 보관소에는 순수 곡 이름으로만 축적 🌟
       const cleanKey = modalKey.trim() ? modalKey.trim().toUpperCase() : 'NOKEY';
-      const libDocId = `lib_${modalTitle.trim().replace(/\s+/g, '_')}_${cleanKey}`;
+      const libDocId = `lib_${cleanTitle.replace(/\s+/g, '_')}_${cleanKey}`;
 
       await setDoc(
         doc(db, 'song_library', libDocId),
         {
           id: libDocId,
-          title: modalTitle.trim(),
+          title: cleanTitle, // <입례> 같은 헤더 없이 순수 곡명으로 등록
           key: modalKey.trim() ? modalKey.trim() : null,
           bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
           comment: modalComment.trim(),
@@ -1212,6 +1313,13 @@ export default function PraiseApp() {
                 </button>
               </div>
 
+              {/* 🌟 순서 헤더 표시 🌟 */}
+              {viewingSong.headerTag && (
+                <span className="px-2 py-0.5 text-[10px] sm:text-xs font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-md shrink-0">
+                  {viewingSong.headerTag}
+                </span>
+              )}
+
               <h1 className="font-bold text-sm sm:text-base truncate max-w-[110px] xs:max-w-[160px] sm:max-w-xs ml-1">
                 {viewingSong.title}
               </h1>
@@ -1440,7 +1548,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면
+  // 2. 메인 콘티 목록 화면 (헤더 뱃지 지원)
   // ==========================================
   const assignedSingers = currentConti?.assignedSingers || [];
   const customNote = currentConti?.customNote || '';
@@ -1491,7 +1599,6 @@ export default function PraiseApp() {
           </div>
 
           <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
-            {/* 🌟 찬양 보관소 라이브러리 열기 버튼 🌟 */}
             <button
               onClick={() => {
                 setLibrarySearchTerm('');
@@ -1647,7 +1754,7 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 곡 목록 리스트 */}
+        {/* 곡 목록 리스트 (헤더 뱃지 렌더링) */}
         {currentConti && (
           <div className="space-y-2.5 sm:space-y-3 relative select-none">
             {currentSongs.length === 0 ? (
@@ -1695,9 +1802,17 @@ export default function PraiseApp() {
 
                         <div className="min-w-0 flex-1 space-y-0.5">
                           <div className="flex items-center gap-2 flex-wrap">
+                            {/* 🌟 예배 순서 헤더 뱃지 🌟 */}
+                            {song.headerTag && (
+                              <span className="px-2 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded shrink-0">
+                                {song.headerTag}
+                              </span>
+                            )}
+
                             <h3 className="text-sm sm:text-base font-bold truncate max-w-[180px] sm:max-w-sm">
                               {song.title}
                             </h3>
+
                             {song.key && (
                               <span className={`px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
                                 isDark ? 'bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'
@@ -1812,6 +1927,7 @@ export default function PraiseApp() {
                 {String(draggedIdx + 1).padStart(2, '0')}
               </div>
               <h3 className="text-sm sm:text-base font-bold truncate">
+                {currentSongs[draggedIdx].headerTag ? `[${currentSongs[draggedIdx].headerTag}] ` : ''}
                 {currentSongs[draggedIdx].title}
               </h3>
             </div>
@@ -1820,7 +1936,7 @@ export default function PraiseApp() {
         )}
       </div>
 
-      {/* 🌟 가사 추출 결과 팝업 모달 🌟 */}
+      {/* 가사 추출 결과 모달 */}
       {isLyricsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <div className={`rounded-2xl w-full max-w-md p-5 shadow-2xl border flex flex-col max-h-[85vh] ${
@@ -1829,7 +1945,7 @@ export default function PraiseApp() {
             <div className={`flex items-center justify-between pb-3 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
               <h2 className="text-sm sm:text-base font-bold flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-purple-400" />
-                악보 가사 추출 결과
+                악보 가사 추출 & 스마트 보정
               </h2>
               <button onClick={() => setIsLyricsModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
                 <X className="w-4 h-4" />
@@ -1841,13 +1957,24 @@ export default function PraiseApp() {
                 <div className="py-12 flex flex-col items-center justify-center gap-3 text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
                   <p className="text-xs font-bold text-purple-400 animate-pulse">{ocrProgressMsg || '가사 분석 중...'}</p>
-                  <p className="text-[11px] opacity-50">악보 이미지 해상도에 따라 몇 초 정도 소요될 수 있습니다.</p>
+                  <p className="text-[11px] opacity-50">악보 고대비 전처리 및 오선지 노이즈를 필터링하고 있습니다.</p>
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col space-y-2 min-h-0">
-                  <p className="text-[11px] opacity-70">
-                    추출된 가사입니다. 필요한 부분을 수정하거나 복사하여 자막 PPT/주보에 활용하세요:
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] opacity-70">
+                      추출 및 보정된 가사입니다 (수정 가능):
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAutoCleanCurrentLyrics}
+                      className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                      title="남은 코드나 특수문자 잔상 한 번 더 정리"
+                    >
+                      <Wand2 className="w-3 h-3" />
+                      <span>스마트 재정제</span>
+                    </button>
+                  </div>
                   <textarea
                     value={extractedLyrics}
                     onChange={(e) => setExtractedLyrics(e.target.value)}
@@ -1883,7 +2010,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 🌟 찬양 보관소 모달 (수동 동기화 버튼 탑재) 🌟 */}
+      {/* 찬양 보관소 모달 */}
       {isLibraryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-2xl p-5 sm:p-6 shadow-2xl max-h-[85vh] flex flex-col border ${
@@ -2317,7 +2444,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 모달 (곡 추가/수정 & 찬양 보관함 연동) */}
+      {/* 🌟 모달 (곡 추가/수정 & 순서 헤더 분리 입력) 🌟 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2337,14 +2464,57 @@ export default function PraiseApp() {
             </div>
 
             <form onSubmit={handleSaveModal} className="mt-4 space-y-3.5 sm:space-y-4 text-xs sm:text-sm">
+              {/* 🌟 1. 예배 순서 헤더 (선택/직접입력) 🌟 */}
               <div>
-                <label className="block text-xs font-semibold opacity-80 mb-1">곡 제목 *</label>
+                <label className="block text-xs font-semibold opacity-80 mb-1 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-amber-500" />
+                  예배 순서 헤더 (선택 - 예: 입례, 파송, 헌금)
+                </label>
+                <div className="flex gap-1.5 mb-1.5 flex-wrap">
+                  {['<입례>', '<송영>', '<경배와찬양>', '<기도송>', '<헌금>', '<파송>', '<특송>'].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setModalHeaderTag(tag)}
+                      className={`px-2 py-1 rounded-lg text-xs font-semibold border transition ${
+                        modalHeaderTag === tag
+                          ? 'bg-amber-500 border-amber-400 text-neutral-950 font-black'
+                          : subCardBg
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                  {modalHeaderTag && (
+                    <button
+                      type="button"
+                      onClick={() => setModalHeaderTag('')}
+                      className="px-2 py-1 rounded-lg text-xs font-semibold border border-red-500/40 text-red-400"
+                    >
+                      초기화
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={modalHeaderTag}
+                  onChange={(e) => setModalHeaderTag(e.target.value)}
+                  placeholder="직접 입력하거나 위 태그를 누르세요 (보관소에는 곡 제목만 저장됨)"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 ${
+                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                />
+              </div>
+
+              {/* 🌟 2. 순수 곡 제목 🌟 */}
+              <div>
+                <label className="block text-xs font-semibold opacity-80 mb-1">순수 곡 제목 *</label>
                 <input
                   type="text"
                   required
                   value={modalTitle}
                   onChange={(e) => setModalTitle(e.target.value)}
-                  placeholder="예: 꽃들도, 빛의 사자들이여"
+                  placeholder="예: 꽃들도, 빛의 사자들이여 (헤더 없이 순수 곡명만 입력)"
                   className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
