@@ -82,10 +82,11 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 터치 & 마우스 드래그 상태
+  // 실시간 플로팅 드래그 상태
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
-  const listContainerRef = useRef<HTMLDivElement>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -218,16 +219,22 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 터치 기반 드래그 앤 드롭 핸들러 (화면 스크롤 방지 및 완벽 정렬)
-  const handleTouchStart = (idx: number) => {
+  // 플로팅 드래그 시작
+  const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
+    const card = targetEl.closest('[data-song-index]') as HTMLElement;
+    if (card) {
+      setDragCardWidth(card.offsetWidth);
+    }
     setDraggedIdx(idx);
     setDropTargetIdx(idx);
+    setDragPos({ x: clientX, y: clientY });
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const updateDragPos = (clientX: number, clientY: number) => {
     if (draggedIdx === null) return;
-    const touch = e.touches[0];
-    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    setDragPos({ x: clientX, y: clientY });
+
+    const element = document.elementFromPoint(clientX, clientY);
     const cardEl = element?.closest('[data-song-index]');
     if (cardEl) {
       const targetIndex = Number(cardEl.getAttribute('data-song-index'));
@@ -237,13 +244,53 @@ export default function PraiseApp() {
     }
   };
 
-  const handleTouchEnd = async () => {
+  const endDragAction = async () => {
     if (draggedIdx !== null && dropTargetIdx !== null && draggedIdx !== dropTargetIdx) {
       await executeReorder(draggedIdx, dropTargetIdx);
     }
     setDraggedIdx(null);
     setDropTargetIdx(null);
+    setDragPos(null);
   };
+
+  // 터치 이벤트
+  const handleTouchStart = (idx: number, e: React.TouchEvent) => {
+    const t = e.touches[0];
+    startDragAction(idx, t.clientX, t.clientY, e.currentTarget);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (draggedIdx === null) return;
+    const t = e.touches[0];
+    updateDragPos(t.clientX, t.clientY);
+  };
+
+  // 마우스 이벤트
+  const handleMouseDown = (idx: number, e: React.MouseEvent) => {
+    startDragAction(idx, e.clientX, e.clientY, e.currentTarget);
+  };
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (draggedIdx !== null) {
+        updateDragPos(e.clientX, e.clientY);
+      }
+    };
+    const onMouseUp = () => {
+      if (draggedIdx !== null) {
+        endDragAction();
+      }
+    };
+
+    if (draggedIdx !== null) {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [draggedIdx, dropTargetIdx]);
 
   const executeReorder = async (fromIdx: number, toIdx: number) => {
     const updated = [...currentSongs];
@@ -681,6 +728,7 @@ export default function PraiseApp() {
                   onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
                   disabled={currentPageIndex === 0}
                   className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30"
+                  title="이전 페이지"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -691,6 +739,7 @@ export default function PraiseApp() {
                   onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
                   disabled={currentPageIndex === totalPages - 1}
                   className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30"
+                  title="다음 페이지"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -899,7 +948,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면 (터치 제어 드래그)
+  // 2. 메인 콘티 목록 화면 (플로팅 고스트 드래그)
   // ==========================================
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
@@ -985,156 +1034,185 @@ export default function PraiseApp() {
             </div>
             {isReordering && (
               <span className="text-xs font-bold text-amber-500 animate-pulse">
-                손가락으로 카드를 끌어다 놓아 순서를 바꾸세요
+                드래그하여 원하는 위치에 놓으세요
               </span>
             )}
           </div>
         )}
 
-        {/* 곡 목록 카드 리스트 (터치 드래그 연동) */}
-        <div ref={listContainerRef} className="space-y-2.5 sm:space-y-3">
+        {/* 곡 목록 카드 리스트 */}
+        <div className="space-y-2.5 sm:space-y-3 relative select-none">
           {currentSongs.length === 0 ? (
             <div className={`text-center py-12 sm:py-16 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
               등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-500 font-semibold">[+ 곡 추가]</span> 버튼으로 새 곡을 추가해보세요.
             </div>
           ) : (
-            currentSongs.map((song, idx) => (
-              <div
-                key={song.id}
-                data-song-index={idx}
-                className={`relative flex items-center justify-between p-3 sm:p-4 rounded-2xl border gap-3 transition duration-150 ${
-                  draggedIdx === idx
-                    ? 'opacity-40 scale-[0.98] border-dashed border-blue-500 shadow-inner'
-                    : dropTargetIdx === idx && draggedIdx !== null
-                    ? 'border-blue-500 bg-blue-500/10 shadow-lg'
-                    : cardBgClass
-                } hover:border-blue-500/50`}
-              >
-                {/* 좌측: 터치 핸들 영역 (터치 드래그 전용 이벤트 바인딩) */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div
-                    onTouchStart={() => handleTouchStart(idx)}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    onMouseDown={() => handleTouchStart(idx)}
-                    onMouseEnter={() => {
-                      if (draggedIdx !== null) setDropTargetIdx(idx);
-                    }}
-                    onMouseUp={handleTouchEnd}
-                    style={{ touchAction: 'none' }} // 브라우저 화면 스크롤 원천 차단
-                    className="p-2 -m-2 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0 select-none"
-                    title="길게 눌러 드래그"
-                  >
-                    <GripVertical className="w-5 h-5" />
-                  </div>
+            currentSongs.map((song, idx) => {
+              const isBeingDragged = draggedIdx === idx;
+              const isDropTarget = dropTargetIdx === idx && draggedIdx !== null;
 
-                  {/* 넘버링 배지 */}
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 select-none ${
-                    isDark ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/80' : 'bg-slate-100 text-slate-700 border border-slate-200'
-                  }`}>
-                    {String(idx + 1).padStart(2, '0')}
-                  </div>
-
-                  {/* 곡 정보 */}
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm sm:text-base font-bold truncate max-w-[180px] sm:max-w-sm">
-                        {song.title}
-                      </h3>
-                      {song.key && (
-                        <span className={`px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
-                          isDark ? 'bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'
-                        }`}>
-                          {song.key} Key
-                        </span>
-                      )}
-                      {song.sheetType === 'url' ? (
-                        <span className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
-                          isDark ? 'bg-emerald-600/30 border-emerald-500/40 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        }`}>
-                          <LinkIcon className="w-3 h-3" /> 링크
-                        </span>
-                      ) : (
-                        song.sheetUrls && song.sheetUrls.length > 1 && (
-                          <span className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
-                            isDark ? 'bg-purple-600/30 border-purple-500/40 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
-                          }`}>
-                            <Layers className="w-3 h-3" /> {song.sheetUrls.length}장
-                          </span>
-                        )
-                      )}
-                      {song.bpm && (
-                        <span className="text-[11px] opacity-70 font-medium shrink-0">
-                          BPM {song.bpm}
-                        </span>
-                      )}
-                    </div>
-
-                    {song.comment && (
-                      <div className="flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
-                        <MessageSquare className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{song.comment}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 우측 버튼 */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {isReordering ? (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => executeReorder(idx, idx - 1)}
-                        disabled={idx === 0}
-                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
-                      >
-                        위로
-                      </button>
-                      <button
-                        onClick={() => executeReorder(idx, idx + 1)}
-                        disabled={idx === currentSongs.length - 1}
-                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
-                      >
-                        아래로
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          setViewingSongId(song.id);
-                          setCurrentPageIndex(0);
-                        }}
-                        className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
-                          isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
-                        }`}
-                      >
-                        <Eye className="w-3.5 h-3.5 text-blue-500" />
-                        <span className="hidden xs:inline">악보 보기</span>
-                      </button>
-                      <button
-                        onClick={() => handleOpenModal(song)}
-                        className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${subCardBg}`}
-                        title="곡 수정"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSong(song.id)}
-                        className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${
-                          isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
-                        }`}
-                        title="곡 삭제"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
+              return (
+                <div key={song.id} data-song-index={idx} className="relative">
+                  {/* 드롭 위치 인디케이터 라인 */}
+                  {isDropTarget && !isBeingDragged && (
+                    <div className="absolute -top-1.5 inset-x-0 h-1 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.8)] z-10 animate-pulse" />
                   )}
+
+                  <div
+                    className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border gap-3 transition-all duration-150 ${
+                      isBeingDragged
+                        ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
+                        : cardBgClass
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* 드래그 핸들 */}
+                      <div
+                        onTouchStart={(e) => handleTouchStart(idx, e)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={endDragAction}
+                        onMouseDown={(e) => handleMouseDown(idx, e)}
+                        style={{ touchAction: 'none' }}
+                        className="p-2 -m-2 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
+                        title="길게 눌러 드래그"
+                      >
+                        <GripVertical className="w-5 h-5" />
+                      </div>
+
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                        isDark ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/80' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}>
+                        {String(idx + 1).padStart(2, '0')}
+                      </div>
+
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm sm:text-base font-bold truncate max-w-[180px] sm:max-w-sm">
+                            {song.title}
+                          </h3>
+                          {song.key && (
+                            <span className={`px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
+                              isDark ? 'bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'
+                            }`}>
+                              {song.key} Key
+                            </span>
+                          )}
+                          {song.sheetType === 'url' ? (
+                            <span className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
+                              isDark ? 'bg-emerald-600/30 border-emerald-500/40 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            }`}>
+                              <LinkIcon className="w-3 h-3" /> 링크
+                            </span>
+                          ) : (
+                            song.sheetUrls && song.sheetUrls.length > 1 && (
+                              <span className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
+                                isDark ? 'bg-purple-600/30 border-purple-500/40 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
+                              }`}>
+                                <Layers className="w-3 h-3" /> {song.sheetUrls.length}장
+                              </span>
+                            )
+                          )}
+                          {song.bpm && (
+                            <span className="text-[11px] opacity-70 font-medium shrink-0">
+                              BPM {song.bpm}
+                            </span>
+                          )}
+                        </div>
+
+                        {song.comment && (
+                          <div className="flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
+                            <MessageSquare className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{song.comment}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isReordering ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => executeReorder(idx, idx - 1)}
+                            disabled={idx === 0}
+                            className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                          >
+                            위로
+                          </button>
+                          <button
+                            onClick={() => executeReorder(idx, idx + 1)}
+                            disabled={idx === currentSongs.length - 1}
+                            className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                          >
+                            아래로
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setViewingSongId(song.id);
+                              setCurrentPageIndex(0);
+                            }}
+                            className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
+                              isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
+                            }`}
+                          >
+                            <Eye className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="hidden xs:inline">악보 보기</span>
+                          </button>
+                          <button
+                            onClick={() => handleOpenModal(song)}
+                            className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${subCardBg}`}
+                            title="곡 수정"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSong(song.id)}
+                            className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${
+                              isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                            }`}
+                            title="곡 삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
+
+        {/* 🌟 손가락/마우스를 따라다니는 실시간 플로팅 고스트 카드 🌟 */}
+        {draggedIdx !== null && dragPos && currentSongs[draggedIdx] && (
+          <div
+            style={{
+              position: 'fixed',
+              left: `${dragPos.x - 30}px`,
+              top: `${dragPos.y - 30}px`,
+              width: `${dragCardWidth ? `${dragCardWidth}px` : '90vw'}`,
+              pointerEvents: 'none',
+              zIndex: 9999,
+            }}
+            className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border-2 border-blue-500 shadow-2xl scale-105 opacity-90 backdrop-blur-md ${
+              isDark ? 'bg-neutral-900/95 text-white' : 'bg-white/95 text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <GripVertical className="w-5 h-5 text-blue-500 shrink-0" />
+              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0">
+                {String(draggedIdx + 1).padStart(2, '0')}
+              </div>
+              <h3 className="text-sm sm:text-base font-bold truncate">
+                {currentSongs[draggedIdx].title}
+              </h3>
+            </div>
+            <span className="text-xs font-bold text-blue-500 px-2">이동 중...</span>
+          </div>
+        )}
       </div>
 
       {/* 모달 */}
