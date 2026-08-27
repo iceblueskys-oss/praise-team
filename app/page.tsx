@@ -253,7 +253,6 @@ export default function PraiseApp() {
     setDragPos(null);
   };
 
-  // 터치 이벤트
   const handleTouchStart = (idx: number, e: React.TouchEvent) => {
     const t = e.touches[0];
     startDragAction(idx, t.clientX, t.clientY, e.currentTarget);
@@ -265,21 +264,16 @@ export default function PraiseApp() {
     updateDragPos(t.clientX, t.clientY);
   };
 
-  // 마우스 이벤트
   const handleMouseDown = (idx: number, e: React.MouseEvent) => {
     startDragAction(idx, e.clientX, e.clientY, e.currentTarget);
   };
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
-      if (draggedIdx !== null) {
-        updateDragPos(e.clientX, e.clientY);
-      }
+      if (draggedIdx !== null) updateDragPos(e.clientX, e.clientY);
     };
     const onMouseUp = () => {
-      if (draggedIdx !== null) {
-        endDragAction();
-      }
+      if (draggedIdx !== null) endDragAction();
     };
 
     if (draggedIdx !== null) {
@@ -665,7 +659,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 뷰어 화면
+  // 1. 악보 뷰어 화면 (아이패드/Safari Safe-Area 완벽 최적화)
   // ==========================================
   if (viewingSong) {
     const isUrlSheet = viewingSong.sheetType === 'url';
@@ -673,7 +667,8 @@ export default function PraiseApp() {
     const currentSheetUrl = viewingSong.sheetUrls?.[currentPageIndex] || '';
 
     return (
-      <div className={`fixed inset-0 z-50 flex flex-col h-screen w-full select-none overflow-hidden ${isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-200 text-slate-900'}`}>
+      <div className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden ${isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-200 text-slate-900'}`}>
+        {/* 상단 헤더 */}
         <header className={`flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 border-b z-20 shrink-0 gap-2 ${isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm'}`}>
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button
@@ -728,7 +723,6 @@ export default function PraiseApp() {
                   onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
                   disabled={currentPageIndex === 0}
                   className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30"
-                  title="이전 페이지"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -739,7 +733,6 @@ export default function PraiseApp() {
                   onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
                   disabled={currentPageIndex === totalPages - 1}
                   className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30"
-                  title="다음 페이지"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -781,6 +774,7 @@ export default function PraiseApp() {
           </div>
         </header>
 
+        {/* 진행 순서 및 연주 메모 상단 알림 바 */}
         {viewingSong.comment && (
           <div className={`px-4 py-2 border-b text-xs flex items-center gap-2 z-10 shrink-0 ${isDark ? 'bg-blue-950/40 border-blue-900/60 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'}`}>
             <MessageSquare className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -789,6 +783,7 @@ export default function PraiseApp() {
           </div>
         )}
 
+        {/* 필기 서브 툴바 */}
         {isDrawingMode && !isUrlSheet && (
           <div className={`flex items-center justify-between sm:justify-center gap-2 py-2 px-3 border-b z-20 overflow-x-auto text-xs shrink-0 no-scrollbar ${isDark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-white/95 border-slate-200'}`}>
             <div className={`flex items-center p-1 rounded-lg gap-1 border shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
@@ -834,7 +829,8 @@ export default function PraiseApp() {
           </div>
         )}
 
-        <main className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 relative ${isDark ? 'bg-neutral-950' : 'bg-slate-200'}`}>
+        {/* 본문 뷰어 (하단 플로팅 바에 가려지지 않도록 패딩 확보 pb-24) */}
+        <main className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${isDark ? 'bg-neutral-950' : 'bg-slate-200'}`}>
           {!currentSheetUrl ? (
             <div className={`text-center p-6 border rounded-2xl max-w-xs ${cardBgClass}`}>
               <p className="font-bold text-sm mb-1">등록된 악보가 없습니다.</p>
@@ -872,7 +868,7 @@ export default function PraiseApp() {
                 src={currentSheetUrl}
                 alt={`${viewingSong.title} - ${currentPageIndex + 1}페이지`}
                 onLoad={initCanvas}
-                className="max-h-[85vh] w-auto max-w-full object-contain rounded bg-white shadow-2xl block select-none pointer-events-none"
+                className="max-h-[75vh] w-auto max-w-full object-contain rounded bg-white shadow-2xl block select-none pointer-events-none"
               />
               <canvas
                 ref={canvasRef}
@@ -890,65 +886,61 @@ export default function PraiseApp() {
               />
             </div>
           )}
+        </main>
 
-          <div className="absolute bottom-4 inset-x-0 flex justify-center items-center gap-2 pointer-events-none px-2">
+        {/* 🌟 아이패드/Safari Safe-Area 완벽 고정 하단 컨트롤 바 🌟 */}
+        <footer className="fixed bottom-0 inset-x-0 z-40 flex justify-center items-center pb-[max(env(safe-area-inset-bottom),16px)] pt-3 px-4 pointer-events-none bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+          <div className="pointer-events-auto flex items-center gap-2 sm:gap-3 p-1.5 rounded-full backdrop-blur-xl border shadow-2xl bg-neutral-900/90 border-neutral-700/80">
+            {/* 이전 곡 */}
             <button
               onClick={handlePrevSong}
               disabled={currentSongIndex <= 0}
-              className={`pointer-events-auto px-3.5 py-2 backdrop-blur border rounded-full text-xs font-bold shadow-xl disabled:opacity-20 active:scale-95 transition flex items-center gap-1 ${
-                isDark ? 'bg-neutral-900/95 border-neutral-700 text-white' : 'bg-white/95 border-slate-300 text-slate-800'
-              }`}
+              className="px-3.5 sm:px-4 py-2 rounded-full text-xs font-bold text-white hover:bg-neutral-800 disabled:opacity-20 active:scale-95 transition flex items-center gap-1.5"
             >
-              <SkipBack className="w-3.5 h-3.5 text-blue-500" />
+              <SkipBack className="w-4 h-4 text-blue-400" />
               <span className="hidden xs:inline">이전 곡</span>
             </button>
 
+            {/* 다중 페이지 컨트롤 */}
             {!isUrlSheet && totalPages > 1 && (
-              <div className="flex items-center gap-1.5 pointer-events-auto">
+              <div className="flex items-center gap-1 px-1 border-x border-neutral-700/80">
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
                   disabled={currentPageIndex === 0}
-                  className={`px-3 py-2 backdrop-blur border rounded-full text-xs font-bold shadow-xl disabled:opacity-20 active:scale-95 transition ${
-                    isDark ? 'bg-neutral-900/90 border-neutral-700 text-white' : 'bg-white/90 border-slate-300 text-slate-800'
-                  }`}
+                  className="px-2.5 py-1.5 rounded-full text-xs font-bold text-neutral-300 hover:text-white disabled:opacity-20 transition"
                 >
                   ◀ 이전 장
                 </button>
-                <span className={`backdrop-blur border px-2.5 py-1.5 rounded-full text-xs font-bold shadow-xl ${
-                  isDark ? 'bg-neutral-900/90 border-neutral-700 text-blue-400' : 'bg-white/90 border-slate-300 text-blue-600'
-                }`}>
-                  {currentPageIndex + 1} / {totalPages}
+                <span className="text-xs font-black text-blue-400 px-1 min-w-[36px] text-center">
+                  {currentPageIndex + 1}/{totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
                   disabled={currentPageIndex === totalPages - 1}
-                  className={`px-3 py-2 backdrop-blur border rounded-full text-xs font-bold shadow-xl disabled:opacity-20 active:scale-95 transition ${
-                    isDark ? 'bg-neutral-900/90 border-neutral-700 text-white' : 'bg-white/90 border-slate-300 text-slate-800'
-                  }`}
+                  className="px-2.5 py-1.5 rounded-full text-xs font-bold text-neutral-300 hover:text-white disabled:opacity-20 transition"
                 >
                   다음 장 ▶
                 </button>
               </div>
             )}
 
+            {/* 다음 곡 */}
             <button
               onClick={handleNextSong}
               disabled={currentSongIndex >= currentSongs.length - 1}
-              className={`pointer-events-auto px-3.5 py-2 backdrop-blur border rounded-full text-xs font-bold shadow-xl disabled:opacity-20 active:scale-95 transition flex items-center gap-1 ${
-                isDark ? 'bg-neutral-900/95 border-neutral-700 text-white' : 'bg-white/95 border-slate-300 text-slate-800'
-              }`}
+              className="px-3.5 sm:px-4 py-2 rounded-full text-xs font-bold text-white hover:bg-neutral-800 disabled:opacity-20 active:scale-95 transition flex items-center gap-1.5"
             >
               <span className="hidden xs:inline">다음 곡</span>
-              <SkipForward className="w-3.5 h-3.5 text-blue-500" />
+              <SkipForward className="w-4 h-4 text-blue-400" />
             </button>
           </div>
-        </main>
+        </footer>
       </div>
     );
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면 (플로팅 고스트 드래그)
+  // 2. 메인 콘티 목록 화면
   // ==========================================
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
@@ -1053,7 +1045,6 @@ export default function PraiseApp() {
 
               return (
                 <div key={song.id} data-song-index={idx} className="relative">
-                  {/* 드롭 위치 인디케이터 라인 */}
                   {isDropTarget && !isBeingDragged && (
                     <div className="absolute -top-1.5 inset-x-0 h-1 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.8)] z-10 animate-pulse" />
                   )}
@@ -1066,7 +1057,6 @@ export default function PraiseApp() {
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {/* 드래그 핸들 */}
                       <div
                         onTouchStart={(e) => handleTouchStart(idx, e)}
                         onTouchMove={handleTouchMove}
@@ -1186,7 +1176,7 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 🌟 손가락/마우스를 따라다니는 실시간 플로팅 고스트 카드 🌟 */}
+        {/* 실시간 플로팅 고스트 카드 */}
         {draggedIdx !== null && dragPos && currentSongs[draggedIdx] && (
           <div
             style={{
