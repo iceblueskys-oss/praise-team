@@ -77,7 +77,7 @@ function formatDateToStr(d: Date): string {
   return `${year}-${month}-${date}`;
 }
 
-function formatDateToTitle(d: Date, typeSuffix = '주일 예배'): string {
+function formatDateToTitle(d: Date, typeSuffix = '950'): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const date = String(d.getDate()).padStart(2, '0');
@@ -262,36 +262,21 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 달력 모달 열기
+  // 달력 모달 열기 (기본값: 950)
   const handleOpenAddContiModal = () => {
     const defaultSunday = getUpcomingSunday();
     const dateStr = formatDateToStr(defaultSunday);
     setCalendarSelectedDate(dateStr);
-    setContiTitleInput(formatDateToTitle(defaultSunday, '주일 예배'));
+    setContiTitleInput(formatDateToTitle(defaultSunday, '950'));
     setCurrentCalMonth(new Date(defaultSunday.getFullYear(), defaultSunday.getMonth(), 1));
     setIsNewContiModalOpen(true);
   };
 
-  // 달력 날짜 클릭 시 처리
+  // 달력 날짜 클릭 시 처리 (무조건 950 적용)
   const handleSelectCalendarDate = (dateObj: Date) => {
     const dateStr = formatDateToStr(dateObj);
-    const day = dateObj.getDay();
-    let suffix = '예배';
-    if (day === 0) suffix = '주일 낮 예배';
-    else if (day === 3) suffix = '수요 예배';
-    else if (day === 5) suffix = '금요 기도회';
-    else if (day === 6) suffix = '토요 청년부';
-
     setCalendarSelectedDate(dateStr);
-    setContiTitleInput(formatDateToTitle(dateObj, suffix));
-  };
-
-  // 예배 유형 빠른 태그 변경
-  const handleApplySuffix = (suffix: string) => {
-    if (!calendarSelectedDate) return;
-    const [y, m, d] = calendarSelectedDate.split('-').map(Number);
-    const dateObj = new Date(y, m - 1, d);
-    setContiTitleInput(formatDateToTitle(dateObj, suffix));
+    setContiTitleInput(formatDateToTitle(dateObj, '950'));
   };
 
   // 새 콘티 생성 확정
@@ -634,7 +619,7 @@ export default function PraiseApp() {
         activeContiId = `c_${Date.now()}`;
         await setDoc(doc(db, 'contis_v2', activeContiId), {
           id: activeContiId,
-          title: formatDateToTitle(defaultSunday, '주일 예배'),
+          title: formatDateToTitle(defaultSunday, '950'),
           date: formatDateToStr(defaultSunday),
           assignedSingers: [],
           customNote: '',
@@ -1421,7 +1406,7 @@ export default function PraiseApp() {
         )}
       </div>
 
-      {/* 🌟 새 콘티 추가 달력 모달 🌟 */}
+      {/* 🌟 새 콘티 추가 달력 모달 (950 전용) 🌟 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-5 shadow-2xl border ${
@@ -1430,7 +1415,7 @@ export default function PraiseApp() {
             <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
               <h2 className="text-base font-bold flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-blue-500" />
-                새 콘티 예배 날짜 선택
+                950 콘티 날짜 선택
               </h2>
               <button
                 onClick={() => setIsNewContiModalOpen(false)}
@@ -1486,29 +1471,8 @@ export default function PraiseApp() {
               {/* 달력 일자 그리드 */}
               <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
 
-              {/* 빠른 예배 종류 태그 선택 */}
-              <div className="space-y-1 pt-1">
-                <label className="block text-[11px] font-semibold opacity-70">예배 종류</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {['주일 낮 예배', '주일 찬양/오후', '수요 예배', '금요 기도회', '청년부'].map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => handleApplySuffix(tag)}
-                      className={`px-2 py-1 rounded-lg text-xs font-semibold border transition ${
-                        contiTitleInput.includes(tag)
-                          ? 'bg-blue-600 border-blue-500 text-white'
-                          : subCardBg
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* 콘티 제목 확인 및 수정 인풋 */}
-              <div>
+              <div className="pt-1">
                 <label className="block text-[11px] font-semibold opacity-70 mb-1">
                   생성될 콘티 제목
                 </label>
