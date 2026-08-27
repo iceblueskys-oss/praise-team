@@ -34,13 +34,9 @@ import {
   KeyRound,
   Library,
   ArrowDownToLine,
-  Sparkles,
-  Copy,
-  Loader2,
   RefreshCw,
-  Wand2,
   Tag,
-  RotateCcw,
+  FileSearch,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -63,7 +59,6 @@ interface SongItem {
   key?: string | null;
   bpm?: number | null;
   comment?: string;
-  lyrics?: string;
   sheetUrls: string[];
   order: number;
 }
@@ -74,7 +69,6 @@ interface LibrarySong {
   key?: string | null;
   bpm?: number | null;
   comment?: string;
-  lyrics?: string;
   sheetUrls: string[];
   updatedAt: number;
 }
@@ -122,53 +116,6 @@ function formatImageUrl(url: string): string {
   return trimmed;
 }
 
-// 🌟 고도화된 악보 가사 스마트 정제 알고리즘 🌟
-function performAdvancedLyricsClean(text: string): string {
-  if (!text) return '';
-
-  const chordRegex = /\b[A-G](#|b)?(m|maj|dim|aug|sus|add|M)?[0-9]?(\/[A-G](#|b)?)?\b/g;
-
-  // 1. 줄 단위 분석 및 노이즈 소거
-  const rawLines = text.split('\n');
-  const processedLines: string[] = [];
-
-  for (let line of rawLines) {
-    let l = line.trim();
-    if (!l) continue;
-
-    // 단독 코드 라인 제외 (코드 비중이 60% 이상인 경우)
-    const tokens = l.split(/\s+/);
-    const chords = tokens.filter((t) => chordRegex.test(t) || /^[A-G]$/.test(t));
-    if (tokens.length > 0 && chords.length / tokens.length >= 0.6) {
-      continue;
-    }
-
-    // 악보 기호, 오선지 잔상, 마디 구분선 제거
-    l = l.replace(/[|│┃_—=\-~`'"*^·#]+/g, ' ');
-    l = l.replace(/\b[0-9]{1,2}\/[0-9]{1,2}\b/g, ''); // 박자표 제거
-    l = l.replace(/\b(Intro|Verse|Chorus|Bridge|Interlude|Outro|Ending)\b/gi, '');
-    l = l.replace(/\b[a-zA-Z]\b/g, ''); // 외톨이 알파벳 제거
-    l = l.replace(/\b[ㄱ-ㅎㅏ-ㅣ]\b/g, ''); // 외톨이 자모음 제거
-
-    // 2. 음표 간격으로 인해 낱글자로 벌어진 한글 단어 결합 처리
-    // 예: "주   품   에   품   으   소   서" -> "주품에 품으소서"
-    l = l.replace(/([가-힣])\s+([가-힣])\s+([가-힣])\s+([가-힣])\s+([가-힣])/g, '$1$2$3$4$5');
-    l = l.replace(/([가-힣])\s+([가-힣])\s+([가-힣])\s+([가-힣])/g, '$1$2$3$4');
-    l = l.replace(/([가-힣])\s+([가-힣])\s+([가-힣])/g, '$1$2$3');
-    l = l.replace(/([가-힣])\s+([가-힣])/g, '$1$2');
-
-    // 다중 공백 정리
-    l = l.replace(/\s+/g, ' ').trim();
-
-    if (l.length >= 2 && /[가-힣a-zA-Z0-9]/.test(l)) {
-      processedLines.push(l);
-    }
-  }
-
-  // 3. 문장 단위로 보기 좋게 줄바꿈 정렬
-  return processedLines.join('\n');
-}
-
 export default function PraiseApp() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -189,15 +136,6 @@ export default function PraiseApp() {
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
-
-  // 🌟 가사 추출(OCR) 모달 & 원본/정제 상태 🌟
-  const [isLyricsModalOpen, setIsLyricsModalOpen] = useState(false);
-  const [extractedLyrics, setExtractedLyrics] = useState('');
-  const [rawExtractedBackup, setRawExtractedBackup] = useState(''); // 원본 백업
-  const [isCleanedMode, setIsCleanedMode] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [ocrProgressMsg, setOcrProgressMsg] = useState('');
-  const [ocrProgressPercent, setOcrProgressPercent] = useState<number>(0);
 
   // 새 콘티 달력 모달 상태
   const [isNewContiModalOpen, setIsNewContiModalOpen] = useState(false);
@@ -226,7 +164,6 @@ export default function PraiseApp() {
   const [modalKey, setModalKey] = useState('');
   const [modalBpm, setModalBpm] = useState('');
   const [modalComment, setModalComment] = useState('');
-  const [modalLyrics, setModalLyrics] = useState('');
   const [modalSheetType, setModalSheetType] = useState<'file' | 'url' | 'library'>('file');
   const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
   const [modalUrlInput, setModalUrlInput] = useState('');
@@ -264,12 +201,6 @@ export default function PraiseApp() {
       };
       document.body.appendChild(script);
     }
-
-    if (typeof window !== 'undefined' && !(window as any).Tesseract) {
-      const scriptTess = document.createElement('script');
-      scriptTess.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-      document.body.appendChild(scriptTess);
-    }
   }, []);
 
   const toggleTheme = () => {
@@ -278,7 +209,6 @@ export default function PraiseApp() {
     localStorage.setItem('praise_app_theme', nextTheme);
   };
 
-  // 1. Firebase 실시간 동기화
   useEffect(() => {
     setMounted(true);
 
@@ -316,7 +246,6 @@ export default function PraiseApp() {
           key: data.key || null,
           bpm: data.bpm,
           comment: data.comment || '',
-          lyrics: data.lyrics || '',
           sheetUrls: sheets,
           order: data.order ?? 0,
         });
@@ -347,7 +276,6 @@ export default function PraiseApp() {
     };
   }, []);
 
-  // 기존 등록된 모든 곡 찬양 보관소 자동 동기화
   useEffect(() => {
     if (allSongs.length > 0) {
       syncAllSongsToLibrary(false);
@@ -376,7 +304,6 @@ export default function PraiseApp() {
             key: song.key || null,
             bpm: song.bpm || null,
             comment: song.comment || '',
-            lyrics: song.lyrics || '',
             sheetUrls: song.sheetUrls || [],
             updatedAt: Date.now(),
           },
@@ -401,7 +328,6 @@ export default function PraiseApp() {
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
-  // 2. 필기 실시간 동기화
   useEffect(() => {
     if (!viewingSong) return;
 
@@ -433,79 +359,16 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 🌟 고정밀 가사 OCR 추출 🌟
-  const handleExtractLyricsFromImage = async (imageUrl: string) => {
-    if (isExtracting) return;
-
-    const Tesseract = (window as any).Tesseract;
-    if (!Tesseract) {
-      alert('OCR 엔진을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+  // 원클릭 네이버 찬양 가사 검색
+  const handleSearchLyricsWeb = (titleToSearch?: string) => {
+    const q = (titleToSearch || viewingSong?.title || modalTitle || '').trim();
+    if (!q) {
+      alert('곡 제목이 없습니다.');
       return;
     }
-    if (!imageUrl) {
-      alert('분석할 악보 이미지가 없습니다.');
-      return;
-    }
-
-    setIsExtracting(true);
-    setOcrProgressPercent(15);
-    setOcrProgressMsg('악보 이미지 로딩 및 한국어 AI 엔진 준비 중...');
-    setIsLyricsModalOpen(true);
-    setIsCleanedMode(false);
-
-    try {
-      const worker = await Tesseract.createWorker('kor+kor_vert', 1, {
-        logger: (m: any) => {
-          if (m.status === 'recognizing text') {
-            const pct = Math.round((m.progress || 0) * 100);
-            setOcrProgressPercent(15 + Math.round(pct * 0.8));
-            setOcrProgressMsg(`가사 분석 및 텍스트 변환 중... (${pct}%)`);
-          }
-        },
-      });
-
-      const ret = await worker.recognize(imageUrl);
-      setOcrProgressPercent(100);
-
-      await worker.terminate();
-
-      const raw = ret.data.text || '추출된 텍스트가 없습니다.';
-      setRawExtractedBackup(raw);
-      setExtractedLyrics(raw);
-    } catch (err) {
-      console.error(err);
-      alert('가사 추출 중 오류가 발생했습니다.');
-      setExtractedLyrics('가사 인식에 실패했습니다.');
-    } finally {
-      setIsExtracting(false);
-      setOcrProgressMsg('');
-    }
+    window.open(`https://search.naver.com/search.naver?query=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
   };
 
-  // 🌟 스마트 띄어쓰기 정제 토글 (정제 ↔ 원본 복원) 🌟
-  const handleToggleSmartClean = () => {
-    if (!extractedLyrics && !rawExtractedBackup) return;
-
-    if (!isCleanedMode) {
-      // 정제 실행
-      const targetText = rawExtractedBackup || extractedLyrics;
-      const cleaned = performAdvancedLyricsClean(targetText);
-      setExtractedLyrics(cleaned || targetText);
-      setIsCleanedMode(true);
-    } else {
-      // 원본 복원
-      setExtractedLyrics(rawExtractedBackup);
-      setIsCleanedMode(false);
-    }
-  };
-
-  const handleCopyLyrics = () => {
-    if (!extractedLyrics) return;
-    navigator.clipboard.writeText(extractedLyrics);
-    alert('가사가 클립보드에 복사되었습니다. (자막 PPT, 카카오톡 등에 붙여넣기 가능)');
-  };
-
-  // 관리자 인증
   const handleLoginAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -556,7 +419,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 달력 모달 (950)
   const handleOpenAddContiModal = () => {
     if (!isAdmin) {
       setIsAuthModalOpen(true);
@@ -631,7 +493,7 @@ export default function PraiseApp() {
       alert(`[${currentConti.title}] 콘티가 성공적으로 삭제되었습니다.`);
     } catch (err: any) {
       console.error(err);
-      alert('콘티 삭제 중 오류가 발생했습니다: ' + (err?.message || '네트워크 상태를 확인해주세요'));
+      alert('콘티 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -704,7 +566,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 플로팅 드래그
   const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
     if (!isAdmin) return;
     const card = targetEl.closest('[data-song-index]') as HTMLElement;
@@ -837,7 +698,6 @@ export default function PraiseApp() {
       setModalKey(song.key || '');
       setModalBpm(song.bpm ? String(song.bpm) : '');
       setModalComment(song.comment || '');
-      setModalLyrics(song.lyrics || '');
       setModalSheetUrls(song.sheetUrls || []);
       setModalSheetType(song.sheetUrls?.[0]?.startsWith('http') ? 'url' : 'file');
       setModalUrlInput(song.sheetUrls?.[0]?.startsWith('http') ? song.sheetUrls[0] : '');
@@ -848,7 +708,6 @@ export default function PraiseApp() {
       setModalKey('');
       setModalBpm('');
       setModalComment('');
-      setModalLyrics('');
       setModalSheetType('file');
       setModalSheetUrls([]);
       setModalUrlInput('');
@@ -863,7 +722,6 @@ export default function PraiseApp() {
     setModalKey(libSong.key || '');
     setModalBpm(libSong.bpm ? String(libSong.bpm) : '');
     setModalComment(libSong.comment || '');
-    setModalLyrics(libSong.lyrics || '');
     setModalSheetUrls(libSong.sheetUrls || []);
     if (libSong.sheetUrls?.[0]?.startsWith('http')) {
       setModalSheetType('url');
@@ -975,7 +833,7 @@ export default function PraiseApp() {
       setModalSheetUrls((prev) => [...prev, ...newSheets]);
     } catch (err: any) {
       console.error(err);
-      alert('파일 처리 오류: ' + (err?.message || '파일을 읽지 못했습니다.'));
+      alert('파일 처리 오류');
     } finally {
       setIsProcessing(false);
       setProcessingMsg('');
@@ -1035,7 +893,6 @@ export default function PraiseApp() {
         key: modalKey.trim() ? modalKey.trim() : null,
         bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
         comment: modalComment.trim(),
-        lyrics: modalLyrics.trim(),
         sheetUrls: finalSheets,
         order: songOrder,
       };
@@ -1053,7 +910,6 @@ export default function PraiseApp() {
           key: modalKey.trim() ? modalKey.trim() : null,
           bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
           comment: modalComment.trim(),
-          lyrics: modalLyrics.trim(),
           sheetUrls: finalSheets,
           updatedAt: Date.now(),
         },
@@ -1063,7 +919,7 @@ export default function PraiseApp() {
       setIsModalOpen(false);
     } catch (err: any) {
       console.error(err);
-      alert('저장 실패: ' + (err?.message || '네트워크를 확인해주세요'));
+      alert('저장 실패');
     } finally {
       setIsProcessing(false);
     }
@@ -1241,116 +1097,6 @@ export default function PraiseApp() {
   const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
-  // 🌟 상호작용 가능한 가사 추출 팝업 모달 (최상단 z-[60]) 🌟
-  const LyricsModalElement = isLyricsModalOpen && (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-      <div className={`rounded-2xl w-full max-w-md p-5 shadow-2xl border flex flex-col max-h-[85vh] ${
-        isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
-      }`}>
-        <div className={`flex items-center justify-between pb-3 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-          <h2 className="text-sm sm:text-base font-bold flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            악보 가사 추출 결과
-          </h2>
-          <button 
-            onClick={() => setIsLyricsModalOpen(false)} 
-            disabled={isExtracting}
-            className="p-1 opacity-70 hover:opacity-100 rounded-lg disabled:opacity-30"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="mt-3 flex-1 flex flex-col min-h-0">
-          {isExtracting ? (
-            <div className="py-10 flex flex-col items-center justify-center gap-3.5 text-center px-4">
-              <div className="relative">
-                <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-purple-300">
-                  {ocrProgressPercent}%
-                </span>
-              </div>
-
-              <div className="w-full bg-neutral-800 rounded-full h-2 overflow-hidden border border-neutral-700">
-                <div 
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-full transition-all duration-300 ease-out"
-                  style={{ width: `${ocrProgressPercent}%` }}
-                />
-              </div>
-
-              <p className="text-xs font-bold text-purple-300 animate-pulse">{ocrProgressMsg || '가사 분석 중...'}</p>
-              <p className="text-[11px] opacity-50 leading-relaxed">
-                원본 해상도를 유지하며 한국어 AI 엔진으로 악보 속 가사를 읽어내고 있습니다.
-              </p>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col space-y-2 min-h-0">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold opacity-70">
-                  {isCleanedMode ? '✨ 스마트 띄어쓰기 정제 완료됨' : '📝 원본 추출 텍스트'}
-                </span>
-
-                {/* 🌟 인터랙티브 정제 / 복원 토글 버튼 🌟 */}
-                <button
-                  type="button"
-                  onClick={handleToggleSmartClean}
-                  className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition active:scale-95 ${
-                    isCleanedMode
-                      ? 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'
-                      : 'bg-purple-600/30 border-purple-500/50 text-purple-300 hover:bg-purple-600/40'
-                  }`}
-                  title={isCleanedMode ? '처음 추출된 원본으로 되돌리기' : '음표 띄어쓰기 결합 및 잡음 정리'}
-                >
-                  {isCleanedMode ? (
-                    <>
-                      <RotateCcw className="w-3 h-3 text-neutral-400" />
-                      <span>원본으로 복원</span>
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-3 h-3 text-purple-400" />
-                      <span>스마트 띄어쓰기 정제</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <textarea
-                value={extractedLyrics}
-                onChange={(e) => setExtractedLyrics(e.target.value)}
-                rows={10}
-                placeholder="추출된 가사가 여기에 표시됩니다."
-                className={`w-full flex-1 p-3 rounded-xl border text-xs sm:text-sm font-medium leading-relaxed focus:outline-none focus:border-purple-500 resize-none ${
-                  isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                }`}
-              />
-            </div>
-          )}
-        </div>
-
-        {!isExtracting && (
-          <div className="flex gap-2 pt-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsLyricsModalOpen(false)}
-              className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
-            >
-              닫기
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyLyrics}
-              className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xs text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-1.5"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>가사 전체 복사</span>
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   // ==========================================
   // 1. 악보 뷰어 화면
   // ==========================================
@@ -1422,30 +1168,15 @@ export default function PraiseApp() {
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {currentSheetUrl && (
-                <button
-                  onClick={() => handleExtractLyricsFromImage(currentSheetUrl)}
-                  disabled={isExtracting}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition active:scale-95 ${
-                    isExtracting
-                      ? 'bg-purple-600/40 border-purple-500 text-purple-200 cursor-not-allowed'
-                      : 'border-purple-500/40 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300'
-                  }`}
-                  title="악보에서 가사 텍스트 추출"
-                >
-                  {isExtracting ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 text-purple-300 animate-spin" />
-                      <span>추출 중...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                      <span className="hidden sm:inline">가사 추출</span>
-                    </>
-                  )}
-                </button>
-              )}
+              {/* 🌟 100% 정확한 원클릭 네이버 가사 검색 버튼 🌟 */}
+              <button
+                onClick={() => handleSearchLyricsWeb(viewingSong.title)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border border-emerald-500/50 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 transition active:scale-95"
+                title="네이버 찬양 가사 검색창 새 탭으로 열기"
+              >
+                <FileSearch className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">가사 검색 ↗</span>
+              </button>
 
               {totalPages > 1 && (
                 <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
@@ -1648,8 +1379,6 @@ export default function PraiseApp() {
             </button>
           </div>
         </footer>
-
-        {LyricsModalElement}
       </div>
     );
   }
@@ -1665,15 +1394,13 @@ export default function PraiseApp() {
     if (!term) return true;
     return (
       s.title.toLowerCase().includes(term) ||
-      (s.key && s.key.toLowerCase().includes(term)) ||
-      (s.lyrics && s.lyrics.toLowerCase().includes(term))
+      (s.key && s.key.toLowerCase().includes(term))
     );
   });
 
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
-        {/* 상단 컨트롤 카드 */}
         <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border shadow-md ${cardBgClass}`}>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <select
@@ -1774,7 +1501,6 @@ export default function PraiseApp() {
           </div>
         </div>
 
-        {/* 현재 콘티 타이틀, 콘티 삭제 & 싱어 배정 */}
         {currentConti ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between px-1">
@@ -1861,7 +1587,6 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 곡 목록 리스트 */}
         {currentConti && (
           <div className="space-y-2.5 sm:space-y-3 relative select-none">
             {currentSongs.length === 0 ? (
@@ -2012,7 +1737,6 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 실시간 플로팅 고스트 카드 */}
         {draggedIdx !== null && dragPos && currentSongs[draggedIdx] && (
           <div
             style={{
@@ -2041,8 +1765,6 @@ export default function PraiseApp() {
           </div>
         )}
       </div>
-
-      {LyricsModalElement}
 
       {/* 찬양 보관소 모달 */}
       {isLibraryModalOpen && (
@@ -2079,7 +1801,7 @@ export default function PraiseApp() {
                 type="text"
                 value={librarySearchTerm}
                 onChange={(e) => setLibrarySearchTerm(e.target.value)}
-                placeholder="보관된 찬양 제목, Key, 가사 본문 검색"
+                placeholder="보관된 찬양 제목, Key 검색"
                 className={`w-full border rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                   isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
@@ -2660,21 +2382,9 @@ export default function PraiseApp() {
                               alt={`${index + 1}p`}
                               className="w-full h-16 object-contain rounded bg-white"
                             />
-                            <div className="flex items-center justify-between w-full mt-1">
-                              <span className="text-[10px] font-bold opacity-80">
-                                {index + 1}p
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleExtractLyricsFromImage(url)}
-                                disabled={isExtracting}
-                                className="text-[10px] text-purple-400 hover:underline flex items-center gap-0.5 disabled:opacity-30"
-                                title="이 페이지 가사 추출"
-                              >
-                                {isExtracting ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />}
-                                <span>가사</span>
-                              </button>
-                            </div>
+                            <span className="text-[10px] font-bold opacity-80 mt-1">
+                              {index + 1} 페이지
+                            </span>
                             <button
                               type="button"
                               onClick={() => handleRemoveSheetPage(index)}
@@ -2750,7 +2460,7 @@ export default function PraiseApp() {
                         type="text"
                         value={modalLibrarySearch}
                         onChange={(e) => setModalLibrarySearch(e.target.value)}
-                        placeholder="보관된 곡명 또는 가사 검색 (클릭 시 자동 입력)"
+                        placeholder="보관된 곡명 검색 (클릭 시 자동 입력)"
                         className={`w-full border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
                           isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
