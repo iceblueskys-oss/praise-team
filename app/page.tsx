@@ -61,25 +61,29 @@ interface Conti {
   customNote?: string;
 }
 
-function getUpcomingSundayTitle(): { title: string; dateStr: string } {
+function getUpcomingSunday(): Date {
   const today = new Date();
   const dayOfWeek = today.getDay();
   const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-  
-  const upcomingSunday = new Date(today);
-  upcomingSunday.setDate(today.getDate() + daysUntilSunday);
-
-  const year = upcomingSunday.getFullYear();
-  const month = String(upcomingSunday.getMonth() + 1).padStart(2, '0');
-  const date = String(upcomingSunday.getDate()).padStart(2, '0');
-
-  return {
-    title: `${year}.${month}.${date} 주일 예배`,
-    dateStr: `${year}-${month}-${date}`,
-  };
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() + daysUntilSunday);
+  return sunday;
 }
 
-// 구글 드라이브 링크나 일반 웹 URL을 직접 로딩 가능한 이미지 URL로 정제
+function formatDateToStr(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const date = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${date}`;
+}
+
+function formatDateToTitle(d: Date, typeSuffix = '주일 예배'): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const date = String(d.getDate()).padStart(2, '0');
+  return `${year}.${month}.${date} ${typeSuffix}`;
+}
+
 function formatImageUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return '';
@@ -99,6 +103,12 @@ export default function PraiseApp() {
   const [allSongs, setAllSongs] = useState<SongItem[]>([]);
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
+
+  // 새 콘티 달력 모달 상태
+  const [isNewContiModalOpen, setIsNewContiModalOpen] = useState(false);
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>('');
+  const [contiTitleInput, setContiTitleInput] = useState<string>('');
+  const [currentCalMonth, setCurrentCalMonth] = useState<Date>(new Date());
 
   // 싱어 풀 상태
   const [masterSingers, setMasterSingers] = useState<string[]>([]);
@@ -251,6 +261,60 @@ export default function PraiseApp() {
 
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
+
+  // 달력 모달 열기
+  const handleOpenAddContiModal = () => {
+    const defaultSunday = getUpcomingSunday();
+    const dateStr = formatDateToStr(defaultSunday);
+    setCalendarSelectedDate(dateStr);
+    setContiTitleInput(formatDateToTitle(defaultSunday, '주일 예배'));
+    setCurrentCalMonth(new Date(defaultSunday.getFullYear(), defaultSunday.getMonth(), 1));
+    setIsNewContiModalOpen(true);
+  };
+
+  // 달력 날짜 클릭 시 처리
+  const handleSelectCalendarDate = (dateObj: Date) => {
+    const dateStr = formatDateToStr(dateObj);
+    const day = dateObj.getDay();
+    let suffix = '예배';
+    if (day === 0) suffix = '주일 낮 예배';
+    else if (day === 3) suffix = '수요 예배';
+    else if (day === 5) suffix = '금요 기도회';
+    else if (day === 6) suffix = '토요 청년부';
+
+    setCalendarSelectedDate(dateStr);
+    setContiTitleInput(formatDateToTitle(dateObj, suffix));
+  };
+
+  // 예배 유형 빠른 태그 변경
+  const handleApplySuffix = (suffix: string) => {
+    if (!calendarSelectedDate) return;
+    const [y, m, d] = calendarSelectedDate.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    setContiTitleInput(formatDateToTitle(dateObj, suffix));
+  };
+
+  // 새 콘티 생성 확정
+  const handleConfirmCreateConti = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contiTitleInput.trim() || !calendarSelectedDate) {
+      alert('콘티 제목과 날짜를 확인해주세요.');
+      return;
+    }
+
+    const newId = `c_${Date.now()}`;
+    const newConti: Conti = {
+      id: newId,
+      title: contiTitleInput.trim(),
+      date: calendarSelectedDate,
+      assignedSingers: [],
+      customNote: '',
+    };
+
+    await setDoc(doc(db, 'contis_v2', newId), newConti);
+    setSelectedContiId(newId);
+    setIsNewContiModalOpen(false);
+  };
 
   // 외부 검색창 열기
   const handleOpenSearchWeb = (engine: 'google' | 'daum') => {
@@ -416,23 +480,6 @@ export default function PraiseApp() {
     }
   };
 
-  const handleAddConti = async () => {
-    const { title: autoTitle, dateStr } = getUpcomingSundayTitle();
-    const title = prompt('새 예배 콘티 이름을 입력하세요:', autoTitle);
-    if (!title) return;
-
-    const newId = `c_${Date.now()}`;
-    const newConti: Conti = {
-      id: newId,
-      title: title.trim(),
-      date: dateStr,
-      assignedSingers: [],
-      customNote: '',
-    };
-    await setDoc(doc(db, 'contis_v2', newId), newConti);
-    setSelectedContiId(newId);
-  };
-
   const handleEditContiTitle = async () => {
     if (!currentConti) return;
     const newTitle = prompt('콘티 제목을 수정하세요:', currentConti.title);
@@ -583,19 +630,18 @@ export default function PraiseApp() {
     try {
       let activeContiId = currentConti?.id;
       if (!activeContiId) {
-        const { title: autoTitle, dateStr } = getUpcomingSundayTitle();
+        const defaultSunday = getUpcomingSunday();
         activeContiId = `c_${Date.now()}`;
         await setDoc(doc(db, 'contis_v2', activeContiId), {
           id: activeContiId,
-          title: autoTitle,
-          date: dateStr,
+          title: formatDateToTitle(defaultSunday, '주일 예배'),
+          date: formatDateToStr(defaultSunday),
           assignedSingers: [],
           customNote: '',
         });
         setSelectedContiId(activeContiId);
       }
 
-      // 파일 업로드 또는 링크 입력된 URL을 하나로 일원화
       let finalSheets: string[] = [];
       if (modalSheetType === 'url') {
         const formatted = formatImageUrl(modalUrlInput);
@@ -741,6 +787,51 @@ export default function PraiseApp() {
     }
   };
 
+  // 달력 렌더링 헬퍼 함수
+  const renderCalendarDays = () => {
+    const year = currentCalMonth.getFullYear();
+    const month = currentCalMonth.getMonth();
+    const firstDay = new Date(year, month, 1).getDay(); // 0: 일요일
+    const lastDate = new Date(year, month + 1, 0).getDate();
+
+    const days = [];
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-9" />);
+    }
+
+    for (let d = 1; d <= lastDate; d++) {
+      const dateObj = new Date(year, month, d);
+      const dateStr = formatDateToStr(dateObj);
+      const isSunday = dateObj.getDay() === 0;
+      const isSelected = calendarSelectedDate === dateStr;
+
+      days.push(
+        <button
+          key={d}
+          type="button"
+          onClick={() => handleSelectCalendarDate(dateObj)}
+          className={`h-9 w-full rounded-xl flex flex-col items-center justify-center font-bold text-xs transition ${
+            isSelected
+              ? 'bg-blue-600 text-white shadow-md scale-105'
+              : isSunday
+              ? isDark
+                ? 'text-red-400 hover:bg-neutral-800 font-black'
+                : 'text-red-600 hover:bg-slate-100 font-black'
+              : isDark
+              ? 'text-neutral-300 hover:bg-neutral-800'
+              : 'text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          <span>{d}</span>
+          {isSunday && !isSelected && (
+            <span className="w-1 h-1 bg-red-500 rounded-full mt-0.5"></span>
+          )}
+        </button>
+      );
+    }
+    return days;
+  };
+
   if (!mounted) {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center gap-2 ${theme === 'dark' ? 'bg-neutral-950 text-neutral-400' : 'bg-slate-50 text-slate-500'}`}>
@@ -756,7 +847,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 뷰어 화면 (모든 악보에 필기/줌 100% 동일 제공)
+  // 1. 악보 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -935,7 +1026,6 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 악보 본문 캔버스 (링크 악보도 똑같이 렌더링) */}
         <main
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
           className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${
@@ -1058,7 +1148,7 @@ export default function PraiseApp() {
               )}
             </select>
             <button
-              onClick={handleAddConti}
+              onClick={handleOpenAddContiModal}
               className={`flex items-center justify-center gap-1 px-3 py-2 border rounded-xl text-xs font-semibold shrink-0 transition active:scale-95 ${subCardBg}`}
             >
               <FolderPlus className="w-4 h-4 text-blue-500" />
@@ -1331,6 +1421,128 @@ export default function PraiseApp() {
         )}
       </div>
 
+      {/* 🌟 새 콘티 추가 달력 모달 🌟 */}
+      {isNewContiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-5 shadow-2xl border ${
+            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-500" />
+                새 콘티 예배 날짜 선택
+              </h2>
+              <button
+                onClick={() => setIsNewContiModalOpen(false)}
+                className="p-1.5 opacity-70 hover:opacity-100 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCreateConti} className="mt-4 space-y-3.5">
+              {/* 달력 월 이동 헤더 */}
+              <div className="flex items-center justify-between px-1">
+                <span className="font-black text-sm">
+                  {currentCalMonth.getFullYear()}년 {currentCalMonth.getMonth() + 1}월
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentCalMonth(
+                        new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() - 1, 1)
+                      )
+                    }
+                    className={`p-1.5 rounded-lg border ${subCardBg}`}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentCalMonth(
+                        new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() + 1, 1)
+                      )
+                    }
+                    className={`p-1.5 rounded-lg border ${subCardBg}`}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 요일 헤더 */}
+              <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold opacity-60">
+                <span className="text-red-500">일</span>
+                <span>월</span>
+                <span>화</span>
+                <span>수</span>
+                <span>목</span>
+                <span>금</span>
+                <span>토</span>
+              </div>
+
+              {/* 달력 일자 그리드 */}
+              <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
+
+              {/* 빠른 예배 종류 태그 선택 */}
+              <div className="space-y-1 pt-1">
+                <label className="block text-[11px] font-semibold opacity-70">예배 종류</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {['주일 낮 예배', '주일 찬양/오후', '수요 예배', '금요 기도회', '청년부'].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => handleApplySuffix(tag)}
+                      className={`px-2 py-1 rounded-lg text-xs font-semibold border transition ${
+                        contiTitleInput.includes(tag)
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : subCardBg
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 콘티 제목 확인 및 수정 인풋 */}
+              <div>
+                <label className="block text-[11px] font-semibold opacity-70 mb-1">
+                  생성될 콘티 제목
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={contiTitleInput}
+                  onChange={(e) => setContiTitleInput(e.target.value)}
+                  className={`w-full border rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-blue-500 ${
+                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNewContiModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-xs text-white shadow-lg shadow-blue-600/30"
+                >
+                  콘티 생성
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* 싱어 관리 모달 */}
       {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
@@ -1467,7 +1679,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 모달 (곡 추가/수정 & 2가지 방식 악보 등록) */}
+      {/* 모달 (곡 추가/수정) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
