@@ -25,6 +25,8 @@ import {
   SkipForward,
   GripVertical,
   Check,
+  Users,
+  UserCheck,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -50,10 +52,25 @@ interface SongItem {
   order: number;
 }
 
+interface Servants {
+  leader?: string; // 예배 인도
+  prayer?: string; // 대표 기도
+  preacher?: string; // 말씀/설교
+  praiseLeader?: string; // 찬양 인도
+  mainKeys?: string; // 메인 건반
+  subKeys?: string; // 세컨 건반/신디
+  acoustic?: string; // 기타/베이스
+  drums?: string; // 드럼
+  singers?: string; // 싱어
+  media?: string; // 음향/자막/방송
+  customNote?: string; // 기타 안내
+}
+
 interface Conti {
   id: string;
   title: string;
   date: string;
+  servants?: Servants;
 }
 
 function getUpcomingSundayTitle(): { title: string; dateStr: string } {
@@ -82,13 +99,17 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
+  // 임사자 관리 모달 상태
+  const [isServantsModalOpen, setIsServantsModalOpen] = useState(false);
+  const [servantsInput, setServantsInput] = useState<Servants>({});
+
   // 실시간 플로팅 드래그 상태
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
-  // 모달 상태
+  // 곡 추가/수정 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState('');
@@ -219,12 +240,34 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 플로팅 드래그 시작
+  // 임사자 수정 모달 열기
+  const handleOpenServantsModal = () => {
+    setServantsInput(currentConti?.servants || {});
+    setIsServantsModalOpen(true);
+  };
+
+  // 임사자 정보 저장
+  const handleSaveServants = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentConti) return;
+
+    try {
+      await setDoc(
+        doc(db, 'contis_v2', currentConti.id),
+        { servants: servantsInput },
+        { merge: true }
+      );
+      setIsServantsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('임사자 정보 저장 실패');
+    }
+  };
+
+  // 플로팅 드래그 핸들러
   const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
     const card = targetEl.closest('[data-song-index]') as HTMLElement;
-    if (card) {
-      setDragCardWidth(card.offsetWidth);
-    }
+    if (card) setDragCardWidth(card.offsetWidth);
     setDraggedIdx(idx);
     setDropTargetIdx(idx);
     setDragPos({ x: clientX, y: clientY });
@@ -328,6 +371,7 @@ export default function PraiseApp() {
       id: newId,
       title: title.trim(),
       date: dateStr,
+      servants: {},
     };
     await setDoc(doc(db, 'contis_v2', newId), newConti);
     setSelectedContiId(newId);
@@ -495,6 +539,7 @@ export default function PraiseApp() {
           id: activeContiId,
           title: autoTitle,
           date: dateStr,
+          servants: {},
         });
         setSelectedContiId(activeContiId);
       }
@@ -659,7 +704,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 뷰어 화면 (화면 전체 튕김 방지 및 툴바 완전 고정)
+  // 1. 악보 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const isUrlSheet = viewingSong.sheetType === 'url';
@@ -668,12 +713,11 @@ export default function PraiseApp() {
 
     return (
       <div
-        style={{ overscrollBehavior: 'none' }} // 화면 당김 시 전체 바운스 방지
+        style={{ overscrollBehavior: 'none' }}
         className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none ${
           isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-200 text-slate-900'
         }`}
       >
-        {/* 상단 고정 헤더 묶음 */}
         <div className="shrink-0 z-40 w-full flex flex-col shadow-md">
           <header className={`flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 border-b gap-2 ${
             isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200'
@@ -784,7 +828,6 @@ export default function PraiseApp() {
             </div>
           </header>
 
-          {/* 진행 순서 및 연주 메모 */}
           {viewingSong.comment && (
             <div className={`px-4 py-2 border-b text-xs flex items-center gap-2 ${
               isDark ? 'bg-blue-950/40 border-blue-900/60 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
@@ -795,7 +838,6 @@ export default function PraiseApp() {
             </div>
           )}
 
-          {/* 필기 서브 툴바 */}
           {isDrawingMode && !isUrlSheet && (
             <div className={`flex items-center justify-between sm:justify-center gap-2 py-2 px-3 border-b overflow-x-auto text-xs no-scrollbar ${
               isDark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-white/95 border-slate-200'
@@ -844,7 +886,6 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 악보 본문 (독립 내부 스크롤 격리 - 툴바 절대 흔들림 방지) */}
         <main
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
           className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${
@@ -908,10 +949,8 @@ export default function PraiseApp() {
           )}
         </main>
 
-        {/* 🌟 화면 바운스에도 100% 미동 없는 하단 고정 컨트롤 바 🌟 */}
         <footer className="fixed bottom-0 inset-x-0 z-40 flex justify-center items-center pb-[max(env(safe-area-inset-bottom),16px)] pt-2 px-4 pointer-events-none bg-gradient-to-t from-black/80 via-black/40 to-transparent">
           <div className="pointer-events-auto flex items-center gap-2 sm:gap-3 p-1.5 rounded-full backdrop-blur-xl border shadow-2xl bg-neutral-900/90 border-neutral-700/80">
-            {/* 이전 곡 */}
             <button
               onClick={handlePrevSong}
               disabled={currentSongIndex <= 0}
@@ -921,7 +960,6 @@ export default function PraiseApp() {
               <span className="hidden xs:inline">이전 곡</span>
             </button>
 
-            {/* 다중 페이지 컨트롤 */}
             {!isUrlSheet && totalPages > 1 && (
               <div className="flex items-center gap-1 px-1 border-x border-neutral-700/80">
                 <button
@@ -944,7 +982,6 @@ export default function PraiseApp() {
               </div>
             )}
 
-            {/* 다음 곡 */}
             <button
               onClick={handleNextSong}
               disabled={currentSongIndex >= currentSongs.length - 1}
@@ -960,8 +997,11 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면
+  // 2. 메인 콘티 목록 화면 (임사자 명단 카드 포함)
   // ==========================================
+  const s = currentConti?.servants || {};
+  const hasServants = Object.values(s).some((v) => v && v.trim() !== '');
+
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
@@ -982,7 +1022,7 @@ export default function PraiseApp() {
               ) : (
                 contis.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.title} ({allSongs.filter((s) => s.contiId === c.id).length}곡)
+                    {c.title} ({allSongs.filter((song) => song.contiId === c.id).length}곡)
                   </option>
                 ))
               )}
@@ -1030,25 +1070,117 @@ export default function PraiseApp() {
           </div>
         </div>
 
-        {/* 현재 콘티 타이틀 */}
+        {/* 현재 콘티 타이틀 및 임사자 관리 버튼 */}
         {currentConti && (
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
-              <h1 className="text-lg sm:text-2xl font-black truncate">{currentConti.title}</h1>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
+                <h1 className="text-lg sm:text-2xl font-black truncate">{currentConti.title}</h1>
+                <button
+                  onClick={handleEditContiTitle}
+                  className={`p-1.5 border rounded-lg transition active:scale-95 shrink-0 ${subCardBg}`}
+                  title="콘티 제목 수정"
+                >
+                  <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
+                </button>
+              </div>
+
               <button
-                onClick={handleEditContiTitle}
-                className={`p-1.5 border rounded-lg transition active:scale-95 shrink-0 ${subCardBg}`}
-                title="콘티 제목 수정"
+                onClick={handleOpenServantsModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-400 font-bold rounded-xl text-xs transition active:scale-95 shrink-0"
               >
-                <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
+                <Users className="w-3.5 h-3.5" />
+                <span>임사자/순서자 관리</span>
               </button>
             </div>
-            {isReordering && (
-              <span className="text-xs font-bold text-amber-500 animate-pulse">
-                드래그하여 원하는 위치에 놓으세요
-              </span>
-            )}
+
+            {/* 🌟 임사자 명단 배지 카드 🌟 */}
+            <div className={`p-3 sm:p-4 rounded-2xl border transition ${cardBgClass}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold flex items-center gap-1.5 opacity-80">
+                  <UserCheck className="w-3.5 h-3.5 text-blue-500" />
+                  예배 임사자 & 찬양팀 명단
+                </span>
+                {!hasServants && (
+                  <span className="text-[11px] text-blue-400 cursor-pointer hover:underline" onClick={handleOpenServantsModal}>
+                    + 임사자 등록하기
+                  </span>
+                )}
+              </div>
+
+              {hasServants ? (
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {s.leader && (
+                    <div className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center gap-1.5">
+                      <span className="font-bold text-blue-400">인도</span>
+                      <span>{s.leader}</span>
+                    </div>
+                  )}
+                  {s.prayer && (
+                    <div className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1.5">
+                      <span className="font-bold text-emerald-400">기도</span>
+                      <span>{s.prayer}</span>
+                    </div>
+                  )}
+                  {s.preacher && (
+                    <div className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center gap-1.5">
+                      <span className="font-bold text-purple-400">말씀</span>
+                      <span>{s.preacher}</span>
+                    </div>
+                  )}
+                  {s.praiseLeader && (
+                    <div className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-1.5">
+                      <span className="font-bold text-amber-400">찬양인도</span>
+                      <span>{s.praiseLeader}</span>
+                    </div>
+                  )}
+                  {s.mainKeys && (
+                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
+                      <span className="font-bold opacity-70">메인건반</span>
+                      <span>{s.mainKeys}</span>
+                    </div>
+                  )}
+                  {s.subKeys && (
+                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
+                      <span className="font-bold opacity-70">세컨</span>
+                      <span>{s.subKeys}</span>
+                    </div>
+                  )}
+                  {s.drums && (
+                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
+                      <span className="font-bold opacity-70">드럼</span>
+                      <span>{s.drums}</span>
+                    </div>
+                  )}
+                  {s.acoustic && (
+                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
+                      <span className="font-bold opacity-70">기타/베이스</span>
+                      <span>{s.acoustic}</span>
+                    </div>
+                  )}
+                  {s.singers && (
+                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
+                      <span className="font-bold opacity-70">싱어</span>
+                      <span>{s.singers}</span>
+                    </div>
+                  )}
+                  {s.media && (
+                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
+                      <span className="font-bold opacity-70">음향/자막</span>
+                      <span>{s.media}</span>
+                    </div>
+                  )}
+                  {s.customNote && (
+                    <div className="w-full text-[11px] opacity-70 mt-1 pt-1 border-t border-neutral-800">
+                      메모: {s.customNote}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs opacity-60">등록된 임사자 정보가 없습니다.</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -1196,7 +1328,7 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 실시간 플로팅 고스트 카드 */}
+        {/* 실시간 플로팅 드래그 고스트 카드 */}
         {draggedIdx !== null && dragPos && currentSongs[draggedIdx] && (
           <div
             style={{
@@ -1225,7 +1357,195 @@ export default function PraiseApp() {
         )}
       </div>
 
-      {/* 모달 */}
+      {/* 🌟 임사자 관리 모달 🌟 */}
+      {isServantsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
+            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`flex items-center justify-between pb-3 sm:pb-4 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500" />
+                예배 임사자 & 찬양팀 명단 관리
+              </h2>
+              <button
+                onClick={() => setIsServantsModalOpen(false)}
+                className="p-1.5 opacity-70 hover:opacity-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveServants} className="mt-4 space-y-3 text-xs sm:text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold opacity-80 mb-1">예배 인도자</label>
+                  <input
+                    type="text"
+                    value={servantsInput.leader || ''}
+                    onChange={(e) => setServantsInput({ ...servantsInput, leader: e.target.value })}
+                    placeholder="예: 김목사"
+                    className={`w-full border rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold opacity-80 mb-1">대표 기도자</label>
+                  <input
+                    type="text"
+                    value={servantsInput.prayer || ''}
+                    onChange={(e) => setServantsInput({ ...servantsInput, prayer: e.target.value })}
+                    placeholder="예: 이장로"
+                    className={`w-full border rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold opacity-80 mb-1">말씀 / 설교자</label>
+                  <input
+                    type="text"
+                    value={servantsInput.preacher || ''}
+                    onChange={(e) => setServantsInput({ ...servantsInput, preacher: e.target.value })}
+                    placeholder="예: 박목사"
+                    className={`w-full border rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold opacity-80 mb-1">찬양 인도자</label>
+                  <input
+                    type="text"
+                    value={servantsInput.praiseLeader || ''}
+                    onChange={(e) => setServantsInput({ ...servantsInput, praiseLeader: e.target.value })}
+                    placeholder="예: 최팀장"
+                    className={`w-full border rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-800/60">
+                <span className="text-xs font-bold text-blue-500 block mb-2">찬양팀 세션 및 엔지니어</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] opacity-70 mb-1">메인 건반</label>
+                    <input
+                      type="text"
+                      value={servantsInput.mainKeys || ''}
+                      onChange={(e) => setServantsInput({ ...servantsInput, mainKeys: e.target.value })}
+                      placeholder="예: 정반주"
+                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
+                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] opacity-70 mb-1">세컨 건반</label>
+                    <input
+                      type="text"
+                      value={servantsInput.subKeys || ''}
+                      onChange={(e) => setServantsInput({ ...servantsInput, subKeys: e.target.value })}
+                      placeholder="예: 한신디"
+                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
+                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] opacity-70 mb-1">드럼</label>
+                    <input
+                      type="text"
+                      value={servantsInput.drums || ''}
+                      onChange={(e) => setServantsInput({ ...servantsInput, drums: e.target.value })}
+                      placeholder="예: 강드럼"
+                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
+                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] opacity-70 mb-1">기타 / 베이스</label>
+                    <input
+                      type="text"
+                      value={servantsInput.acoustic || ''}
+                      onChange={(e) => setServantsInput({ ...servantsInput, acoustic: e.target.value })}
+                      placeholder="예: 윤기타, 배베이스"
+                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
+                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="block text-[11px] opacity-70 mb-1">싱어</label>
+                    <input
+                      type="text"
+                      value={servantsInput.singers || ''}
+                      onChange={(e) => setServantsInput({ ...servantsInput, singers: e.target.value })}
+                      placeholder="예: 김민수, 이영희"
+                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
+                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] opacity-70 mb-1">음향 / 자막 방송</label>
+                    <input
+                      type="text"
+                      value={servantsInput.media || ''}
+                      onChange={(e) => setServantsInput({ ...servantsInput, media: e.target.value })}
+                      placeholder="예: 송음향, 조자막"
+                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
+                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <label className="block text-[11px] opacity-70 mb-1">기타 특이사항 메모</label>
+                  <input
+                    type="text"
+                    value={servantsInput.customNote || ''}
+                    onChange={(e) => setServantsInput({ ...servantsInput, customNote: e.target.value })}
+                    placeholder="예: 1부 예배 후 찬양팀 연습 13:00"
+                    className={`w-full border rounded-xl px-3 py-2 text-xs ${
+                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsServantsModalOpen(false)}
+                  className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold transition ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30"
+                >
+                  저장 완료
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달 (곡 추가/수정) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
