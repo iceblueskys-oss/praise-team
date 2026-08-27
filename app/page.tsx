@@ -29,6 +29,9 @@ import {
   Link as LinkIcon,
   Globe,
   Search,
+  Lock,
+  Unlock,
+  KeyRound,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -40,6 +43,7 @@ import {
   query,
   orderBy,
   writeBatch,
+  getDoc,
 } from 'firebase/firestore';
 
 interface SongItem {
@@ -104,6 +108,13 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
+  // 🌟 관리자 수정 권한 상태 🌟
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authPasswordInput, setAuthPasswordInput] = useState('');
+  const [isChangePwModalOpen, setIsChangePwModalOpen] = useState(false);
+  const [newPwInput, setNewPwInput] = useState('');
+
   // 새 콘티 달력 모달 상태
   const [isNewContiModalOpen, setIsNewContiModalOpen] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>('');
@@ -153,6 +164,9 @@ export default function PraiseApp() {
   useEffect(() => {
     const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
     if (savedTheme) setTheme(savedTheme);
+
+    const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
+    if (savedAdmin) setIsAdmin(true);
 
     if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
       const script = document.createElement('script');
@@ -262,8 +276,63 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 달력 모달 열기 (기본값: 950)
+  // 🌟 관리자 인증 처리 🌟
+  const handleLoginAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'admin_auth'));
+      const correctPw = snap.exists() ? snap.data()?.password : '1234';
+
+      if (authPasswordInput.trim() === correctPw) {
+        setIsAdmin(true);
+        localStorage.setItem('praise_app_is_admin', 'true');
+        setIsAuthModalOpen(false);
+        setAuthPasswordInput('');
+        alert('관리자 수정 권한이 활성화되었습니다.');
+      } else {
+        alert('비밀번호가 일치하지 않습니다.');
+      }
+    } catch (err) {
+      console.error(err);
+      if (authPasswordInput.trim() === '1234') {
+        setIsAdmin(true);
+        localStorage.setItem('praise_app_is_admin', 'true');
+        setIsAuthModalOpen(false);
+        setAuthPasswordInput('');
+      } else {
+        alert('비밀번호가 일치하지 않습니다.');
+      }
+    }
+  };
+
+  const handleLogoutAdmin = () => {
+    if (confirm('수정 권한을 잠그시겠습니까? (일반 뷰어 모드로 전환)')) {
+      setIsAdmin(false);
+      setIsReordering(false);
+      localStorage.removeItem('praise_app_is_admin');
+    }
+  };
+
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPwInput.trim()) return;
+    try {
+      await setDoc(doc(db, 'settings', 'admin_auth'), { password: newPwInput.trim() }, { merge: true });
+      alert('관리자 비밀번호가 성공적으로 변경되었습니다.');
+      setIsChangePwModalOpen(false);
+      setNewPwInput('');
+    } catch (err) {
+      console.error(err);
+      alert('비밀번호 변경 실패');
+    }
+  };
+
+  // 달력 모달 열기 (950)
   const handleOpenAddContiModal = () => {
+    if (!isAdmin) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const defaultSunday = getUpcomingSunday();
     const dateStr = formatDateToStr(defaultSunday);
     setCalendarSelectedDate(dateStr);
@@ -272,14 +341,12 @@ export default function PraiseApp() {
     setIsNewContiModalOpen(true);
   };
 
-  // 달력 날짜 클릭 시 처리 (무조건 950 적용)
   const handleSelectCalendarDate = (dateObj: Date) => {
     const dateStr = formatDateToStr(dateObj);
     setCalendarSelectedDate(dateStr);
     setContiTitleInput(formatDateToTitle(dateObj, '950'));
   };
 
-  // 새 콘티 생성 확정
   const handleConfirmCreateConti = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contiTitleInput.trim() || !calendarSelectedDate) {
@@ -301,7 +368,6 @@ export default function PraiseApp() {
     setIsNewContiModalOpen(false);
   };
 
-  // 외부 검색창 열기
   const handleOpenSearchWeb = (engine: 'google' | 'daum') => {
     const term = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim();
     if (!modalTitle.trim()) {
@@ -315,8 +381,11 @@ export default function PraiseApp() {
     window.open(url, '_blank');
   };
 
-  // 싱어 관리
   const handleOpenSingerModal = () => {
+    if (!isAdmin) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     setSelectedSingers(currentConti?.assignedSingers || []);
     setNoteInput(currentConti?.customNote || '');
     setIsSingerModalOpen(true);
@@ -370,6 +439,7 @@ export default function PraiseApp() {
 
   // 플로팅 드래그
   const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
+    if (!isAdmin) return;
     const card = targetEl.closest('[data-song-index]') as HTMLElement;
     if (card) setDragCardWidth(card.offsetWidth);
     setDraggedIdx(idx);
@@ -401,6 +471,7 @@ export default function PraiseApp() {
   };
 
   const handleTouchStart = (idx: number, e: React.TouchEvent) => {
+    if (!isAdmin) return;
     const t = e.touches[0];
     startDragAction(idx, t.clientX, t.clientY, e.currentTarget);
   };
@@ -412,6 +483,7 @@ export default function PraiseApp() {
   };
 
   const handleMouseDown = (idx: number, e: React.MouseEvent) => {
+    if (!isAdmin) return;
     startDragAction(idx, e.clientX, e.clientY, e.currentTarget);
   };
 
@@ -466,6 +538,10 @@ export default function PraiseApp() {
   };
 
   const handleEditContiTitle = async () => {
+    if (!isAdmin) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     if (!currentConti) return;
     const newTitle = prompt('콘티 제목을 수정하세요:', currentConti.title);
     if (!newTitle || newTitle.trim() === '' || newTitle === currentConti.title) return;
@@ -483,6 +559,10 @@ export default function PraiseApp() {
   };
 
   const handleOpenModal = (song?: SongItem) => {
+    if (!isAdmin) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     if (song) {
       setEditingSongId(song.id);
       setModalTitle(song.title);
@@ -663,6 +743,10 @@ export default function PraiseApp() {
   };
 
   const handleDeleteSong = async (songId: string) => {
+    if (!isAdmin) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     if (!confirm('이 곡을 삭제하시겠습니까?')) return;
     try {
       await deleteDoc(doc(db, 'songs_v2', songId));
@@ -772,11 +856,10 @@ export default function PraiseApp() {
     }
   };
 
-  // 달력 렌더링 헬퍼 함수
   const renderCalendarDays = () => {
     const year = currentCalMonth.getFullYear();
     const month = currentCalMonth.getMonth();
-    const firstDay = new Date(year, month, 1).getDay(); // 0: 일요일
+    const firstDay = new Date(year, month, 1).getDay();
     const lastDate = new Date(year, month + 1, 0).getDate();
 
     const days = [];
@@ -1102,7 +1185,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면
+  // 2. 메인 콘티 목록 화면 (관리자 권한 제어)
   // ==========================================
   const assignedSingers = currentConti?.assignedSingers || [];
   const customNote = currentConti?.customNote || '';
@@ -1123,7 +1206,7 @@ export default function PraiseApp() {
               }`}
             >
               {contis.length === 0 ? (
-                <option value="">콘티 없음 (새 콘티 생성)</option>
+                <option value="">콘티 없음</option>
               ) : (
                 contis.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -1132,6 +1215,8 @@ export default function PraiseApp() {
                 ))
               )}
             </select>
+
+            {/* 새 콘티 추가 버튼 (관리자 전용) */}
             <button
               onClick={handleOpenAddContiModal}
               className={`flex items-center justify-center gap-1 px-3 py-2 border rounded-xl text-xs font-semibold shrink-0 transition active:scale-95 ${subCardBg}`}
@@ -1141,7 +1226,31 @@ export default function PraiseApp() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
+            {/* 🌟 관리자 수정 권한 토글 버튼 🌟 */}
+            <button
+              onClick={() => (isAdmin ? handleLogoutAdmin() : setIsAuthModalOpen(true))}
+              className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition active:scale-95 ${
+                isAdmin
+                  ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-400 hover:bg-emerald-600/30'
+                  : subCardBg
+              }`}
+              title={isAdmin ? '수정 권한 잠금 (클릭 시 뷰어로 전환)' : '수정 권한 얻기 (비밀번호 입력)'}
+            >
+              {isAdmin ? <Unlock className="w-3.5 h-3.5 text-emerald-400" /> : <Lock className="w-3.5 h-3.5 opacity-60" />}
+              <span>{isAdmin ? '관리자 모드' : '수정 권한'}</span>
+            </button>
+
+            {isAdmin && (
+              <button
+                onClick={() => setIsChangePwModalOpen(true)}
+                className={`p-2 border rounded-xl transition ${subCardBg}`}
+                title="관리자 비밀번호 변경"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-neutral-400" />
+              </button>
+            )}
+
             <button
               onClick={toggleTheme}
               className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-semibold shrink-0 transition active:scale-95 ${subCardBg}`}
@@ -1151,7 +1260,8 @@ export default function PraiseApp() {
               <span>{isDark ? '밝은 모드' : '어두운 모드'}</span>
             </button>
 
-            {currentSongs.length > 1 && (
+            {/* 순서 편집 버튼 (관리자 전용) */}
+            {isAdmin && currentSongs.length > 1 && (
               <button
                 onClick={() => setIsReordering(!isReordering)}
                 className={`flex items-center gap-1 px-3 py-2 border rounded-xl text-xs font-bold transition active:scale-95 ${
@@ -1165,6 +1275,7 @@ export default function PraiseApp() {
               </button>
             )}
 
+            {/* 곡 추가 버튼 */}
             <button
               onClick={() => handleOpenModal()}
               className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-blue-600/30 transition active:scale-95"
@@ -1182,13 +1293,15 @@ export default function PraiseApp() {
               <div className="flex items-center gap-2 min-w-0">
                 <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
                 <h1 className="text-lg sm:text-2xl font-black truncate">{currentConti.title}</h1>
-                <button
-                  onClick={handleEditContiTitle}
-                  className={`p-1.5 border rounded-lg transition active:scale-95 shrink-0 ${subCardBg}`}
-                  title="콘티 제목 수정"
-                >
-                  <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
-                </button>
+                {isAdmin && (
+                  <button
+                    onClick={handleEditContiTitle}
+                    className={`p-1.5 border rounded-lg transition active:scale-95 shrink-0 ${subCardBg}`}
+                    title="콘티 제목 수정"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
+                  </button>
+                )}
               </div>
 
               <button
@@ -1206,12 +1319,14 @@ export default function PraiseApp() {
                   <Mic className="w-3.5 h-3.5 text-blue-500" />
                   이번 주 싱어 명단
                 </span>
-                <span
-                  onClick={handleOpenSingerModal}
-                  className="text-[11px] text-blue-400 cursor-pointer hover:underline"
-                >
-                  {assignedSingers.length > 0 ? '싱어 변경하기' : '+ 이번 주 싱어 지정하기'}
-                </span>
+                {isAdmin && (
+                  <span
+                    onClick={handleOpenSingerModal}
+                    className="text-[11px] text-blue-400 cursor-pointer hover:underline"
+                  >
+                    {assignedSingers.length > 0 ? '싱어 변경하기' : '+ 이번 주 싱어 지정하기'}
+                  </span>
+                )}
               </div>
 
               {assignedSingers.length > 0 ? (
@@ -1266,17 +1381,19 @@ export default function PraiseApp() {
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div
-                        onTouchStart={(e) => handleTouchStart(idx, e)}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={endDragAction}
-                        onMouseDown={(e) => handleMouseDown(idx, e)}
-                        style={{ touchAction: 'none' }}
-                        className="p-2 -m-2 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
-                        title="길게 눌러 드래그"
-                      >
-                        <GripVertical className="w-5 h-5" />
-                      </div>
+                      {isAdmin ? (
+                        <div
+                          onTouchStart={(e) => handleTouchStart(idx, e)}
+                          onTouchMove={handleTouchMove}
+                          onTouchEnd={endDragAction}
+                          onMouseDown={(e) => handleMouseDown(idx, e)}
+                          style={{ touchAction: 'none' }}
+                          className="p-2 -m-2 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
+                          title="길게 눌러 드래그"
+                        >
+                          <GripVertical className="w-5 h-5" />
+                        </div>
+                      ) : null}
 
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
                         isDark ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/80' : 'bg-slate-100 text-slate-700 border border-slate-200'
@@ -1320,7 +1437,7 @@ export default function PraiseApp() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {isReordering ? (
+                      {isReordering && isAdmin ? (
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => executeReorder(idx, idx - 1)}
@@ -1351,22 +1468,26 @@ export default function PraiseApp() {
                             <Eye className="w-3.5 h-3.5 text-blue-500" />
                             <span className="hidden xs:inline">악보 보기</span>
                           </button>
-                          <button
-                            onClick={() => handleOpenModal(song)}
-                            className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${subCardBg}`}
-                            title="곡 수정"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSong(song.id)}
-                            className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${
-                              isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
-                            }`}
-                            title="곡 삭제"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                onClick={() => handleOpenModal(song)}
+                                className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${subCardBg}`}
+                                title="곡 수정"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSong(song.id)}
+                                className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${
+                                  isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                               }`}
+                                title="곡 삭제"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </>
                       )}
                     </div>
@@ -1406,7 +1527,110 @@ export default function PraiseApp() {
         )}
       </div>
 
-      {/* 🌟 새 콘티 추가 달력 모달 (950 전용) 🌟 */}
+      {/* 🌟 관리자 인증 비밀번호 모달 🌟 */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className={`rounded-2xl w-full max-w-xs p-5 shadow-2xl border ${
+            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-sm font-bold flex items-center gap-1.5">
+                <Lock className="w-4 h-4 text-blue-500" />
+                관리자 수정 권한 인증
+              </h2>
+              <button onClick={() => setIsAuthModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleLoginAdmin} className="mt-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold opacity-70 mb-1">관리자 비밀번호</label>
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  value={authPasswordInput}
+                  onChange={(e) => setAuthPasswordInput(e.target.value)}
+                  placeholder="비밀번호 입력 (기본: 1234)"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(false)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-md shadow-blue-600/30"
+                >
+                  인증하기
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 비밀번호 변경 모달 🌟 */}
+      {isChangePwModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className={`rounded-2xl w-full max-w-xs p-5 shadow-2xl border ${
+            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-sm font-bold flex items-center gap-1.5">
+                <KeyRound className="w-4 h-4 text-blue-500" />
+                관리자 비밀번호 변경
+              </h2>
+              <button onClick={() => setIsChangePwModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangeAdminPassword} className="mt-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold opacity-70 mb-1">새 비밀번호</label>
+                <input
+                  type="password"
+                  required
+                  value={newPwInput}
+                  onChange={(e) => setNewPwInput(e.target.value)}
+                  placeholder="변경할 새 비밀번호 입력"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsChangePwModalOpen(false)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-md shadow-blue-600/30"
+                >
+                  변경 완료
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 새 콘티 추가 달력 모달 (950 전용) */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-5 shadow-2xl border ${
@@ -1426,7 +1650,6 @@ export default function PraiseApp() {
             </div>
 
             <form onSubmit={handleConfirmCreateConti} className="mt-4 space-y-3.5">
-              {/* 달력 월 이동 헤더 */}
               <div className="flex items-center justify-between px-1">
                 <span className="font-black text-sm">
                   {currentCalMonth.getFullYear()}년 {currentCalMonth.getMonth() + 1}월
@@ -1457,7 +1680,6 @@ export default function PraiseApp() {
                 </div>
               </div>
 
-              {/* 요일 헤더 */}
               <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold opacity-60">
                 <span className="text-red-500">일</span>
                 <span>월</span>
@@ -1468,10 +1690,8 @@ export default function PraiseApp() {
                 <span>토</span>
               </div>
 
-              {/* 달력 일자 그리드 */}
               <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
 
-              {/* 콘티 제목 확인 및 수정 인풋 */}
               <div className="pt-1">
                 <label className="block text-[11px] font-semibold opacity-70 mb-1">
                   생성될 콘티 제목
