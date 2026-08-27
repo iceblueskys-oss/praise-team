@@ -130,7 +130,7 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 🌟 목록에서 가사 펼침 상태 관리 (곡 ID 배열) 🌟
+  // 목록에서 가사 펼침 상태 관리
   const [expandedLyricsSongIds, setExpandedLyricsSongIds] = useState<string[]>([]);
 
   // 관리자 수정 권한 상태
@@ -371,7 +371,6 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex, viewMode]);
 
-  // 🌟 목록에서 가사 펼침 토글 함수 🌟
   const handleToggleLyricsExpand = (songId: string) => {
     setExpandedLyricsSongIds((prev) =>
       prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
@@ -1144,7 +1143,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면
+  // 1. 악보 & 가사 뷰어 화면 (모바일 2열 반응형 헤더)
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1158,186 +1157,195 @@ export default function PraiseApp() {
         }`}
       >
         <div className="shrink-0 z-40 w-full flex flex-col shadow-md">
-          <header className={`flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 border-b gap-2 ${
+          {/* 🌟 2열 반응형 상단 헤더 🌟 */}
+          <header className={`flex flex-col md:flex-row md:items-center md:justify-between px-3 py-2 border-b gap-2 ${
             isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200'
           }`}>
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <button
-                onClick={() => {
-                  setViewingSongId(null);
-                  setCurrentPageIndex(0);
-                  setViewMode('sheet');
-                }}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border shrink-0 cursor-pointer transition ${
-                  isDark ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
-                }`}
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">목록</span>
-              </button>
+            {/* 1열: 뒤로가기, 곡 이동 및 곡명 정보 */}
+            <div className="flex items-center justify-between gap-1.5 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <button
+                  onClick={() => {
+                    setViewingSongId(null);
+                    setCurrentPageIndex(0);
+                    setViewMode('sheet');
+                  }}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border shrink-0 cursor-pointer transition ${
+                    isDark ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>목록</span>
+                </button>
 
-              <div className={`flex items-center rounded-lg border p-0.5 shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
-                <button
-                  onClick={handlePrevSong}
-                  disabled={currentSongIndex <= 0}
-                  className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30 hover:text-blue-500"
-                  title="이전 곡"
-                >
-                  <SkipBack className="w-3.5 h-3.5" />
-                </button>
-                <span className="text-[11px] font-bold px-1.5 min-w-[40px] text-center text-neutral-400">
-                  {currentSongIndex + 1} / {currentSongs.length}곡
-                </span>
-                <button
-                  onClick={handleNextSong}
-                  disabled={currentSongIndex >= currentSongs.length - 1}
-                  className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30 hover:text-blue-500"
-                  title="다음 곡"
-                >
-                  <SkipForward className="w-3.5 h-3.5" />
-                </button>
+                <div className={`flex items-center rounded-lg border p-0.5 shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+                  <button
+                    onClick={handlePrevSong}
+                    disabled={currentSongIndex <= 0}
+                    className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30 hover:text-blue-500"
+                    title="이전 곡"
+                  >
+                    <SkipBack className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[11px] font-bold px-1 min-w-[36px] text-center text-neutral-400">
+                    {currentSongIndex + 1}/{currentSongs.length}
+                  </span>
+                  <button
+                    onClick={handleNextSong}
+                    disabled={currentSongIndex >= currentSongs.length - 1}
+                    className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30 hover:text-blue-500"
+                    title="다음 곡"
+                  >
+                    <SkipForward className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {viewingSong.headerTag && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded shrink-0">
+                    {viewingSong.headerTag}
+                  </span>
+                )}
+
+                <h1 className="font-bold text-xs sm:text-sm truncate max-w-[130px] xs:max-w-[180px] sm:max-w-xs">
+                  {viewingSong.title}
+                </h1>
               </div>
 
-              {viewingSong.headerTag && (
-                <span className="px-2 py-0.5 text-[10px] sm:text-xs font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-md shrink-0">
-                  {viewingSong.headerTag}
-                </span>
-              )}
-
-              <h1 className="font-bold text-sm sm:text-base truncate max-w-[110px] xs:max-w-[160px] sm:max-w-xs ml-1">
-                {viewingSong.title}
-              </h1>
               {viewingSong.key && (
-                <span className="px-2 py-0.5 text-[11px] sm:text-xs font-bold bg-blue-600 rounded-md sm:rounded-full text-white shrink-0">
+                <span className="px-2 py-0.5 text-[10px] sm:text-xs font-bold bg-blue-600 rounded text-white shrink-0">
                   {viewingSong.key} Key
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {/* 가사 전용 뷰어 토글 버튼 */}
-              <button
-                onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition active:scale-95 ${
-                  viewMode === 'lyrics'
-                    ? 'bg-purple-600 border-purple-500 text-white shadow-md'
-                    : isDark
-                    ? 'bg-purple-950/40 border-purple-800 text-purple-300 hover:bg-purple-900/50'
-                    : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
-                }`}
-                title={viewMode === 'sheet' ? '가사 전용 뷰어로 전환' : '악보 보기로 전환'}
-              >
-                {viewMode === 'sheet' ? (
-                  <>
-                    <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-                    <span>가사 보기</span>
-                  </>
-                ) : (
-                  <>
-                    <FileText className="w-3.5 h-3.5 text-white" />
-                    <span>악보 보기</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => handleSearchLyricsWeb(viewingSong.title)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border border-blue-500/40 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 transition active:scale-95"
-                title="구글 찬양 가사 검색"
-              >
-                <Globe className="w-3.5 h-3.5 text-blue-400" />
-                <span className="hidden sm:inline">가사 검색 ↗</span>
-              </button>
-
-              {viewMode === 'sheet' && totalPages > 1 && (
-                <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
-                  <button
-                    onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
-                    disabled={currentPageIndex === 0}
-                    className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30"
-                    title="이전 페이지"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-1.5 min-w-[36px] text-center">
-                    {currentPageIndex + 1} / {totalPages}p
-                  </span>
-                  <button
-                    onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
-                    disabled={currentPageIndex === totalPages - 1}
-                    className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30"
-                    title="다음 페이지"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {viewMode === 'sheet' && currentSheetUrl && (
+            {/* 2열: 기능 버튼 바 (모바일에서 깔끔하게 줄바꿈 정렬) */}
+            <div className="flex items-center justify-between md:justify-end gap-1.5 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-neutral-800/40">
+              <div className="flex items-center gap-1.5">
+                {/* 가사/악보 전환 토글 */}
                 <button
-                  onClick={() => setIsDrawingMode(!isDrawingMode)}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition ${
-                    isDrawingMode
-                      ? 'bg-amber-500 text-neutral-950'
+                  onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition active:scale-95 ${
+                    viewMode === 'lyrics'
+                      ? 'bg-purple-600 border-purple-500 text-white shadow-md'
                       : isDark
-                      ? 'bg-neutral-800 text-neutral-200 border border-neutral-700'
-                      : 'bg-slate-100 text-slate-700 border border-slate-300'
+                      ? 'bg-purple-950/40 border-purple-800 text-purple-300 hover:bg-purple-900/50'
+                      : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
                   }`}
+                  title={viewMode === 'sheet' ? '가사 전용 뷰어로 전환' : '악보 보기로 전환'}
                 >
-                  <PenTool className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{isDrawingMode ? '필기 닫기' : '필기'}</span>
+                  {viewMode === 'sheet' ? (
+                    <>
+                      <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                      <span>가사</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-3.5 h-3.5 text-white" />
+                      <span>악보</span>
+                    </>
+                  )}
                 </button>
-              )}
 
-              {viewMode === 'sheet' && (
-                <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+                {/* 구글 가사 검색 버튼 */}
+                <button
+                  onClick={() => handleSearchLyricsWeb(viewingSong.title)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border border-blue-500/40 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 transition active:scale-95"
+                  title="구글 찬양 가사 검색"
+                >
+                  <Globe className="w-3 h-3 text-blue-400" />
+                  <span>가사 검색 ↗</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {viewMode === 'sheet' && totalPages > 1 && (
+                  <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+                    <button
+                      onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
+                      disabled={currentPageIndex === 0}
+                      className="w-6 h-6 flex items-center justify-center text-xs font-bold disabled:opacity-30"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-[10px] font-bold text-blue-400 px-1 min-w-[28px] text-center">
+                      {currentPageIndex + 1}/{totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
+                      disabled={currentPageIndex === totalPages - 1}
+                      className="w-6 h-6 flex items-center justify-center text-xs font-bold disabled:opacity-30"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {viewMode === 'sheet' && currentSheetUrl && (
                   <button
-                    onClick={() => setScale((s) => Math.max(s - 0.1, 0.5))}
-                    className="w-7 h-7 flex items-center justify-center text-xs font-bold"
+                    onClick={() => setIsDrawingMode(!isDrawingMode)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold cursor-pointer transition ${
+                      isDrawingMode
+                        ? 'bg-amber-500 text-neutral-950'
+                        : isDark
+                        ? 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+                        : 'bg-slate-100 text-slate-700 border border-slate-300'
+                    }`}
                   >
-                    -
+                    <PenTool className="w-3 h-3" />
+                    <span>{isDrawingMode ? '닫기' : '필기'}</span>
                   </button>
-                  <button
-                    onClick={() => setScale((s) => Math.min(s + 0.1, 2.0))}
-                    className="w-7 h-7 flex items-center justify-center text-xs font-bold"
-                  >
-                    +
-                  </button>
-                </div>
-              )}
+                )}
+
+                {viewMode === 'sheet' && (
+                  <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+                    <button
+                      onClick={() => setScale((s) => Math.max(s - 0.1, 0.5))}
+                      className="w-6 h-6 flex items-center justify-center text-xs font-bold"
+                    >
+                      -
+                    </button>
+                    <button
+                      onClick={() => setScale((s) => Math.min(s + 0.1, 2.0))}
+                      className="w-6 h-6 flex items-center justify-center text-xs font-bold"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </header>
 
           {viewingSong.comment && (
-            <div className={`px-4 py-2 border-b text-xs flex items-center gap-2 ${
+            <div className={`px-4 py-1.5 border-b text-[11px] sm:text-xs flex items-center gap-2 ${
               isDark ? 'bg-blue-950/40 border-blue-900/60 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
             }`}>
-              <MessageSquare className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <MessageSquare className="w-3 h-3 text-blue-500 shrink-0" />
               <span className="font-bold shrink-0">진행 순서:</span>
               <span className="truncate">{viewingSong.comment}</span>
             </div>
           )}
 
           {viewMode === 'sheet' && isDrawingMode && (
-            <div className={`flex items-center justify-between sm:justify-center gap-2 py-2 px-3 border-b overflow-x-auto text-xs no-scrollbar ${
+            <div className={`flex items-center justify-between sm:justify-center gap-2 py-1.5 px-3 border-b overflow-x-auto text-xs no-scrollbar ${
               isDark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-white/95 border-slate-200'
             }`}>
-              <div className={`flex items-center p-1 rounded-lg gap-1 border shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+              <div className={`flex items-center p-0.5 rounded-lg gap-1 border shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
                 <button
                   onClick={() => setCurrentTool('pen')}
-                  className={`px-2.5 py-1 rounded transition ${currentTool === 'pen' ? 'bg-blue-600 text-white font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
+                  className={`px-2 py-0.5 rounded text-[11px] transition ${currentTool === 'pen' ? 'bg-blue-600 text-white font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
                 >
                   펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('highlighter')}
-                  className={`px-2.5 py-1 rounded transition ${currentTool === 'highlighter' ? 'bg-yellow-500 text-black font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
+                  className={`px-2 py-0.5 rounded text-[11px] transition ${currentTool === 'highlighter' ? 'bg-yellow-500 text-black font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
                 >
                   형광펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('eraser')}
-                  className={`px-2.5 py-1 rounded transition ${currentTool === 'eraser' ? 'bg-neutral-600 text-white font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
+                  className={`px-2 py-0.5 rounded text-[11px] transition ${currentTool === 'eraser' ? 'bg-neutral-600 text-white font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
                 >
                   지우개
                 </button>
@@ -1349,7 +1357,7 @@ export default function PraiseApp() {
                     key={color}
                     onClick={() => setPenColor(color)}
                     style={{ backgroundColor: color }}
-                    className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 transition ${
+                    className={`w-3.5 h-3.5 rounded-full border-2 transition ${
                       penColor === color ? 'border-blue-400 scale-110 shadow' : 'border-transparent opacity-80'
                     }`}
                   />
@@ -1358,7 +1366,7 @@ export default function PraiseApp() {
 
               <button
                 onClick={handleClearDrawing}
-                className={`px-2.5 py-1 border rounded-lg shrink-0 ${isDark ? 'bg-neutral-800 hover:bg-red-950/80 text-red-400 border-neutral-700' : 'bg-slate-100 hover:bg-red-100 text-red-600 border-slate-300'}`}
+                className={`px-2 py-0.5 border rounded-lg text-[11px] shrink-0 ${isDark ? 'bg-neutral-800 hover:bg-red-950/80 text-red-400 border-neutral-700' : 'bg-slate-100 hover:bg-red-100 text-red-600 border-slate-300'}`}
               >
                 {currentPageIndex + 1}p 필기 초기화
               </button>
@@ -1374,8 +1382,8 @@ export default function PraiseApp() {
           }`}
         >
           {viewMode === 'lyrics' ? (
-            <div className={`w-full max-w-2xl h-full p-5 sm:p-6 rounded-2xl border flex flex-col shadow-2xl ${cardBgClass}`}>
-              <div className="flex items-center justify-between pb-3 border-b border-neutral-700/60 mb-3">
+            <div className={`w-full max-w-2xl h-full p-4 sm:p-6 rounded-2xl border flex flex-col shadow-2xl ${cardBgClass}`}>
+              <div className="flex items-center justify-between pb-2 border-b border-neutral-700/60 mb-2">
                 <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
                   <BookOpen className="w-4 h-4" />
                   찬양 가사 뷰어
@@ -1401,7 +1409,7 @@ export default function PraiseApp() {
                 value={viewingSong.lyrics || ''}
                 onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
                 placeholder="등록된 가사가 없습니다. '구글에서 가사 복사' 버튼을 눌러 가사를 복사한 뒤 여기에 붙여넣으세요."
-                className={`w-full flex-1 p-4 rounded-xl border text-sm sm:text-base font-semibold leading-relaxed sm:leading-loose focus:outline-none focus:border-purple-500 resize-none ${
+                className={`w-full flex-1 p-3 sm:p-4 rounded-xl border text-sm sm:text-base font-semibold leading-relaxed sm:leading-loose focus:outline-none focus:border-purple-500 resize-none ${
                   isDark ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                 }`}
               />
@@ -1491,7 +1499,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면 (아코디언 가사 펼치기 탑재)
+  // 2. 메인 콘티 목록 화면
   // ==========================================
   const assignedSingers = currentConti?.assignedSingers || [];
   const customNote = currentConti?.customNote || '';
@@ -1501,8 +1509,7 @@ export default function PraiseApp() {
     if (!term) return true;
     return (
       s.title.toLowerCase().includes(term) ||
-      (s.key && s.key.toLowerCase().includes(term)) ||
-      (s.lyrics && s.lyrics.toLowerCase().includes(term))
+      (s.key && s.key.toLowerCase().includes(term))
     );
   });
 
@@ -1695,7 +1702,7 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 🌟 곡 목록 리스트 (아코디언 가사 펼치기 탑재) 🌟 */}
+        {/* 곡 목록 리스트 */}
         {currentConti && (
           <div className="space-y-2.5 sm:space-y-3 relative select-none">
             {currentSongs.length === 0 ? (
@@ -1804,7 +1811,6 @@ export default function PraiseApp() {
                           </div>
                         ) : (
                           <>
-                            {/* 🌟 목록 가사 펼치기/접기 버튼 🌟 */}
                             <button
                               onClick={() => handleToggleLyricsExpand(song.id)}
                               className={`flex items-center justify-center gap-1 px-2.5 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
@@ -1860,9 +1866,8 @@ export default function PraiseApp() {
                       </div>
                     </div>
 
-                    {/* 🌟 부드럽게 펼쳐지는 아코디언 가사 본문 🌟 */}
                     {isLyricsExpanded && (
-                      <div className={`mt-1.5 p-4 rounded-2xl border transition-all duration-200 animate-fadeIn ${
+                      <div className={`mt-1.5 p-4 rounded-2xl border transition-all duration-200 ${
                         isDark ? 'bg-neutral-900/90 border-purple-900/40 text-neutral-200' : 'bg-purple-50/50 border-purple-200 text-slate-800'
                       }`}>
                         <div className="flex items-center justify-between pb-2 border-b border-purple-500/20 mb-2">
@@ -1979,7 +1984,7 @@ export default function PraiseApp() {
                 type="text"
                 value={librarySearchTerm}
                 onChange={(e) => setLibrarySearchTerm(e.target.value)}
-                placeholder="보관된 찬양 제목, Key, 가사 본문 검색"
+                placeholder="보관된 찬양 제목, Key 검색"
                 className={`w-full border rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                   isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
@@ -2500,7 +2505,7 @@ export default function PraiseApp() {
                 />
               </div>
 
-              {/* 🌟 가사 입력 및 원클릭 구글 가사 검색 🌟 */}
+              {/* 가사 입력 및 원클릭 구글 가사 검색 */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold opacity-80">찬양 가사 (선택)</label>
