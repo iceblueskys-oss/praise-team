@@ -28,6 +28,9 @@ import {
   Users,
   Mic,
   PlusCircle,
+  Search,
+  Settings,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -57,8 +60,14 @@ interface Conti {
   id: string;
   title: string;
   date: string;
-  assignedSingers?: string[]; // 이번 주 배정된 싱어 이름 목록
-  customNote?: string; // 콘티별 특이사항 메모
+  assignedSingers?: string[];
+  customNote?: string;
+}
+
+interface SearchResultItem {
+  title: string;
+  link: string;
+  thumbnail: string;
 }
 
 function getUpcomingSundayTitle(): { title: string; dateStr: string } {
@@ -87,31 +96,39 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 전체 싱어 풀(Master Singer Pool) 및 콘티 배정 상태
+  // 싱어 풀 상태
   const [masterSingers, setMasterSingers] = useState<string[]>([]);
   const [newSingerName, setNewSingerName] = useState('');
   const [isSingerModalOpen, setIsSingerModalOpen] = useState(false);
   const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState('');
 
-  // 실시간 플로팅 드래그 상태
+  // 플로팅 드래그 상태
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
-  // 곡 모달 상태
+  // 곡 추가/수정 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState('');
   const [modalKey, setModalKey] = useState('');
   const [modalBpm, setModalBpm] = useState('');
   const [modalComment, setModalComment] = useState('');
-  const [modalSheetType, setModalSheetType] = useState<'file' | 'url'>('file');
+  const [modalSheetType, setModalSheetType] = useState<'file' | 'url' | 'search'>('file');
   const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
   const [modalUrlInput, setModalUrlInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMsg, setProcessingMsg] = useState('');
+
+  // 인터넷 이미지 검색 상태
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [googleApiKey, setGoogleApiKey] = useState('');
+  const [googleSearchEngineId, setGoogleSearchEngineId] = useState('');
+  const [showApiSettings, setShowApiSettings] = useState(false);
 
   // 뷰어 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
@@ -131,6 +148,11 @@ export default function PraiseApp() {
     const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
     if (savedTheme) setTheme(savedTheme);
 
+    const savedApiKey = localStorage.getItem('google_custom_search_key') || '';
+    const savedCx = localStorage.getItem('google_custom_search_cx') || '';
+    setGoogleApiKey(savedApiKey);
+    setGoogleSearchEngineId(savedCx);
+
     if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
@@ -148,11 +170,10 @@ export default function PraiseApp() {
     localStorage.setItem('praise_app_theme', nextTheme);
   };
 
-  // 1. Firebase 실시간 콘티 / 곡 목록 / 마스터 싱어 풀 동기화
+  // 1. Firebase 실시간 동기화
   useEffect(() => {
     setMounted(true);
 
-    // 콘티 리스트
     const qContis = query(collection(db, 'contis_v2'), orderBy('date', 'desc'));
     const unsubContis = onSnapshot(qContis, (snapshot) => {
       const list: Conti[] = [];
@@ -163,7 +184,6 @@ export default function PraiseApp() {
       }
     });
 
-    // 곡 리스트
     const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
     const unsubSongs = onSnapshot(qSongs, (snapshot) => {
       const sList: SongItem[] = [];
@@ -190,7 +210,6 @@ export default function PraiseApp() {
       setAllSongs(sList);
     });
 
-    // 찬양팀 전체 싱어 명단 풀 동기화
     const unsubMasterSingers = onSnapshot(doc(db, 'settings', 'singers_pool'), (snap) => {
       if (snap.exists()) {
         setMasterSingers(snap.data()?.list || []);
@@ -243,14 +262,70 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 싱어 관리 모달 열기
+  // 인터넷 이미지 검색 실행
+  const handleSearchImages = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const queryTerm = searchQuery.trim() || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim();
+    if (!queryTerm) {
+      alert('검색할 찬양 제목을 입력해주세요.');
+      return;
+    }
+
+    if (!googleApiKey || !googleSearchEngineId) {
+      setShowApiSettings(true);
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchResults([]);
+
+    try {
+      const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(
+        googleApiKey
+      )}&cx=${encodeURIComponent(googleSearchEngineId)}&q=${encodeURIComponent(
+        queryTerm
+      )}&searchType=image&num=8`;
+
+      const res = await fetch(endpoint);
+      const data = await res.json();
+
+      if (data.items && data.items.length > 0) {
+        const mapped: SearchResultItem[] = data.items.map((item: any) => ({
+          title: item.title,
+          link: item.link,
+          thumbnail: item.image?.thumbnailLink || item.link,
+        }));
+        setSearchResults(mapped);
+      } else {
+        alert('검색 결과가 없습니다. 검색어를 변경해보세요.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('검색 중 오류가 발생했습니다. API 키와 CX를 확인해주세요.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectSearchResult = (url: string) => {
+    setModalSheetUrls([url]);
+    alert('악보 이미지가 성공적으로 선택되었습니다.');
+  };
+
+  const handleSaveApiSettings = () => {
+    localStorage.setItem('google_custom_search_key', googleApiKey.trim());
+    localStorage.setItem('google_custom_search_cx', googleSearchEngineId.trim());
+    setShowApiSettings(false);
+    alert('Google 검색 API 설정이 저장되었습니다.');
+  };
+
+  // 싱어 관리
   const handleOpenSingerModal = () => {
     setSelectedSingers(currentConti?.assignedSingers || []);
     setNoteInput(currentConti?.customNote || '');
     setIsSingerModalOpen(true);
   };
 
-  // 마스터 싱어 풀에 새 싱어 추가
   const handleAddMasterSinger = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSingerName.trim()) return;
@@ -264,7 +339,6 @@ export default function PraiseApp() {
     setNewSingerName('');
   };
 
-  // 마스터 싱어 풀에서 싱어 삭제
   const handleDeleteMasterSinger = async (name: string) => {
     if (!confirm(`'${name}' 싱어를 전체 명단에서 삭제하시겠습니까?`)) return;
     const updated = masterSingers.filter((n) => n !== name);
@@ -272,7 +346,6 @@ export default function PraiseApp() {
     setSelectedSingers((prev) => prev.filter((n) => n !== name));
   };
 
-  // 이번 주 콘티 싱어 토글 선택
   const handleToggleSinger = (name: string) => {
     if (selectedSingers.includes(name)) {
       setSelectedSingers(selectedSingers.filter((n) => n !== name));
@@ -281,7 +354,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 콘티 싱어 및 메모 저장
   const handleSaveContiSingers = async () => {
     if (!currentConti) return;
     try {
@@ -300,7 +372,7 @@ export default function PraiseApp() {
     }
   };
 
-  // 플로팅 드래그 핸들러
+  // 플로팅 드래그
   const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
     const card = targetEl.closest('[data-song-index]') as HTMLElement;
     if (card) setDragCardWidth(card.offsetWidth);
@@ -439,7 +511,7 @@ export default function PraiseApp() {
       setModalBpm(song.bpm ? String(song.bpm) : '');
       setModalComment(song.comment || '');
       const type = song.sheetType || 'file';
-      setModalSheetType(type);
+      setModalSheetType(type as any);
       if (type === 'url') {
         setModalUrlInput(song.sheetUrls?.[0] || '');
         setModalSheetUrls([]);
@@ -457,6 +529,8 @@ export default function PraiseApp() {
       setModalSheetUrls([]);
       setModalUrlInput('');
     }
+    setSearchResults([]);
+    setSearchQuery('');
     setIsProcessing(false);
     setIsModalOpen(true);
   };
@@ -602,7 +676,7 @@ export default function PraiseApp() {
         key: modalKey.trim() ? modalKey.trim() : null,
         bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
         comment: modalComment.trim(),
-        sheetType: modalSheetType,
+        sheetType: modalSheetType === 'url' ? 'url' : 'file',
         sheetUrls: finalUrls,
         order: songOrder,
       };
@@ -1035,7 +1109,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면 (싱어 관리 연동)
+  // 2. 메인 콘티 목록 화면
   // ==========================================
   const assignedSingers = currentConti?.assignedSingers || [];
   const customNote = currentConti?.customNote || '';
@@ -1108,7 +1182,7 @@ export default function PraiseApp() {
           </div>
         </div>
 
-        {/* 현재 콘티 타이틀 및 싱어 배정 관리 */}
+        {/* 현재 콘티 타이틀 및 싱어 배정 */}
         {currentConti && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between px-1">
@@ -1133,7 +1207,6 @@ export default function PraiseApp() {
               </button>
             </div>
 
-            {/* 🌟 이번 주 싱어 명단 및 메모 카드 🌟 */}
             <div className={`p-3.5 sm:p-4 rounded-2xl border transition ${cardBgClass}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold flex items-center gap-1.5 opacity-80">
@@ -1164,7 +1237,6 @@ export default function PraiseApp() {
                 <p className="text-xs opacity-60">이번 주 지정된 싱어가 없습니다.</p>
               )}
 
-              {/* 특이사항 메모 표시 */}
               {customNote && (
                 <div className="mt-2.5 pt-2 border-t border-neutral-800/60 text-xs flex items-center gap-1.5 opacity-80">
                   <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" />
@@ -1176,7 +1248,7 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 곡 목록 카드 리스트 */}
+        {/* 곡 목록 리스트 */}
         <div className="space-y-2.5 sm:space-y-3 relative select-none">
           {currentSongs.length === 0 ? (
             <div className={`text-center py-12 sm:py-16 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
@@ -1255,7 +1327,7 @@ export default function PraiseApp() {
 
                         {song.comment && (
                           <div className="flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
-                            <MessageSquare className="w-3 h-3 shrink-0" />
+                            <MessageSquare className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                             <span className="truncate">{song.comment}</span>
                           </div>
                         )}
@@ -1349,7 +1421,7 @@ export default function PraiseApp() {
         )}
       </div>
 
-      {/* 🌟 찬양팀 싱어 관리 & 주차별 지정 모달 🌟 */}
+      {/* 싱어 관리 모달 */}
       {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -1369,7 +1441,6 @@ export default function PraiseApp() {
             </div>
 
             <div className="mt-4 space-y-4 text-xs sm:text-sm">
-              {/* 1. 이번 주 싱어 선택 영역 */}
               <div>
                 <label className="block text-xs font-semibold opacity-80 mb-2">
                   이번 주 찬양 싱어 선택 (클릭하여 토글)
@@ -1404,7 +1475,6 @@ export default function PraiseApp() {
                 )}
               </div>
 
-              {/* 2. 전체 싱어 풀(Master Singer Pool) 등록 & 삭제 */}
               <div className={`p-3 rounded-2xl border space-y-2.5 ${isDark ? 'bg-neutral-800/50 border-neutral-800' : 'bg-slate-50 border-slate-200'}`}>
                 <span className="text-xs font-bold block opacity-90">찬양팀 싱어 전체 명단 관리</span>
                 
@@ -1451,7 +1521,6 @@ export default function PraiseApp() {
                 )}
               </div>
 
-              {/* 3. 콘티 특이사항 메모 */}
               <div>
                 <label className="block text-xs font-semibold opacity-80 mb-1">
                   이번 주 콘티 특이사항 메모
@@ -1488,10 +1557,10 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 모달 (곡 추가/수정) */}
+      {/* 🌟 모달 (곡 추가/수정 & 3-in-1 악보 등록 지원) 🌟 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
+          <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             <div className={`flex items-center justify-between pb-3 sm:pb-4 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
@@ -1569,13 +1638,14 @@ export default function PraiseApp() {
                 />
               </div>
 
+              {/* 🌟 3-in-1 악보 등록 방식 탭 🌟 */}
               <div>
                 <label className="block text-xs font-semibold opacity-80 mb-1.5">악보 등록 방식</label>
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-1.5 mb-3">
                   <button
                     type="button"
                     onClick={() => setModalSheetType('file')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition ${
                       modalSheetType === 'file'
                         ? 'bg-blue-600 border-blue-500 text-white'
                         : isDark
@@ -1583,13 +1653,13 @@ export default function PraiseApp() {
                         : 'bg-slate-100 border-slate-300 text-slate-600'
                     }`}
                   >
-                    <FileText className="w-4 h-4" />
-                    파일 (이미지/PDF)
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>파일 첨부</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setModalSheetType('url')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition ${
                       modalSheetType === 'url'
                         ? 'bg-blue-600 border-blue-500 text-white'
                         : isDark
@@ -1597,12 +1667,32 @@ export default function PraiseApp() {
                         : 'bg-slate-100 border-slate-300 text-slate-600'
                     }`}
                   >
-                    <LinkIcon className="w-4 h-4" />
-                    웹 링크 (URL)
+                    <LinkIcon className="w-3.5 h-3.5" />
+                    <span>웹 링크</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalSheetType('search');
+                      if (!searchQuery && modalTitle) {
+                        setSearchQuery(`${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim());
+                      }
+                    }}
+                    className={`flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition ${
+                      modalSheetType === 'search'
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : isDark
+                        ? 'bg-neutral-800 border-neutral-700 text-neutral-400'
+                        : 'bg-slate-100 border-slate-300 text-slate-600'
+                    }`}
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>인터넷 검색</span>
                   </button>
                 </div>
 
-                {modalSheetType === 'file' ? (
+                {/* 1. 파일 첨부 모드 */}
+                {modalSheetType === 'file' && (
                   <div className="space-y-2">
                     {modalSheetUrls.length > 0 && (
                       <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-xl max-h-48 overflow-y-auto ${isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-200'}`}>
@@ -1647,20 +1737,131 @@ export default function PraiseApp() {
                       </span>
                     )}
                   </div>
-                ) : (
+                )}
+
+                {/* 2. 웹 링크 입력 모드 */}
+                {modalSheetType === 'url' && (
                   <div>
                     <input
                       type="url"
                       value={modalUrlInput}
                       onChange={(e) => setModalUrlInput(e.target.value)}
-                      placeholder="https://example.com/score.png 또는 악보 링크"
+                      placeholder="https://example.com/score.png 또는 구글 드라이브 링크"
                       className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                         isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                       }`}
                     />
                     <span className="text-[11px] opacity-60 block mt-1.5">
-                      구글 드라이브, 이미지 링크, 악보 웹페이지 URL을 붙여넣으세요.
+                      구글 드라이브 공유 링크나 악보 이미지 주소를 붙여넣으세요.
                     </span>
+                  </div>
+                )}
+
+                {/* 3. 인터넷 악보 검색 모드 */}
+                {modalSheetType === 'search' && (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="예: 꽃들도 C Key 악보"
+                        className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                          isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSearchImages()}
+                        disabled={isSearching}
+                        className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1 shrink-0"
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                        <span>{isSearching ? '검색 중...' : '검색'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowApiSettings(!showApiSettings)}
+                        className={`p-2 border rounded-xl transition ${subCardBg}`}
+                        title="Google Custom Search API 설정"
+                      >
+                        <Settings className="w-4 h-4 text-neutral-400" />
+                      </button>
+                    </div>
+
+                    {/* Google API 설정 서브 패널 */}
+                    {showApiSettings && (
+                      <div className={`p-3 rounded-2xl border space-y-2 text-xs ${isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+                        <span className="font-bold block text-blue-500">Google Custom Search API 설정</span>
+                        <div>
+                          <label className="block text-[11px] opacity-70 mb-0.5">Google API Key</label>
+                          <input
+                            type="password"
+                            value={googleApiKey}
+                            onChange={(e) => setGoogleApiKey(e.target.value)}
+                            placeholder="AIzaSy..."
+                            className={`w-full border rounded-lg px-2.5 py-1.5 text-xs ${
+                              isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] opacity-70 mb-0.5">Search Engine ID (CX)</label>
+                          <input
+                            type="text"
+                            value={googleSearchEngineId}
+                            onChange={(e) => setGoogleSearchEngineId(e.target.value)}
+                            placeholder="a1b2c3d4..."
+                            className={`w-full border rounded-lg px-2.5 py-1.5 text-xs ${
+                              isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                            }`}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleSaveApiSettings}
+                          className="w-full py-1.5 bg-blue-600 text-white font-bold rounded-lg text-xs"
+                        >
+                          설정 저장하기
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 검색 결과 썸네일 리스트 */}
+                    {searchResults.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] opacity-70 block">원하는 악보를 클릭하면 등록됩니다:</span>
+                        <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 border rounded-xl max-h-48 overflow-y-auto ${
+                          isDark ? 'bg-neutral-800/60 border-neutral-700' : 'bg-slate-50 border-slate-200'
+                        }`}>
+                          {searchResults.map((item, index) => (
+                            <div
+                              key={index}
+                              onClick={() => handleSelectSearchResult(item.link)}
+                              className="relative group border border-neutral-700 rounded-lg p-1 flex flex-col items-center cursor-pointer hover:border-blue-500 hover:scale-105 transition bg-white"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.thumbnail}
+                                alt={item.title}
+                                className="w-full h-16 object-contain rounded"
+                              />
+                              <span className="text-[10px] text-neutral-800 truncate w-full text-center mt-1">
+                                {item.title}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 선택된 악보 미리보기 */}
+                    {modalSheetUrls.length > 0 && (
+                      <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-xl text-xs text-blue-400">
+                        <ImageIcon className="w-4 h-4 shrink-0" />
+                        <span className="truncate">선택된 악보: {modalSheetUrls[0]}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
