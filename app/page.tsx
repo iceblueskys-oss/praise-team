@@ -121,60 +121,12 @@ function formatImageUrl(url: string): string {
   return trimmed;
 }
 
-// 악보 이미지 고대비 흑백 전처리
-function preprocessSheetImage(imageSrc: string): Promise<string> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(imageSrc);
-          return;
-        }
-
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-
-        ctx.drawImage(img, 0, 0);
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imgData.data;
-
-        for (let i = 0; i < d.length; i += 4) {
-          const r = d[i];
-          const g = d[i + 1];
-          const b = d[i + 2];
-          let gray = 0.299 * r + 0.587 * g + 0.114 * b;
-          
-          if (gray > 165) {
-            gray = 255;
-          } else {
-            gray = gray * 0.7;
-          }
-
-          d[i] = gray;
-          d[i + 1] = gray;
-          d[i + 2] = gray;
-        }
-
-        ctx.putImageData(imgData, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } catch (e) {
-        resolve(imageSrc);
-      }
-    };
-    img.onerror = () => resolve(imageSrc);
-    img.src = imageSrc;
-  });
-}
-
-// 악보 가사 노이즈 필터링
+// 🌟 악보 가사 특화 스마트 정제 함수 🌟
 function cleanSheetMusicLyrics(rawText: string): string {
   if (!rawText) return '';
 
   const chordRegex = /\b[A-G](#|b)?(m|maj|dim|aug|sus|add|M)?[0-9]?(\/[A-G](#|b)?)?\b/g;
+
   const lines = rawText.split('\n');
   const cleanedLines: string[] = [];
 
@@ -182,19 +134,27 @@ function cleanSheetMusicLyrics(rawText: string): string {
     let l = line.trim();
     if (!l) continue;
 
+    // 1. 단독 코드 라인 제외
     const words = l.split(/\s+/);
-    const chordCount = words.filter((w) => chordRegex.test(w) || /^[A-G]$/.test(w)).length;
-    if (words.length > 0 && chordCount / words.length >= 0.6) {
+    const chordMatches = words.filter((w) => chordRegex.test(w) || /^[A-G]$/.test(w));
+    if (words.length > 0 && chordMatches.length / words.length >= 0.7) {
       continue;
     }
 
+    // 2. 오선지 및 마디선 잡음 제거
     l = l.replace(/[|│┃_—=\-~`'"*^·#]+/g, ' ');
-    l = l.replace(/\b[0-9]{1,2}\/[0-9]{1,2}\b/g, '');
+    l = l.replace(/\b[0-9]{1,2}\/[0-9]{1,2}\b/g, ''); // 박자표 제거
     l = l.replace(/\b(Intro|Verse|Chorus|Bridge|Interlude|Outro|Ending)\b/gi, '');
-    l = l.replace(/\b[a-zA-Z]\b/g, '');
-    l = l.replace(/\b[ㄱ-ㅎㅏ-ㅣ]\b/g, '');
+
+    // 3. 한 글자씩 띄어쓰기된 가사 이어붙이기 (예: "하 나 님 의" -> "하나님의")
+    l = l.replace(/([가-힣])\s+([가-힣])\s+([가-힣])\s+([가-힣])/g, '$1$2$3$4');
+    l = l.replace(/([가-힣])\s+([가-힣])\s+([가-힣])/g, '$1$2$3');
+    l = l.replace(/([가-힣])\s+([가-힣])/g, '$1$2');
+
+    // 4. 다중 공백 정리
     l = l.replace(/\s+/g, ' ').trim();
 
+    // 5. 의미 있는 한글/영문 가사 라인만 유지
     if (l.length >= 2 && /[가-힣a-zA-Z0-9]/.test(l)) {
       cleanedLines.push(l);
     }
@@ -224,7 +184,7 @@ export default function PraiseApp() {
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
 
-  // 🌟 가사 추출(OCR) 진행률 및 모달 상태 🌟
+  // 가사 추출(OCR) 모달 상태
   const [isLyricsModalOpen, setIsLyricsModalOpen] = useState(false);
   const [extractedLyrics, setExtractedLyrics] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
@@ -465,9 +425,9 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 🌟 실시간 프로그레스 바가 연동된 가사 OCR 추출 함수 🌟
+  // 🌟 원본 품질 보존 가사 OCR 추출 🌟
   const handleExtractLyricsFromImage = async (imageUrl: string) => {
-    if (isExtracting) return; // 이미 진행 중일 때 중복 실행 차단
+    if (isExtracting) return;
 
     const Tesseract = (window as any).Tesseract;
     if (!Tesseract) {
@@ -480,33 +440,30 @@ export default function PraiseApp() {
     }
 
     setIsExtracting(true);
-    setOcrProgressPercent(10);
-    setOcrProgressMsg('악보 이미지 선명화 및 노이즈 제거 전처리 중...');
+    setOcrProgressPercent(15);
+    setOcrProgressMsg('악보 이미지 로딩 및 한국어 AI 엔진 준비 중...');
     setIsLyricsModalOpen(true);
 
     try {
-      const preprocessedUrl = await preprocessSheetImage(imageUrl);
-      setOcrProgressPercent(30);
-      setOcrProgressMsg('한글/영문 가사 인식 AI 엔진 구동 중...');
-
-      const worker = await Tesseract.createWorker('kor+eng', 1, {
+      const worker = await Tesseract.createWorker('kor+kor_vert', 1, {
         logger: (m: any) => {
           if (m.status === 'recognizing text') {
             const pct = Math.round((m.progress || 0) * 100);
-            setOcrProgressPercent(30 + Math.round(pct * 0.65)); // 30% ~ 95% 구간
+            setOcrProgressPercent(15 + Math.round(pct * 0.8));
             setOcrProgressMsg(`가사 분석 및 텍스트 변환 중... (${pct}%)`);
           }
         },
       });
 
-      const ret = await worker.recognize(preprocessedUrl);
-      setOcrProgressPercent(98);
-      setOcrProgressMsg('가사 스마트 노이즈 필터링 정리 중...');
+      // 왜곡 없이 고해상도 원본 이미지 그대로 인식 수행
+      const ret = await worker.recognize(imageUrl);
+      setOcrProgressPercent(96);
+      setOcrProgressMsg('가사 띄어쓰기 및 노이즈 보정 중...');
 
       await worker.terminate();
 
       const cleaned = cleanSheetMusicLyrics(ret.data.text);
-      setExtractedLyrics(cleaned || '추출된 가사가 없습니다. 악보 이미지 상태를 확인해주세요.');
+      setExtractedLyrics(cleaned || ret.data.text || '추출된 가사가 없습니다.');
       setOcrProgressPercent(100);
     } catch (err) {
       console.error(err);
@@ -518,11 +475,12 @@ export default function PraiseApp() {
     }
   };
 
+  // 🌟 스마트 재정제 버튼 동작 (가사 띄어쓰기 결합 & 잡음 정리) 🌟
   const handleAutoCleanCurrentLyrics = () => {
     if (!extractedLyrics) return;
     const recleaned = cleanSheetMusicLyrics(extractedLyrics);
     setExtractedLyrics(recleaned);
-    alert('가사 노이즈 및 공백이 스마트 정제되었습니다.');
+    alert('가사 띄어쓰기 및 악보 잡음이 정리되었습니다.');
   };
 
   const handleCopyLyrics = () => {
@@ -1267,8 +1225,101 @@ export default function PraiseApp() {
   const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
+  // 🌟 가사 추출 결과 팝업 오버레이 (z-[60] 최상단 레이어) 🌟
+  const LyricsModalElement = isLyricsModalOpen && (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className={`rounded-2xl w-full max-w-md p-5 shadow-2xl border flex flex-col max-h-[85vh] ${
+        isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+      }`}>
+        <div className={`flex items-center justify-between pb-3 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+          <h2 className="text-sm sm:text-base font-bold flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            악보 가사 추출 & 스마트 보정
+          </h2>
+          <button 
+            onClick={() => setIsLyricsModalOpen(false)} 
+            disabled={isExtracting}
+            className="p-1 opacity-70 hover:opacity-100 rounded-lg disabled:opacity-30"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="mt-3 flex-1 flex flex-col min-h-0">
+          {isExtracting ? (
+            <div className="py-10 flex flex-col items-center justify-center gap-3.5 text-center px-4">
+              <div className="relative">
+                <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-purple-300">
+                  {ocrProgressPercent}%
+                </span>
+              </div>
+
+              <div className="w-full bg-neutral-800 rounded-full h-2 overflow-hidden border border-neutral-700">
+                <div 
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-full transition-all duration-300 ease-out"
+                  style={{ width: `${ocrProgressPercent}%` }}
+                />
+              </div>
+
+              <p className="text-xs font-bold text-purple-300 animate-pulse">{ocrProgressMsg || '가사 분석 중...'}</p>
+              <p className="text-[11px] opacity-50 leading-relaxed">
+                원본 해상도를 유지하며 한국어 AI 엔진으로 가사를 읽어내는 중입니다.
+              </p>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col space-y-2 min-h-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] opacity-70">
+                  추출 및 보정된 가사입니다 (직접 수정 가능):
+                </p>
+                <button
+                  type="button"
+                  onClick={handleAutoCleanCurrentLyrics}
+                  className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                  title="벌어진 띄어쓰기 결합 및 노이즈 재정제"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  <span>스마트 띄어쓰기 정제</span>
+                </button>
+              </div>
+              <textarea
+                value={extractedLyrics}
+                onChange={(e) => setExtractedLyrics(e.target.value)}
+                rows={10}
+                className={`w-full flex-1 p-3 rounded-xl border text-xs sm:text-sm font-medium leading-relaxed focus:outline-none focus:border-purple-500 resize-none ${
+                  isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                }`}
+              />
+            </div>
+          )}
+        </div>
+
+        {!isExtracting && (
+          <div className="flex gap-2 pt-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsLyricsModalOpen(false)}
+              className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
+            >
+              닫기
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyLyrics}
+              className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xs text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-1.5"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>가사 전체 복사</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // ==========================================
-  // 1. 악보 뷰어 화면 (로딩 상태 실시간 피드백 탑재)
+  // 1. 악보 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1338,7 +1389,6 @@ export default function PraiseApp() {
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {/* 🌟 가사 추출 버튼 (추출 중 스피너 표시 및 중복 클릭 방지) 🌟 */}
               {currentSheetUrl && (
                 <button
                   onClick={() => handleExtractLyricsFromImage(currentSheetUrl)}
@@ -1565,6 +1615,8 @@ export default function PraiseApp() {
             </button>
           </div>
         </footer>
+
+        {LyricsModalElement}
       </div>
     );
   }
@@ -1957,99 +2009,7 @@ export default function PraiseApp() {
         )}
       </div>
 
-      {/* 🌟 가사 추출 모달 (실시간 프로그레스 바 & 스마트 정제) 🌟 */}
-      {isLyricsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-2xl w-full max-w-md p-5 shadow-2xl border flex flex-col max-h-[85vh] ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
-          }`}>
-            <div className={`flex items-center justify-between pb-3 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-sm sm:text-base font-bold flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-400" />
-                악보 가사 추출 & 스마트 보정
-              </h2>
-              <button 
-                onClick={() => setIsLyricsModalOpen(false)} 
-                disabled={isExtracting}
-                className="p-1 opacity-70 hover:opacity-100 rounded-lg disabled:opacity-30"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="mt-3 flex-1 flex flex-col min-h-0">
-              {isExtracting ? (
-                <div className="py-10 flex flex-col items-center justify-center gap-3.5 text-center px-4">
-                  <div className="relative">
-                    <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-purple-300">
-                      {ocrProgressPercent}%
-                    </span>
-                  </div>
-
-                  {/* 🌟 실시간 퍼센트 게이지 바 🌟 */}
-                  <div className="w-full bg-neutral-800 rounded-full h-2 overflow-hidden border border-neutral-700">
-                    <div 
-                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-full transition-all duration-300 ease-out"
-                      style={{ width: `${ocrProgressPercent}%` }}
-                    />
-                  </div>
-
-                  <p className="text-xs font-bold text-purple-300 animate-pulse">{ocrProgressMsg || '가사 분석 중...'}</p>
-                  <p className="text-[11px] opacity-50 leading-relaxed">
-                    악보 이미지를 흑백 고대비로 변환하고 오선지/코드 노이즈를 걸러내는 중입니다.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col space-y-2 min-h-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] opacity-70">
-                      추출 및 보정된 가사입니다 (수정 가능):
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleAutoCleanCurrentLyrics}
-                      className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                      title="남은 코드나 특수문자 잔상 한 번 더 정리"
-                    >
-                      <Wand2 className="w-3 h-3" />
-                      <span>스마트 재정제</span>
-                    </button>
-                  </div>
-                  <textarea
-                    value={extractedLyrics}
-                    onChange={(e) => setExtractedLyrics(e.target.value)}
-                    rows={10}
-                    className={`w-full flex-1 p-3 rounded-xl border text-xs sm:text-sm font-medium leading-relaxed focus:outline-none focus:border-purple-500 resize-none ${
-                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
-                  />
-                </div>
-              )}
-            </div>
-
-            {!isExtracting && (
-              <div className="flex gap-2 pt-3 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsLyricsModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
-                >
-                  닫기
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopyLyrics}
-                  className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xs text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-1.5"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>가사 전체 복사</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {LyricsModalElement}
 
       {/* 찬양 보관소 모달 */}
       {isLibraryModalOpen && (
