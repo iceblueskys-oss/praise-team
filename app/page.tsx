@@ -26,7 +26,9 @@ import {
   Users,
   Mic,
   PlusCircle,
-  Upload,
+  Link as LinkIcon,
+  Globe,
+  Search,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -77,6 +79,19 @@ function getUpcomingSundayTitle(): { title: string; dateStr: string } {
   };
 }
 
+// 구글 드라이브 링크나 일반 웹 URL을 직접 로딩 가능한 이미지 URL로 정제
+function formatImageUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (trimmed.includes('drive.google.com')) {
+    const match = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    }
+  }
+  return trimmed;
+}
+
 export default function PraiseApp() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -105,7 +120,9 @@ export default function PraiseApp() {
   const [modalKey, setModalKey] = useState('');
   const [modalBpm, setModalBpm] = useState('');
   const [modalComment, setModalComment] = useState('');
+  const [modalSheetType, setModalSheetType] = useState<'file' | 'url'>('file');
   const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
+  const [modalUrlInput, setModalUrlInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMsg, setProcessingMsg] = useState('');
 
@@ -203,7 +220,7 @@ export default function PraiseApp() {
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
-  // 2. 필기 동기화
+  // 2. 필기 실시간 동기화
   useEffect(() => {
     if (!viewingSong) return;
 
@@ -234,6 +251,20 @@ export default function PraiseApp() {
 
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
+
+  // 외부 검색창 열기
+  const handleOpenSearchWeb = (engine: 'google' | 'daum') => {
+    const term = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim();
+    if (!modalTitle.trim()) {
+      alert('곡 제목을 먼저 입력해주세요.');
+      return;
+    }
+    const url =
+      engine === 'google'
+        ? `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(term)}`
+        : `https://search.daum.net/search?w=img&q=${encodeURIComponent(term)}`;
+    window.open(url, '_blank');
+  };
 
   // 싱어 관리
   const handleOpenSingerModal = () => {
@@ -288,7 +319,7 @@ export default function PraiseApp() {
     }
   };
 
-  // 드래그 앤 드롭
+  // 플로팅 드래그
   const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
     const card = targetEl.closest('[data-song-index]') as HTMLElement;
     if (card) setDragCardWidth(card.offsetWidth);
@@ -427,13 +458,17 @@ export default function PraiseApp() {
       setModalBpm(song.bpm ? String(song.bpm) : '');
       setModalComment(song.comment || '');
       setModalSheetUrls(song.sheetUrls || []);
+      setModalSheetType(song.sheetUrls?.[0]?.startsWith('http') ? 'url' : 'file');
+      setModalUrlInput(song.sheetUrls?.[0]?.startsWith('http') ? song.sheetUrls[0] : '');
     } else {
       setEditingSongId(null);
       setModalTitle('');
       setModalKey('');
       setModalBpm('');
       setModalComment('');
+      setModalSheetType('file');
       setModalSheetUrls([]);
+      setModalUrlInput('');
     }
     setIsProcessing(false);
     setIsModalOpen(true);
@@ -560,6 +595,15 @@ export default function PraiseApp() {
         setSelectedContiId(activeContiId);
       }
 
+      // 파일 업로드 또는 링크 입력된 URL을 하나로 일원화
+      let finalSheets: string[] = [];
+      if (modalSheetType === 'url') {
+        const formatted = formatImageUrl(modalUrlInput);
+        if (formatted) finalSheets = [formatted];
+      } else {
+        finalSheets = modalSheetUrls;
+      }
+
       const songDocId = editingSongId || `song_${Date.now()}`;
       const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order)) : 0;
       const songOrder = editingSongId
@@ -573,7 +617,7 @@ export default function PraiseApp() {
         key: modalKey.trim() ? modalKey.trim() : null,
         bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
         comment: modalComment.trim(),
-        sheetUrls: modalSheetUrls,
+        sheetUrls: finalSheets,
         order: songOrder,
       };
 
@@ -712,7 +756,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 뷰어 화면 (모든 악보에 필기/줌 100% 지원)
+  // 1. 악보 뷰어 화면 (모든 악보에 필기/줌 100% 동일 제공)
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -725,7 +769,6 @@ export default function PraiseApp() {
           isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-200 text-slate-900'
         }`}
       >
-        {/* 상단 헤더 */}
         <div className="shrink-0 z-40 w-full flex flex-col shadow-md">
           <header className={`flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 border-b gap-2 ${
             isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200'
@@ -834,7 +877,6 @@ export default function PraiseApp() {
             </div>
           </header>
 
-          {/* 진행 순서 및 연주 메모 바 */}
           {viewingSong.comment && (
             <div className={`px-4 py-2 border-b text-xs flex items-center gap-2 ${
               isDark ? 'bg-blue-950/40 border-blue-900/60 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
@@ -845,7 +887,6 @@ export default function PraiseApp() {
             </div>
           )}
 
-          {/* 필기 서브 툴바 */}
           {isDrawingMode && (
             <div className={`flex items-center justify-between sm:justify-center gap-2 py-2 px-3 border-b overflow-x-auto text-xs no-scrollbar ${
               isDark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-white/95 border-slate-200'
@@ -894,7 +935,7 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 악보 본문 캔버스 */}
+        {/* 악보 본문 캔버스 (링크 악보도 똑같이 렌더링) */}
         <main
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
           className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${
@@ -903,8 +944,8 @@ export default function PraiseApp() {
         >
           {!currentSheetUrl ? (
             <div className={`text-center p-6 border rounded-2xl max-w-xs ${cardBgClass}`}>
-              <p className="font-bold text-sm mb-1">등록된 악보 파일이 없습니다.</p>
-              <p className="text-xs opacity-70">수정 버튼을 눌러 악보 이미지나 PDF를 등록해주세요.</p>
+              <p className="font-bold text-sm mb-1">등록된 악보가 없습니다.</p>
+              <p className="text-xs opacity-70">수정 버튼을 눌러 악보 파일 또는 링크를 등록해주세요.</p>
             </div>
           ) : (
             <div
@@ -938,7 +979,6 @@ export default function PraiseApp() {
           )}
         </main>
 
-        {/* 하단 고정 컨트롤 바 */}
         <footer className="fixed bottom-0 inset-x-0 z-40 flex justify-center items-center pb-[max(env(safe-area-inset-bottom),16px)] pt-2 px-4 pointer-events-none bg-gradient-to-t from-black/80 via-black/40 to-transparent">
           <div className="pointer-events-auto flex items-center gap-2 sm:gap-3 p-1.5 rounded-full backdrop-blur-xl border shadow-2xl bg-neutral-900/90 border-neutral-700/80">
             <button
@@ -1427,7 +1467,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 모달 (곡 추가/수정 - 파일 첨부 전용) */}
+      {/* 모달 (곡 추가/수정 & 2가지 방식 악보 등록) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -1508,57 +1548,122 @@ export default function PraiseApp() {
                 />
               </div>
 
-              {/* 악보 파일 업로드 영역 */}
+              {/* 악보 등록 방식 선택 */}
               <div>
-                <label className="block text-xs font-semibold opacity-80 mb-1.5 flex items-center gap-1.5">
-                  <Upload className="w-3.5 h-3.5 text-blue-500" />
-                  악보 파일 등록 (이미지 또는 PDF)
-                </label>
-                
-                <div className="space-y-2">
-                  {modalSheetUrls.length > 0 && (
-                    <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-xl max-h-48 overflow-y-auto ${isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-200'}`}>
-                      {modalSheetUrls.map((url, index) => (
-                        <div key={index} className={`relative group border rounded-lg p-1 flex flex-col items-center ${isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-slate-300'}`}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={url}
-                            alt={`${index + 1}p`}
-                            className="w-full h-16 object-contain rounded bg-white"
-                          />
-                          <span className="text-[10px] font-bold opacity-80 mt-1">
-                            {index + 1} 페이지
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSheetPage(index)}
-                            className="absolute -top-1.5 -right-1.5 p-1 bg-red-600 hover:bg-red-500 text-white rounded-full shadow"
-                            title="이 페이지 삭제"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf,.pdf"
-                    multiple
-                    onChange={handleFileChange}
-                    className={`w-full text-xs file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 cursor-pointer ${
-                      isDark
-                        ? 'text-neutral-400 file:bg-neutral-800 file:text-neutral-200'
-                        : 'text-slate-600 file:bg-slate-200 file:text-slate-800'
+                <label className="block text-xs font-semibold opacity-80 mb-1.5">악보 등록 방식</label>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setModalSheetType('file')}
+                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border transition ${
+                      modalSheetType === 'file'
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : isDark
+                        ? 'bg-neutral-800 border-neutral-700 text-neutral-400'
+                        : 'bg-slate-100 border-slate-300 text-slate-600'
                     }`}
-                  />
-                  {isProcessing && (
-                    <span className="text-xs text-blue-500 block animate-pulse">
-                      {processingMsg || '악보 처리 중...'}
-                    </span>
-                  )}
+                  >
+                    <FileText className="w-4 h-4" />
+                    파일 첨부 (이미지/PDF)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalSheetType('url')}
+                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border transition ${
+                      modalSheetType === 'url'
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : isDark
+                        ? 'bg-neutral-800 border-neutral-700 text-neutral-400'
+                        : 'bg-slate-100 border-slate-300 text-slate-600'
+                    }`}
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                    악보 주소 / 드라이브 링크
+                  </button>
                 </div>
+
+                {modalSheetType === 'file' ? (
+                  <div className="space-y-2">
+                    {modalSheetUrls.length > 0 && (
+                      <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-xl max-h-48 overflow-y-auto ${isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-200'}`}>
+                        {modalSheetUrls.map((url, index) => (
+                          <div key={index} className={`relative group border rounded-lg p-1 flex flex-col items-center ${isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-slate-300'}`}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`${index + 1}p`}
+                              className="w-full h-16 object-contain rounded bg-white"
+                            />
+                            <span className="text-[10px] font-bold opacity-80 mt-1">
+                              {index + 1} 페이지
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSheetPage(index)}
+                              className="absolute -top-1.5 -right-1.5 p-1 bg-red-600 hover:bg-red-500 text-white rounded-full shadow"
+                              title="이 페이지 삭제"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf,.pdf"
+                      multiple
+                      onChange={handleFileChange}
+                      className={`w-full text-xs file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 cursor-pointer ${
+                        isDark
+                          ? 'text-neutral-400 file:bg-neutral-800 file:text-neutral-200'
+                          : 'text-slate-600 file:bg-slate-200 file:text-slate-800'
+                      }`}
+                    />
+                    {isProcessing && (
+                      <span className="text-xs text-blue-500 block animate-pulse">
+                        {processingMsg || '악보 처리 중...'}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenSearchWeb('google')}
+                        className="flex-1 py-2 px-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-400 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>구글 악보 찾기 ↗</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenSearchWeb('daum')}
+                        className="flex-1 py-2 px-2.5 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-400 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                        <span>다음 악보 찾기 ↗</span>
+                      </button>
+                    </div>
+
+                    <div>
+                      <input
+                        type="url"
+                        value={modalUrlInput}
+                        onChange={(e) => setModalUrlInput(e.target.value)}
+                        placeholder="구글 드라이브 링크 또는 이미지 주소 붙여넣기"
+                        className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                          isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                        }`}
+                      />
+                      <span className="text-[11px] opacity-60 block mt-1.5">
+                        링크로 등록해도 파일 첨부와 똑같이 <b>필기/줌/넘김</b>이 완벽 지원됩니다.
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 pt-3">
