@@ -26,7 +26,8 @@ import {
   GripVertical,
   Check,
   Users,
-  UserCheck,
+  Mic,
+  PlusCircle,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -52,25 +53,12 @@ interface SongItem {
   order: number;
 }
 
-interface Servants {
-  leader?: string; // 예배 인도
-  prayer?: string; // 대표 기도
-  preacher?: string; // 말씀/설교
-  praiseLeader?: string; // 찬양 인도
-  mainKeys?: string; // 메인 건반
-  subKeys?: string; // 세컨 건반/신디
-  acoustic?: string; // 기타/베이스
-  drums?: string; // 드럼
-  singers?: string; // 싱어
-  media?: string; // 음향/자막/방송
-  customNote?: string; // 기타 안내
-}
-
 interface Conti {
   id: string;
   title: string;
   date: string;
-  servants?: Servants;
+  assignedSingers?: string[]; // 이번 주 배정된 싱어 이름 목록
+  customNote?: string; // 콘티별 특이사항 메모
 }
 
 function getUpcomingSundayTitle(): { title: string; dateStr: string } {
@@ -99,9 +87,12 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 임사자 관리 모달 상태
-  const [isServantsModalOpen, setIsServantsModalOpen] = useState(false);
-  const [servantsInput, setServantsInput] = useState<Servants>({});
+  // 전체 싱어 풀(Master Singer Pool) 및 콘티 배정 상태
+  const [masterSingers, setMasterSingers] = useState<string[]>([]);
+  const [newSingerName, setNewSingerName] = useState('');
+  const [isSingerModalOpen, setIsSingerModalOpen] = useState(false);
+  const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
+  const [noteInput, setNoteInput] = useState('');
 
   // 실시간 플로팅 드래그 상태
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
@@ -109,7 +100,7 @@ export default function PraiseApp() {
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
-  // 곡 추가/수정 모달 상태
+  // 곡 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState('');
@@ -157,9 +148,11 @@ export default function PraiseApp() {
     localStorage.setItem('praise_app_theme', nextTheme);
   };
 
+  // 1. Firebase 실시간 콘티 / 곡 목록 / 마스터 싱어 풀 동기화
   useEffect(() => {
     setMounted(true);
 
+    // 콘티 리스트
     const qContis = query(collection(db, 'contis_v2'), orderBy('date', 'desc'));
     const unsubContis = onSnapshot(qContis, (snapshot) => {
       const list: Conti[] = [];
@@ -170,6 +163,7 @@ export default function PraiseApp() {
       }
     });
 
+    // 곡 리스트
     const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
     const unsubSongs = onSnapshot(qSongs, (snapshot) => {
       const sList: SongItem[] = [];
@@ -196,9 +190,17 @@ export default function PraiseApp() {
       setAllSongs(sList);
     });
 
+    // 찬양팀 전체 싱어 명단 풀 동기화
+    const unsubMasterSingers = onSnapshot(doc(db, 'settings', 'singers_pool'), (snap) => {
+      if (snap.exists()) {
+        setMasterSingers(snap.data()?.list || []);
+      }
+    });
+
     return () => {
       unsubContis();
       unsubSongs();
+      unsubMasterSingers();
     };
   }, []);
 
@@ -209,6 +211,7 @@ export default function PraiseApp() {
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
+  // 2. 필기 동기화
   useEffect(() => {
     if (!viewingSong || viewingSong.sheetType === 'url') return;
 
@@ -240,27 +243,60 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 임사자 수정 모달 열기
-  const handleOpenServantsModal = () => {
-    setServantsInput(currentConti?.servants || {});
-    setIsServantsModalOpen(true);
+  // 싱어 관리 모달 열기
+  const handleOpenSingerModal = () => {
+    setSelectedSingers(currentConti?.assignedSingers || []);
+    setNoteInput(currentConti?.customNote || '');
+    setIsSingerModalOpen(true);
   };
 
-  // 임사자 정보 저장
-  const handleSaveServants = async (e: React.FormEvent) => {
+  // 마스터 싱어 풀에 새 싱어 추가
+  const handleAddMasterSinger = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentConti) return;
+    if (!newSingerName.trim()) return;
+    const name = newSingerName.trim();
+    if (masterSingers.includes(name)) {
+      alert('이미 등록된 싱어입니다.');
+      return;
+    }
+    const updated = [...masterSingers, name];
+    await setDoc(doc(db, 'settings', 'singers_pool'), { list: updated });
+    setNewSingerName('');
+  };
 
+  // 마스터 싱어 풀에서 싱어 삭제
+  const handleDeleteMasterSinger = async (name: string) => {
+    if (!confirm(`'${name}' 싱어를 전체 명단에서 삭제하시겠습니까?`)) return;
+    const updated = masterSingers.filter((n) => n !== name);
+    await setDoc(doc(db, 'settings', 'singers_pool'), { list: updated });
+    setSelectedSingers((prev) => prev.filter((n) => n !== name));
+  };
+
+  // 이번 주 콘티 싱어 토글 선택
+  const handleToggleSinger = (name: string) => {
+    if (selectedSingers.includes(name)) {
+      setSelectedSingers(selectedSingers.filter((n) => n !== name));
+    } else {
+      setSelectedSingers([...selectedSingers, name]);
+    }
+  };
+
+  // 콘티 싱어 및 메모 저장
+  const handleSaveContiSingers = async () => {
+    if (!currentConti) return;
     try {
       await setDoc(
         doc(db, 'contis_v2', currentConti.id),
-        { servants: servantsInput },
+        {
+          assignedSingers: selectedSingers,
+          customNote: noteInput.trim(),
+        },
         { merge: true }
       );
-      setIsServantsModalOpen(false);
+      setIsSingerModalOpen(false);
     } catch (err) {
       console.error(err);
-      alert('임사자 정보 저장 실패');
+      alert('싱어 저장 실패');
     }
   };
 
@@ -371,7 +407,8 @@ export default function PraiseApp() {
       id: newId,
       title: title.trim(),
       date: dateStr,
-      servants: {},
+      assignedSingers: [],
+      customNote: '',
     };
     await setDoc(doc(db, 'contis_v2', newId), newConti);
     setSelectedContiId(newId);
@@ -539,7 +576,8 @@ export default function PraiseApp() {
           id: activeContiId,
           title: autoTitle,
           date: dateStr,
-          servants: {},
+          assignedSingers: [],
+          customNote: '',
         });
         setSelectedContiId(activeContiId);
       }
@@ -997,10 +1035,10 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면 (임사자 명단 카드 포함)
+  // 2. 메인 콘티 목록 화면 (싱어 관리 연동)
   // ==========================================
-  const s = currentConti?.servants || {};
-  const hasServants = Object.values(s).some((v) => v && v.trim() !== '');
+  const assignedSingers = currentConti?.assignedSingers || [];
+  const customNote = currentConti?.customNote || '';
 
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
@@ -1022,7 +1060,7 @@ export default function PraiseApp() {
               ) : (
                 contis.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.title} ({allSongs.filter((song) => song.contiId === c.id).length}곡)
+                    {c.title} ({allSongs.filter((s) => s.contiId === c.id).length}곡)
                   </option>
                 ))
               )}
@@ -1070,7 +1108,7 @@ export default function PraiseApp() {
           </div>
         </div>
 
-        {/* 현재 콘티 타이틀 및 임사자 관리 버튼 */}
+        {/* 현재 콘티 타이틀 및 싱어 배정 관리 */}
         {currentConti && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between px-1">
@@ -1087,98 +1125,52 @@ export default function PraiseApp() {
               </div>
 
               <button
-                onClick={handleOpenServantsModal}
+                onClick={handleOpenSingerModal}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-400 font-bold rounded-xl text-xs transition active:scale-95 shrink-0"
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>임사자/순서자 관리</span>
+                <span>싱어 배정 / 관리</span>
               </button>
             </div>
 
-            {/* 🌟 임사자 명단 배지 카드 🌟 */}
-            <div className={`p-3 sm:p-4 rounded-2xl border transition ${cardBgClass}`}>
+            {/* 🌟 이번 주 싱어 명단 및 메모 카드 🌟 */}
+            <div className={`p-3.5 sm:p-4 rounded-2xl border transition ${cardBgClass}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold flex items-center gap-1.5 opacity-80">
-                  <UserCheck className="w-3.5 h-3.5 text-blue-500" />
-                  예배 임사자 & 찬양팀 명단
+                  <Mic className="w-3.5 h-3.5 text-blue-500" />
+                  이번 주 싱어 명단
                 </span>
-                {!hasServants && (
-                  <span className="text-[11px] text-blue-400 cursor-pointer hover:underline" onClick={handleOpenServantsModal}>
-                    + 임사자 등록하기
-                  </span>
-                )}
+                <span
+                  onClick={handleOpenSingerModal}
+                  className="text-[11px] text-blue-400 cursor-pointer hover:underline"
+                >
+                  {assignedSingers.length > 0 ? '싱어 변경하기' : '+ 이번 주 싱어 지정하기'}
+                </span>
               </div>
 
-              {hasServants ? (
+              {assignedSingers.length > 0 ? (
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {s.leader && (
-                    <div className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center gap-1.5">
-                      <span className="font-bold text-blue-400">인도</span>
-                      <span>{s.leader}</span>
+                  {assignedSingers.map((singer) => (
+                    <div
+                      key={singer}
+                      className="px-3 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-bold flex items-center gap-1.5"
+                    >
+                      <Mic className="w-3 h-3" />
+                      <span>{singer}</span>
                     </div>
-                  )}
-                  {s.prayer && (
-                    <div className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1.5">
-                      <span className="font-bold text-emerald-400">기도</span>
-                      <span>{s.prayer}</span>
-                    </div>
-                  )}
-                  {s.preacher && (
-                    <div className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center gap-1.5">
-                      <span className="font-bold text-purple-400">말씀</span>
-                      <span>{s.preacher}</span>
-                    </div>
-                  )}
-                  {s.praiseLeader && (
-                    <div className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-1.5">
-                      <span className="font-bold text-amber-400">찬양인도</span>
-                      <span>{s.praiseLeader}</span>
-                    </div>
-                  )}
-                  {s.mainKeys && (
-                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
-                      <span className="font-bold opacity-70">메인건반</span>
-                      <span>{s.mainKeys}</span>
-                    </div>
-                  )}
-                  {s.subKeys && (
-                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
-                      <span className="font-bold opacity-70">세컨</span>
-                      <span>{s.subKeys}</span>
-                    </div>
-                  )}
-                  {s.drums && (
-                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
-                      <span className="font-bold opacity-70">드럼</span>
-                      <span>{s.drums}</span>
-                    </div>
-                  )}
-                  {s.acoustic && (
-                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
-                      <span className="font-bold opacity-70">기타/베이스</span>
-                      <span>{s.acoustic}</span>
-                    </div>
-                  )}
-                  {s.singers && (
-                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
-                      <span className="font-bold opacity-70">싱어</span>
-                      <span>{s.singers}</span>
-                    </div>
-                  )}
-                  {s.media && (
-                    <div className="px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 flex items-center gap-1.5">
-                      <span className="font-bold opacity-70">음향/자막</span>
-                      <span>{s.media}</span>
-                    </div>
-                  )}
-                  {s.customNote && (
-                    <div className="w-full text-[11px] opacity-70 mt-1 pt-1 border-t border-neutral-800">
-                      메모: {s.customNote}
-                    </div>
-                  )}
+                  ))}
                 </div>
               ) : (
-                <p className="text-xs opacity-60">등록된 임사자 정보가 없습니다.</p>
+                <p className="text-xs opacity-60">이번 주 지정된 싱어가 없습니다.</p>
+              )}
+
+              {/* 특이사항 메모 표시 */}
+              {customNote && (
+                <div className="mt-2.5 pt-2 border-t border-neutral-800/60 text-xs flex items-center gap-1.5 opacity-80">
+                  <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span className="font-semibold shrink-0">메모:</span>
+                  <span className="truncate">{customNote}</span>
+                </div>
               )}
             </div>
           </div>
@@ -1263,7 +1255,7 @@ export default function PraiseApp() {
 
                         {song.comment && (
                           <div className="flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
-                            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                            <MessageSquare className="w-3 h-3 shrink-0" />
                             <span className="truncate">{song.comment}</span>
                           </div>
                         )}
@@ -1328,7 +1320,7 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 실시간 플로팅 드래그 고스트 카드 */}
+        {/* 실시간 플로팅 고스트 카드 */}
         {draggedIdx !== null && dragPos && currentSongs[draggedIdx] && (
           <div
             style={{
@@ -1357,190 +1349,141 @@ export default function PraiseApp() {
         )}
       </div>
 
-      {/* 🌟 임사자 관리 모달 🌟 */}
-      {isServantsModalOpen && (
+      {/* 🌟 찬양팀 싱어 관리 & 주차별 지정 모달 🌟 */}
+      {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
+          <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 sm:pb-4 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
               <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-500" />
-                예배 임사자 & 찬양팀 명단 관리
+                <Mic className="w-5 h-5 text-blue-500" />
+                이번 주 싱어 배정 & 싱어 명단
               </h2>
               <button
-                onClick={() => setIsServantsModalOpen(false)}
+                onClick={() => setIsSingerModalOpen(false)}
                 className="p-1.5 opacity-70 hover:opacity-100 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveServants} className="mt-4 space-y-3 text-xs sm:text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold opacity-80 mb-1">예배 인도자</label>
-                  <input
-                    type="text"
-                    value={servantsInput.leader || ''}
-                    onChange={(e) => setServantsInput({ ...servantsInput, leader: e.target.value })}
-                    placeholder="예: 김목사"
-                    className={`w-full border rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold opacity-80 mb-1">대표 기도자</label>
-                  <input
-                    type="text"
-                    value={servantsInput.prayer || ''}
-                    onChange={(e) => setServantsInput({ ...servantsInput, prayer: e.target.value })}
-                    placeholder="예: 이장로"
-                    className={`w-full border rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
-                  />
-                </div>
+            <div className="mt-4 space-y-4 text-xs sm:text-sm">
+              {/* 1. 이번 주 싱어 선택 영역 */}
+              <div>
+                <label className="block text-xs font-semibold opacity-80 mb-2">
+                  이번 주 찬양 싱어 선택 (클릭하여 토글)
+                </label>
+                {masterSingers.length === 0 ? (
+                  <div className={`p-4 rounded-xl border text-center text-xs opacity-60 ${subCardBg}`}>
+                    등록된 전체 싱어가 없습니다. 아래에서 싱어를 먼저 추가해주세요.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                    {masterSingers.map((singer) => {
+                      const isChecked = selectedSingers.includes(singer);
+                      return (
+                        <button
+                          key={singer}
+                          type="button"
+                          onClick={() => handleToggleSinger(singer)}
+                          className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                            isChecked
+                              ? 'bg-blue-600 border-blue-500 text-white shadow-md'
+                              : isDark
+                              ? 'bg-neutral-800 border-neutral-700 text-neutral-300'
+                              : 'bg-slate-100 border-slate-300 text-slate-700'
+                          }`}
+                        >
+                          <span className="truncate">{singer}</span>
+                          {isChecked && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold opacity-80 mb-1">말씀 / 설교자</label>
+              {/* 2. 전체 싱어 풀(Master Singer Pool) 등록 & 삭제 */}
+              <div className={`p-3 rounded-2xl border space-y-2.5 ${isDark ? 'bg-neutral-800/50 border-neutral-800' : 'bg-slate-50 border-slate-200'}`}>
+                <span className="text-xs font-bold block opacity-90">찬양팀 싱어 전체 명단 관리</span>
+                
+                <form onSubmit={handleAddMasterSinger} className="flex gap-2">
                   <input
                     type="text"
-                    value={servantsInput.preacher || ''}
-                    onChange={(e) => setServantsInput({ ...servantsInput, preacher: e.target.value })}
-                    placeholder="예: 박목사"
-                    className={`w-full border rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    value={newSingerName}
+                    onChange={(e) => setNewSingerName(e.target.value)}
+                    placeholder="새 싱어 이름 입력"
+                    className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                      isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold opacity-80 mb-1">찬양 인도자</label>
-                  <input
-                    type="text"
-                    value={servantsInput.praiseLeader || ''}
-                    onChange={(e) => setServantsInput({ ...servantsInput, praiseLeader: e.target.value })}
-                    placeholder="예: 최팀장"
-                    className={`w-full border rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
-                  />
-                </div>
+                  <button
+                    type="submit"
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 shrink-0"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>추가</span>
+                  </button>
+                </form>
+
+                {masterSingers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {masterSingers.map((singer) => (
+                      <span
+                        key={singer}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] border ${
+                          isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-300' : 'bg-white border-slate-300 text-slate-700'
+                        }`}
+                      >
+                        <span>{singer}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMasterSinger(singer)}
+                          className="text-neutral-500 hover:text-red-500 ml-0.5"
+                          title="명단에서 삭제"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="pt-2 border-t border-neutral-800/60">
-                <span className="text-xs font-bold text-blue-500 block mb-2">찬양팀 세션 및 엔지니어</span>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] opacity-70 mb-1">메인 건반</label>
-                    <input
-                      type="text"
-                      value={servantsInput.mainKeys || ''}
-                      onChange={(e) => setServantsInput({ ...servantsInput, mainKeys: e.target.value })}
-                      placeholder="예: 정반주"
-                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
-                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] opacity-70 mb-1">세컨 건반</label>
-                    <input
-                      type="text"
-                      value={servantsInput.subKeys || ''}
-                      onChange={(e) => setServantsInput({ ...servantsInput, subKeys: e.target.value })}
-                      placeholder="예: 한신디"
-                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
-                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] opacity-70 mb-1">드럼</label>
-                    <input
-                      type="text"
-                      value={servantsInput.drums || ''}
-                      onChange={(e) => setServantsInput({ ...servantsInput, drums: e.target.value })}
-                      placeholder="예: 강드럼"
-                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
-                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] opacity-70 mb-1">기타 / 베이스</label>
-                    <input
-                      type="text"
-                      value={servantsInput.acoustic || ''}
-                      onChange={(e) => setServantsInput({ ...servantsInput, acoustic: e.target.value })}
-                      placeholder="예: 윤기타, 배베이스"
-                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
-                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  <div>
-                    <label className="block text-[11px] opacity-70 mb-1">싱어</label>
-                    <input
-                      type="text"
-                      value={servantsInput.singers || ''}
-                      onChange={(e) => setServantsInput({ ...servantsInput, singers: e.target.value })}
-                      placeholder="예: 김민수, 이영희"
-                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
-                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] opacity-70 mb-1">음향 / 자막 방송</label>
-                    <input
-                      type="text"
-                      value={servantsInput.media || ''}
-                      onChange={(e) => setServantsInput({ ...servantsInput, media: e.target.value })}
-                      placeholder="예: 송음향, 조자막"
-                      className={`w-full border rounded-xl px-3 py-2 text-xs ${
-                        isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-3">
-                  <label className="block text-[11px] opacity-70 mb-1">기타 특이사항 메모</label>
-                  <input
-                    type="text"
-                    value={servantsInput.customNote || ''}
-                    onChange={(e) => setServantsInput({ ...servantsInput, customNote: e.target.value })}
-                    placeholder="예: 1부 예배 후 찬양팀 연습 13:00"
-                    className={`w-full border rounded-xl px-3 py-2 text-xs ${
-                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
-                  />
-                </div>
+              {/* 3. 콘티 특이사항 메모 */}
+              <div>
+                <label className="block text-xs font-semibold opacity-80 mb-1">
+                  이번 주 콘티 특이사항 메모
+                </label>
+                <input
+                  type="text"
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  placeholder="예: 13:00 찬양팀 모임 / 단체복: 흰색 상의"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                />
               </div>
 
-              <div className="flex gap-2 pt-3">
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsServantsModalOpen(false)}
+                  onClick={() => setIsSingerModalOpen(false)}
                   className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSaveContiSingers}
                   className="flex-1 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30"
                 >
-                  저장 완료
+                  배정 저장
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
