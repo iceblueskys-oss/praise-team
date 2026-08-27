@@ -37,6 +37,7 @@ import {
   Sparkles,
   Copy,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -136,8 +137,9 @@ export default function PraiseApp() {
   // 찬양 보관소 라이브러리 모달 상태
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
+  const [isSyncingLib, setIsSyncingLib] = useState(false);
 
-  // 🌟 가사 추출(OCR) 모달 및 진행 상태 🌟
+  // 가사 추출(OCR) 모달 상태
   const [isLyricsModalOpen, setIsLyricsModalOpen] = useState(false);
   const [extractedLyrics, setExtractedLyrics] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
@@ -198,7 +200,6 @@ export default function PraiseApp() {
     const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
     if (savedAdmin) setIsAdmin(true);
 
-    // PDF.js 로드
     if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
@@ -209,7 +210,6 @@ export default function PraiseApp() {
       document.body.appendChild(script);
     }
 
-    // Tesseract.js (간단형 OCR) 로드
     if (typeof window !== 'undefined' && !(window as any).Tesseract) {
       const scriptTess = document.createElement('script');
       scriptTess.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
@@ -291,6 +291,51 @@ export default function PraiseApp() {
     };
   }, []);
 
+  // 🌟 기존 등록된 곡들을 찬양 보관소(song_library)로 자동 마이그레이션 🌟
+  useEffect(() => {
+    if (allSongs.length > 0 && librarySongs.length === 0 && !isSyncingLib) {
+      syncAllSongsToLibrary(false);
+    }
+  }, [allSongs, librarySongs]);
+
+  const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
+    if (allSongs.length === 0) {
+      if (showSuccessAlert) alert('동기화할 기존 콘티 곡이 없습니다.');
+      return;
+    }
+    setIsSyncingLib(true);
+    try {
+      const batch = writeBatch(db);
+      allSongs.forEach((song) => {
+        const cleanKey = song.key ? song.key.trim().toUpperCase() : 'NOKEY';
+        const libDocId = `lib_${song.title.trim().replace(/\s+/g, '_')}_${cleanKey}`;
+        const libRef = doc(db, 'song_library', libDocId);
+        batch.set(
+          libRef,
+          {
+            id: libDocId,
+            title: song.title.trim(),
+            key: song.key || null,
+            bpm: song.bpm || null,
+            comment: song.comment || '',
+            lyrics: song.lyrics || '',
+            sheetUrls: song.sheetUrls || [],
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      });
+      await batch.commit();
+      if (showSuccessAlert) {
+        alert('기존 콘티의 모든 찬양이 보관소로 안전하게 동기화되었습니다!');
+      }
+    } catch (e) {
+      console.error('보관소 자동 동기화 오류:', e);
+    } finally {
+      setIsSyncingLib(false);
+    }
+  };
+
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const currentSongs = allSongs
     .filter((s) => s.contiId === currentConti?.id)
@@ -330,7 +375,7 @@ export default function PraiseApp() {
     return () => unsubDraw();
   }, [viewingSong, currentPageIndex]);
 
-  // 🌟 간단형 악보 가사 OCR 추출 함수 🌟
+  // 가사 OCR 추출
   const handleExtractLyricsFromImage = async (imageUrl: string) => {
     const Tesseract = (window as any).Tesseract;
     if (!Tesseract) {
@@ -360,7 +405,6 @@ export default function PraiseApp() {
       const ret = await worker.recognize(imageUrl);
       await worker.terminate();
 
-      // 줄별 텍스트 정제 (의미 없는 단일 특수문자 라인 제거)
       const rawLines = ret.data.text.split('\n');
       const cleaned = rawLines
         .map((l: string) => l.trim())
@@ -1115,7 +1159,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 뷰어 화면 (가사 추출 버튼 탑재)
+  // 1. 악보 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1179,7 +1223,6 @@ export default function PraiseApp() {
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {/* 🌟 가사 추출 버튼 🌟 */}
               {currentSheetUrl && (
                 <button
                   onClick={() => handleExtractLyricsFromImage(currentSheetUrl)}
@@ -1448,14 +1491,13 @@ export default function PraiseApp() {
           </div>
 
           <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
+            {/* 🌟 찬양 보관소 라이브러리 열기 버튼 🌟 */}
             <button
               onClick={() => {
                 setLibrarySearchTerm('');
                 setIsLibraryModalOpen(true);
               }}
-              className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition active:scale-95 ${
-                isDark ? 'bg-purple-950/40 border-purple-800 text-purple-300 hover:bg-purple-900/50' : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
-              }`}
+              className="flex items-center gap-1.5 px-3 py-2 border border-purple-500/50 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl text-xs font-bold transition active:scale-95 shrink-0"
               title="찬양팀 전체 찬양 보관소 열람"
             >
               <Library className="w-3.5 h-3.5 text-purple-400" />
@@ -1841,20 +1883,33 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 찬양 보관소 모달 */}
+      {/* 🌟 찬양 보관소 모달 (수동 동기화 버튼 탑재) 🌟 */}
       {isLibraryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-2xl p-5 sm:p-6 shadow-2xl max-h-[85vh] flex flex-col border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             <div className={`flex items-center justify-between pb-3 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Library className="w-5 h-5 text-purple-400" />
-                찬양팀 찬양 보관소 (총 {librarySongs.length}곡)
-              </h2>
-              <button onClick={() => setIsLibraryModalOpen(false)} className="p-1.5 opacity-70 hover:opacity-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
+                <h2 className="text-base sm:text-lg font-bold">
+                  찬양 보관소 ({librarySongs.length}곡)
+                </h2>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => syncAllSongsToLibrary(true)}
+                  disabled={isSyncingLib}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${subCardBg}`}
+                  title="기존 콘티의 모든 곡을 보관소로 가져오기"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-purple-400 ${isSyncingLib ? 'animate-spin' : ''}`} />
+                  <span className="hidden xs:inline">전체 동기화</span>
+                </button>
+                <button onClick={() => setIsLibraryModalOpen(false)} className="p-1.5 opacity-70 hover:opacity-100 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="mt-3 relative shrink-0">
@@ -1872,8 +1927,14 @@ export default function PraiseApp() {
 
             <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
               {filteredLibrary.length === 0 ? (
-                <div className={`p-8 rounded-xl border text-center text-xs opacity-60 ${subCardBg}`}>
-                  보관된 찬양이 없습니다. 콘티에 새로운 곡을 등록하면 자동으로 여기에 축적됩니다.
+                <div className={`p-8 rounded-xl border text-center space-y-3 ${subCardBg}`}>
+                  <p className="text-xs opacity-70">보관된 찬양이 없습니다.</p>
+                  <button
+                    onClick={() => syncAllSongsToLibrary(true)}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-xs"
+                  >
+                    기존 콘티 곡 모두 가져오기
+                  </button>
                 </div>
               ) : (
                 filteredLibrary.map((libSong) => (
