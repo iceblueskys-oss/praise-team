@@ -130,7 +130,7 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 목록에서 가사 펼침 상태 관리
+  // 목록 가사 펼침 상태
   const [expandedLyricsSongIds, setExpandedLyricsSongIds] = useState<string[]>([]);
 
   // 관리자 수정 권한 상태
@@ -140,7 +140,7 @@ export default function PraiseApp() {
   const [isChangePwModalOpen, setIsChangePwModalOpen] = useState(false);
   const [newPwInput, setNewPwInput] = useState('');
 
-  // 찬양 보관소 라이브러리 모달 상태
+  // 찬양 보관소 모달 상태
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
@@ -1143,7 +1143,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (모바일 2열 반응형 헤더)
+  // 1. 악보 & 가사 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1157,11 +1157,9 @@ export default function PraiseApp() {
         }`}
       >
         <div className="shrink-0 z-40 w-full flex flex-col shadow-md">
-          {/* 🌟 2열 반응형 상단 헤더 🌟 */}
           <header className={`flex flex-col md:flex-row md:items-center md:justify-between px-3 py-2 border-b gap-2 ${
             isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200'
           }`}>
-            {/* 1열: 뒤로가기, 곡 이동 및 곡명 정보 */}
             <div className="flex items-center justify-between gap-1.5 min-w-0">
               <div className="flex items-center gap-1.5 min-w-0">
                 <button
@@ -1218,10 +1216,8 @@ export default function PraiseApp() {
               )}
             </div>
 
-            {/* 2열: 기능 버튼 바 (모바일에서 깔끔하게 줄바꿈 정렬) */}
             <div className="flex items-center justify-between md:justify-end gap-1.5 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-neutral-800/40">
               <div className="flex items-center gap-1.5">
-                {/* 가사/악보 전환 토글 */}
                 <button
                   onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition active:scale-95 ${
@@ -1246,7 +1242,6 @@ export default function PraiseApp() {
                   )}
                 </button>
 
-                {/* 구글 가사 검색 버튼 */}
                 <button
                   onClick={() => handleSearchLyricsWeb(viewingSong.title)}
                   className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border border-blue-500/40 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 transition active:scale-95"
@@ -1374,7 +1369,6 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 뷰어 본문 (가사 전용 모드 vs 악보 모드) */}
         <main
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
           className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${
@@ -1499,7 +1493,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 콘티 목록 화면
+  // 2. 메인 콘티 목록 화면 (화면 넘침 방지 max-w 처리)
   // ==========================================
   const assignedSingers = currentConti?.assignedSingers || [];
   const customNote = currentConti?.customNote || '';
@@ -1514,14 +1508,14 @@ export default function PraiseApp() {
   });
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 ${bgClass}`}>
+    <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 overflow-x-hidden ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
         <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border shadow-md ${cardBgClass}`}>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <select
               value={selectedContiId}
               onChange={(e) => setSelectedContiId(e.target.value)}
-              className={`flex-1 sm:flex-none border font-bold rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none ${
+              className={`flex-1 sm:flex-none border font-bold rounded-xl px-3 py-2 text-base sm:text-sm focus:outline-none ${
                 isDark
                   ? 'bg-neutral-800 border-neutral-700 text-white focus:border-blue-500'
                   : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
@@ -1722,197 +1716,225 @@ export default function PraiseApp() {
                     )}
 
                     <div
-                      className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border gap-3 transition-all duration-150 ${
+                      className={`flex flex-col border transition-all duration-150 overflow-hidden ${
+                        isLyricsExpanded ? 'rounded-2xl shadow-md' : 'rounded-2xl'
+                      } ${
                         isBeingDragged
                           ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
                           : cardBgClass
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {isAdmin ? (
-                          <div
-                            onTouchStart={(e) => handleTouchStart(idx, e)}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={endDragAction}
-                            onMouseDown={(e) => handleMouseDown(idx, e)}
-                            style={{ touchAction: 'none' }}
-                            className="p-2 -m-2 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
-                            title="길게 눌러 드래그"
-                          >
-                            <GripVertical className="w-5 h-5" />
-                          </div>
-                        ) : null}
+                      <div className="flex items-center justify-between p-3 sm:p-4 gap-3">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {isAdmin ? (
+                            <div
+                              onTouchStart={(e) => handleTouchStart(idx, e)}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={endDragAction}
+                              onMouseDown={(e) => handleMouseDown(idx, e)}
+                              style={{ touchAction: 'none' }}
+                              className="p-2 -m-2 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
+                              title="길게 눌러 드래그"
+                            >
+                              <GripVertical className="w-5 h-5" />
+                            </div>
+                          ) : null}
 
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                          isDark ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/80' : 'bg-slate-100 text-slate-700 border border-slate-200'
-                        }`}>
-                          {String(idx + 1).padStart(2, '0')}
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                            isDark ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/80' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}>
+                            {String(idx + 1).padStart(2, '0')}
+                          </div>
+
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {song.headerTag && (
+                                <span className="px-2 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
+                                  {song.headerTag}
+                                </span>
+                              )}
+
+                              <h3 className="text-sm sm:text-base font-bold truncate max-w-[180px] sm:max-w-sm">
+                                {song.title}
+                              </h3>
+
+                              {song.key && (
+                                <span className={`px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
+                                  isDark ? 'bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'
+                                }`}>
+                                  {song.key} Key
+                                </span>
+                              )}
+                              {song.sheetUrls && song.sheetUrls.length > 1 && (
+                                <span className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
+                                  isDark ? 'bg-purple-600/30 border-purple-500/40 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
+                                }`}>
+                                  <Layers className="w-3 h-3" /> {song.sheetUrls.length}장
+                                </span>
+                              )}
+                              {song.bpm && (
+                                <span className="text-[11px] opacity-70 font-medium shrink-0">
+                                  BPM {song.bpm}
+                                </span>
+                              )}
+                            </div>
+
+                            {song.comment && (
+                              <div className="flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
+                                <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate">{song.comment}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {song.headerTag && (
-                              <span className="px-2 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded shrink-0">
-                                {song.headerTag}
-                              </span>
-                            )}
-
-                            <h3 className="text-sm sm:text-base font-bold truncate max-w-[180px] sm:max-w-sm">
-                              {song.title}
-                            </h3>
-
-                            {song.key && (
-                              <span className={`px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
-                                isDark ? 'bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'
-                              }`}>
-                                {song.key} Key
-                              </span>
-                            )}
-                            {song.sheetUrls && song.sheetUrls.length > 1 && (
-                              <span className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold border rounded-md shrink-0 ${
-                                isDark ? 'bg-purple-600/30 border-purple-500/40 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
-                              }`}>
-                                <Layers className="w-3 h-3" /> {song.sheetUrls.length}장
-                              </span>
-                            )}
-                            {song.bpm && (
-                              <span className="text-[11px] opacity-70 font-medium shrink-0">
-                                BPM {song.bpm}
-                              </span>
-                            )}
-                          </div>
-
-                          {song.comment && (
-                            <div className="flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
-                              <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate">{song.comment}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isReordering && isAdmin ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => executeReorder(idx, idx - 1)}
+                                disabled={idx === 0}
+                                className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                              >
+                                위로
+                              </button>
+                              <button
+                                onClick={() => executeReorder(idx, idx + 1)}
+                                disabled={idx === currentSongs.length - 1}
+                                className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                              >
+                                아래로
+                              </button>
                             </div>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleToggleLyricsExpand(song.id)}
+                                className={`flex items-center justify-center gap-1 px-2.5 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
+                                  isLyricsExpanded
+                                    ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
+                                    : isDark
+                                    ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-purple-300'
+                                    : 'bg-slate-100 hover:bg-purple-50 border-slate-300 text-purple-700'
+                                }`}
+                                title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
+                              >
+                                <BookOpen className="w-3.5 h-3.5" />
+                                <span className="hidden xs:inline">{isLyricsExpanded ? '가사 닫기' : '가사'}</span>
+                                {isLyricsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setViewingSongId(song.id);
+                                  setCurrentPageIndex(0);
+                                  setViewMode('sheet');
+                                }}
+                                className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
+                                  isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
+                                }`}
+                              >
+                                <Eye className="w-3.5 h-3.5 text-blue-500" />
+                                <span className="hidden xs:inline">악보 보기</span>
+                              </button>
+
+                              {isAdmin && (
+                                <>
+                                  <button
+                                    onClick={() => handleOpenModal(song)}
+                                    className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${subCardBg}`}
+                                    title="곡 수정"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSong(song.id)}
+                                    className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${
+                                      isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                                    }`}
+                                    title="곡 삭제"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {isReordering && isAdmin ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => executeReorder(idx, idx - 1)}
-                              disabled={idx === 0}
-                              className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
-                            >
-                              위로
-                            </button>
-                            <button
-                              onClick={() => executeReorder(idx, idx + 1)}
-                              disabled={idx === currentSongs.length - 1}
-                              className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
-                            >
-                              아래로
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleToggleLyricsExpand(song.id)}
-                              className={`flex items-center justify-center gap-1 px-2.5 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
-                                isLyricsExpanded
-                                  ? 'bg-purple-600 border-purple-500 text-white shadow-sm'
-                                  : isDark
-                                  ? 'bg-purple-950/40 hover:bg-purple-900/50 border-purple-800/80 text-purple-300'
-                                  : 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700'
-                              }`}
-                              title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
-                            >
+                      {/* 가사 펼침 섹션 */}
+                      {isLyricsExpanded && (
+                        <div className={`border-t px-4 py-3.5 space-y-2.5 ${
+                          isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50/80 border-slate-200'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
                               <BookOpen className="w-3.5 h-3.5" />
-                              <span className="hidden xs:inline">{isLyricsExpanded ? '가사 닫기' : '가사'}</span>
-                              {isLyricsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setViewingSongId(song.id);
-                                setCurrentPageIndex(0);
-                                setViewMode('sheet');
-                              }}
-                              className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[34px] ${
-                                isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
-                              }`}
-                            >
-                              <Eye className="w-3.5 h-3.5 text-blue-500" />
-                              <span className="hidden xs:inline">악보 보기</span>
-                            </button>
-
-                            {isAdmin && (
-                              <>
+                              찬양 가사
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {song.lyrics && (
                                 <button
-                                  onClick={() => handleOpenModal(song)}
-                                  className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${subCardBg}`}
-                                  title="곡 수정"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteSong(song.id)}
-                                  className={`p-2 border rounded-xl transition active:scale-95 min-h-[34px] min-w-[34px] flex items-center justify-center ${
-                                    isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                                  onClick={() => handleCopyLyrics(song.lyrics || '')}
+                                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
+                                    isDark
+                                      ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
+                                      : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
                                   }`}
-                                  title="곡 삭제"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Copy className="w-3 h-3 text-purple-500" />
+                                  <span>복사</span>
                                 </button>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {isLyricsExpanded && (
-                      <div className={`mt-1.5 p-4 rounded-2xl border transition-all duration-200 ${
-                        isDark ? 'bg-neutral-900/90 border-purple-900/40 text-neutral-200' : 'bg-purple-50/50 border-purple-200 text-slate-800'
-                      }`}>
-                        <div className="flex items-center justify-between pb-2 border-b border-purple-500/20 mb-2">
-                          <span className="text-[11px] font-bold text-purple-400 flex items-center gap-1">
-                            <BookOpen className="w-3 h-3" />
-                            [{song.title}] 찬양 가사
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => handleCopyLyrics(song.lyrics || '')}
-                              disabled={!song.lyrics}
-                              className="text-[11px] font-bold px-2 py-0.5 rounded-lg border border-purple-500/40 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 disabled:opacity-30 flex items-center gap-1 transition"
-                            >
-                              <Copy className="w-3 h-3" />
-                              <span>복사</span>
-                            </button>
-                            <button
-                              onClick={() => handleSearchLyricsWeb(song.title)}
-                              className="text-[11px] font-bold px-2 py-0.5 rounded-lg border border-blue-500/40 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 flex items-center gap-1 transition"
-                            >
-                              <Globe className="w-3 h-3" />
-                              <span>구글 검색 ↗</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        {song.lyrics ? (
-                          <div className="text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap pl-1 max-h-60 overflow-y-auto">
-                            {song.lyrics}
-                          </div>
-                        ) : (
-                          <div className="py-4 text-center space-y-2">
-                            <p className="text-xs opacity-60">등록된 가사가 없습니다.</p>
-                            {isAdmin && (
+                              )}
                               <button
-                                onClick={() => handleOpenModal(song)}
-                                className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold"
+                                onClick={() => handleSearchLyricsWeb(song.title)}
+                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
+                                  isDark
+                                    ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-blue-400'
+                                    : 'bg-white hover:bg-slate-100 border-slate-300 text-blue-600'
+                                }`}
                               >
-                                + 가사 등록하기
+                                <Globe className="w-3 h-3" />
+                                <span>구글 검색 ↗</span>
                               </button>
-                            )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    )}
+
+                          {song.lyrics ? (
+                            <div className={`text-xs sm:text-sm font-medium leading-relaxed sm:leading-loose whitespace-pre-wrap p-3 rounded-xl border max-h-72 overflow-y-auto ${
+                              isDark
+                                ? 'bg-neutral-900 border-neutral-800 text-neutral-100'
+                                : 'bg-white border-slate-200 text-slate-900'
+                            }`}>
+                              {song.lyrics}
+                            </div>
+                          ) : (
+                            <div className={`py-6 text-center rounded-xl border border-dashed space-y-2.5 ${
+                              isDark ? 'border-neutral-800 bg-neutral-900/40 text-neutral-400' : 'border-slate-300 bg-white/60 text-slate-600'
+                            }`}>
+                              <p className="text-xs font-semibold">등록된 가사가 없습니다.</p>
+                              <div className="flex justify-center gap-2">
+                                <button
+                                  onClick={() => handleSearchLyricsWeb(song.title)}
+                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-sm"
+                                >
+                                  구글에서 가사 찾기 ↗
+                                </button>
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => handleOpenModal(song)}
+                                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-sm"
+                                  >
+                                    + 가사 직접 등록
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -1985,7 +2007,7 @@ export default function PraiseApp() {
                 value={librarySearchTerm}
                 onChange={(e) => setLibrarySearchTerm(e.target.value)}
                 placeholder="보관된 찬양 제목, Key 검색"
-                className={`w-full border rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                className={`w-full border rounded-xl pl-9 pr-3 py-2 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
                   isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
               />
@@ -2073,7 +2095,7 @@ export default function PraiseApp() {
                   value={authPasswordInput}
                   onChange={(e) => setAuthPasswordInput(e.target.value)}
                   placeholder="비밀번호 입력 (기본: 1234)"
-                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
@@ -2124,7 +2146,7 @@ export default function PraiseApp() {
                   value={newPwInput}
                   onChange={(e) => setNewPwInput(e.target.value)}
                   placeholder="변경할 새 비밀번호 입력"
-                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
@@ -2150,7 +2172,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 새 콘티 추가 달력 모달 (950 전용) */}
+      {/* 새 콘티 추가 달력 모달 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-5 shadow-2xl border ${
@@ -2221,7 +2243,7 @@ export default function PraiseApp() {
                   required
                   value={contiTitleInput}
                   onChange={(e) => setContiTitleInput(e.target.value)}
-                  className={`w-full border rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs font-bold focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
@@ -2310,7 +2332,7 @@ export default function PraiseApp() {
                     value={newSingerName}
                     onChange={(e) => setNewSingerName(e.target.value)}
                     placeholder="새 싱어 이름 입력"
-                    className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                    className={`flex-1 border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
@@ -2356,7 +2378,7 @@ export default function PraiseApp() {
                   value={noteInput}
                   onChange={(e) => setNoteInput(e.target.value)}
                   placeholder="예: 13:00 찬양팀 모임 / 단체복: 흰색 상의"
-                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
@@ -2437,8 +2459,8 @@ export default function PraiseApp() {
                   type="text"
                   value={modalHeaderTag}
                   onChange={(e) => setModalHeaderTag(e.target.value)}
-                  placeholder="직접 입력하거나 위 태그를 누르세요 (보관소에는 곡 제목만 저장됨)"
-                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 ${
+                  placeholder="직접 입력하거나 위 태그를 누르세요"
+                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-amber-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
@@ -2452,7 +2474,7 @@ export default function PraiseApp() {
                   value={modalTitle}
                   onChange={(e) => setModalTitle(e.target.value)}
                   placeholder="예: 꽃들도, 빛의 사자들이여 (헤더 없이 순수 곡명만 입력)"
-                  className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
@@ -2464,7 +2486,7 @@ export default function PraiseApp() {
                   <select
                     value={modalKey}
                     onChange={(e) => setModalKey(e.target.value)}
-                    className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                    className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                     }`}
                   >
@@ -2483,7 +2505,7 @@ export default function PraiseApp() {
                     value={modalBpm}
                     onChange={(e) => setModalBpm(e.target.value)}
                     placeholder="예: 72"
-                    className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                    className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                     }`}
                   />
@@ -2499,7 +2521,7 @@ export default function PraiseApp() {
                   value={modalComment}
                   onChange={(e) => setModalComment(e.target.value)}
                   placeholder="예: Intro 4마디 후 시작 · 2절 후렴 반복"
-                  className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
@@ -2523,8 +2545,8 @@ export default function PraiseApp() {
                   rows={4}
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
-                  placeholder="가사를 입력하거나 구글에서 복사해 붙여넣으세요 (목록 및 뷰어에서 가사 펼침으로 열람 가능)"
-                  className={`w-full border rounded-xl p-3 text-xs focus:outline-none focus:border-purple-500 resize-none ${
+                  placeholder="가사를 입력하거나 구글에서 복사해 붙여넣으세요"
+                  className={`w-full border rounded-xl p-3 text-base sm:text-xs focus:outline-none focus:border-purple-500 resize-none ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
@@ -2652,7 +2674,7 @@ export default function PraiseApp() {
                         value={modalUrlInput}
                         onChange={(e) => setModalUrlInput(e.target.value)}
                         placeholder="구글 드라이브 링크 또는 이미지 주소 붙여넣기"
-                        className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                        className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
                           isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
                       />
@@ -2668,8 +2690,8 @@ export default function PraiseApp() {
                         type="text"
                         value={modalLibrarySearch}
                         onChange={(e) => setModalLibrarySearch(e.target.value)}
-                        placeholder="보관된 곡명 또는 가사 검색 (클릭 시 자동 입력)"
-                        className={`w-full border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-blue-500 ${
+                        placeholder="보관된 곡명 검색 (클릭 시 자동 입력)"
+                        className={`w-full border rounded-xl pl-8 pr-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
                           isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
                       />
