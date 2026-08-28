@@ -193,33 +193,17 @@ export default function PraiseApp() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 🌟 안전한 클라이언트 마운트 & 이벤트 안전 등록 🌟
+  // 🌟 클라이언트 마운트 안전 처리 (하이드레이션 에러 방지) 🌟
   useEffect(() => {
+    setMounted(true);
     try {
-      if (typeof window !== 'undefined') {
-        const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
-        if (savedTheme) setTheme(savedTheme);
+      const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
+      if (savedTheme) setTheme(savedTheme);
 
-        const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
-        if (savedAdmin) setIsAdmin(true);
-
-        // PDF 라이브러리 비동기 로드
-        if (!(window as any).pdfjsLib) {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
-          script.onload = () => {
-            try {
-              (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
-                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-            } catch (e) {}
-          };
-          document.body.appendChild(script);
-        }
-      }
+      const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
+      if (savedAdmin) setIsAdmin(true);
     } catch (e) {
-      console.warn('초기화 알림:', e);
-    } finally {
-      setMounted(true);
+      console.warn('로컬 스토리지 로드 실패:', e);
     }
   }, []);
 
@@ -795,31 +779,6 @@ export default function PraiseApp() {
     }
   };
 
-  const convertPdfToImages = async (file: File): Promise<string[]> => {
-    const pdfjs = (window as any).pdfjsLib;
-    if (!pdfjs) throw new Error('PDF 라이브러리 로딩 중');
-
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-    const pageImages: string[] = [];
-
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1.5 });
-
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      if (context) {
-        await page.render({ canvasContext: context, viewport }).promise;
-        pageImages.push(canvas.toDataURL('image/jpeg', 0.75));
-      }
-    }
-    return pageImages;
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -867,13 +826,8 @@ export default function PraiseApp() {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-          const pdfSheets = await convertPdfToImages(file);
-          newSheets.push(...pdfSheets);
-        } else {
-          const compressed = await processImageFile(file);
-          newSheets.push(compressed);
-        }
+        const compressed = await processImageFile(file);
+        newSheets.push(compressed);
       }
       setModalSheetUrls((prev) => [...prev, ...newSheets]);
     } catch (err: any) {
@@ -1126,9 +1080,14 @@ export default function PraiseApp() {
     return days;
   };
 
-  // 🌟 SSR/초기 로딩 시 렌더링 지연 방지 🌟
+  // SSR 로딩 방어
   if (!mounted) {
-    return null;
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center gap-2 ${theme === 'dark' ? 'bg-neutral-950 text-neutral-400' : 'bg-slate-50 text-slate-500'}`}>
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs font-semibold">찬양팀 앱 불러오는 중...</p>
+      </div>
+    );
   }
 
   const isDark = theme === 'dark';
@@ -1191,7 +1150,7 @@ export default function PraiseApp() {
                 </div>
 
                 {viewingSong.headerTag && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded shrink-0">
+                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
                     {viewingSong.headerTag}
                   </span>
                 )}
@@ -1361,7 +1320,6 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 뷰어 본문 */}
         <main
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
           className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${
@@ -1612,7 +1570,7 @@ export default function PraiseApp() {
                       }`}
                       title="이 콘티 전체 삭제"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 )}
@@ -2609,7 +2567,7 @@ export default function PraiseApp() {
 
                     <input
                       type="file"
-                      accept="image/*,application/pdf,.pdf"
+                      accept="image/*"
                       multiple
                       onChange={handleFileChange}
                       className={`w-full text-xs file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 cursor-pointer ${
