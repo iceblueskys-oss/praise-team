@@ -120,6 +120,14 @@ function formatImageUrl(url: string): string {
   return trimmed;
 }
 
+// 🌟 Firebase 문서 ID 내 슬래시(/) 등 특수문자 안전 치환 함수 🌟
+function getSafeDocId(title: string, key?: string | null): string {
+  const cleanTitle = (title || 'untitled').trim();
+  const cleanKey = (key || 'NOKEY').trim();
+  const rawId = `lib_${cleanTitle}_${cleanKey}`;
+  return rawId.replace(/[\/\s#?\[\]]/g, '_');
+}
+
 export default function PraiseApp() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -193,7 +201,7 @@ export default function PraiseApp() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 🌟 안전한 초기 클라이언트 마운트 🌟
+  // 클라이언트 마운트
   useEffect(() => {
     setMounted(true);
     try {
@@ -204,9 +212,7 @@ export default function PraiseApp() {
         const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
         if (savedAdmin) setIsAdmin(true);
       }
-    } catch (e) {
-      console.warn('스토리지 로드 실패:', e);
-    }
+    } catch (e) {}
   }, []);
 
   const toggleTheme = () => {
@@ -230,7 +236,16 @@ export default function PraiseApp() {
       const qContis = query(collection(db, 'contis_v2'), orderBy('date', 'desc'));
       unsubContis = onSnapshot(qContis, (snapshot) => {
         const list: Conti[] = [];
-        snapshot.forEach((d) => list.push({ id: d.id, ...d.data() } as Conti));
+        snapshot.forEach((d) => {
+          const data = d.data();
+          list.push({
+            id: d.id,
+            title: data?.title || '',
+            date: data?.date || '',
+            assignedSingers: Array.isArray(data?.assignedSingers) ? data.assignedSingers : [],
+            customNote: data?.customNote || '',
+          });
+        });
         setContis(list);
         if (list.length > 0) {
           setSelectedContiId((prev) => {
@@ -246,22 +261,22 @@ export default function PraiseApp() {
         snapshot.forEach((d) => {
           const data = d.data();
           let sheets: string[] = [];
-          if (Array.isArray(data.sheetUrls)) {
+          if (Array.isArray(data?.sheetUrls)) {
             sheets = data.sheetUrls;
-          } else if (data.sheetUrl) {
+          } else if (data?.sheetUrl) {
             sheets = [data.sheetUrl];
           }
           sList.push({
             id: d.id,
-            contiId: data.contiId,
-            headerTag: data.headerTag || '',
-            title: data.title || '',
-            key: data.key || null,
-            bpm: data.bpm || null,
-            comment: data.comment || '',
-            lyrics: data.lyrics || '',
+            contiId: data?.contiId || '',
+            headerTag: data?.headerTag || '',
+            title: data?.title || '',
+            key: data?.key || null,
+            bpm: data?.bpm || null,
+            comment: data?.comment || '',
+            lyrics: data?.lyrics || '',
             sheetUrls: sheets,
-            order: data.order ?? 0,
+            order: data?.order ?? 0,
           });
         });
         setAllSongs(sList);
@@ -271,14 +286,25 @@ export default function PraiseApp() {
       unsubLib = onSnapshot(qLib, (snapshot) => {
         const libList: LibrarySong[] = [];
         snapshot.forEach((d) => {
-          libList.push({ id: d.id, ...d.data() } as LibrarySong);
+          const data = d.data();
+          libList.push({
+            id: d.id,
+            title: data?.title || '',
+            key: data?.key || null,
+            bpm: data?.bpm || null,
+            comment: data?.comment || '',
+            lyrics: data?.lyrics || '',
+            sheetUrls: Array.isArray(data?.sheetUrls) ? data.sheetUrls : [],
+            updatedAt: data?.updatedAt || Date.now(),
+          });
         });
         setLibrarySongs(libList);
       });
 
       unsubSingers = onSnapshot(doc(db, 'settings', 'singers_pool'), (snap) => {
         if (snap.exists()) {
-          setMasterSingers(snap.data()?.list || []);
+          const rawList = snap.data()?.list;
+          setMasterSingers(Array.isArray(rawList) ? rawList : []);
         }
       });
     } catch (err) {
@@ -328,7 +354,7 @@ export default function PraiseApp() {
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const currentSongs = allSongs
     .filter((s) => s.contiId === currentConti?.id)
-    .sort((a, b) => a.order - b.order);
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
@@ -352,9 +378,7 @@ export default function PraiseApp() {
     try {
       await setDoc(doc(db, 'songs_v2', viewingSong.id), { lyrics: newLyrics }, { merge: true });
       
-      const cleanTitle = viewingSong.title.trim();
-      const cleanKey = viewingSong.key ? viewingSong.key.trim().toUpperCase() : 'NOKEY';
-      const libDocId = `lib_${cleanTitle.replace(/\s+/g, '_')}_${cleanKey}`;
+      const libDocId = getSafeDocId(viewingSong.title, viewingSong.key);
       await setDoc(doc(db, 'song_library', libDocId), { lyrics: newLyrics, updatedAt: Date.now() }, { merge: true });
     } catch (e) {
       console.error('가사 저장 오류:', e);
@@ -381,8 +405,7 @@ export default function PraiseApp() {
       allSongs.forEach((song) => {
         const cleanTitle = (song.title || '').trim();
         if (!cleanTitle) return;
-        const cleanKey = song.key ? song.key.trim().toUpperCase() : 'NOKEY';
-        const libDocId = `lib_${cleanTitle.replace(/\s+/g, '_')}_${cleanKey}`;
+        const libDocId = getSafeDocId(cleanTitle, song.key);
         const libRef = doc(db, 'song_library', libDocId);
         
         batch.set(
@@ -546,7 +569,7 @@ export default function PraiseApp() {
       setIsAuthModalOpen(true);
       return;
     }
-    setSelectedSingers(currentConti?.assignedSingers || []);
+    setSelectedSingers(Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : []);
     setNoteInput(currentConti?.customNote || '');
     setIsSingerModalOpen(true);
   };
@@ -727,7 +750,7 @@ export default function PraiseApp() {
       setModalBpm(song.bpm ? String(song.bpm) : '');
       setModalComment(song.comment || '');
       setModalLyrics(song.lyrics || '');
-      setModalSheetUrls(song.sheetUrls || []);
+      setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
       setModalSheetType(song.sheetUrls?.[0]?.startsWith('http') ? 'url' : 'file');
       setModalUrlInput(song.sheetUrls?.[0]?.startsWith('http') ? song.sheetUrls[0] : '');
     } else {
@@ -748,12 +771,12 @@ export default function PraiseApp() {
   };
 
   const handleSelectFromLibrary = (libSong: LibrarySong) => {
-    setModalTitle(libSong.title);
+    setModalTitle(libSong.title || '');
     setModalKey(libSong.key || '');
     setModalBpm(libSong.bpm ? String(libSong.bpm) : '');
     setModalComment(libSong.comment || '');
     setModalLyrics(libSong.lyrics || '');
-    setModalSheetUrls(libSong.sheetUrls || []);
+    setModalSheetUrls(Array.isArray(libSong.sheetUrls) ? libSong.sheetUrls : []);
     if (libSong.sheetUrls?.[0]?.startsWith('http')) {
       setModalSheetType('url');
       setModalUrlInput(libSong.sheetUrls[0]);
@@ -872,7 +895,7 @@ export default function PraiseApp() {
       }
 
       const songDocId = editingSongId || `song_${Date.now()}`;
-      const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order)) : 0;
+      const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order || 0)) : 0;
       const songOrder = editingSongId
         ? allSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
         : maxOrder + 10;
@@ -895,8 +918,8 @@ export default function PraiseApp() {
 
       await setDoc(doc(db, 'songs_v2', songDocId), songData);
 
-      const cleanKey = modalKey.trim() ? modalKey.trim().toUpperCase() : 'NOKEY';
-      const libDocId = `lib_${cleanTitle.replace(/\s+/g, '_')}_${cleanKey}`;
+      // 🌟 슬래시(/) 방어 안전 ID 생성 🌟
+      const libDocId = getSafeDocId(cleanTitle, modalKey);
 
       await setDoc(
         doc(db, 'song_library', libDocId),
@@ -915,7 +938,7 @@ export default function PraiseApp() {
 
       setIsModalOpen(false);
     } catch (err: any) {
-      alert('저장 실패');
+      alert('저장 실패: ' + (err?.message || '네트워크 상태를 확인해주세요'));
     } finally {
       setIsProcessing(false);
     }
@@ -1078,7 +1101,7 @@ export default function PraiseApp() {
     return days;
   };
 
-  // 🌟 클라이언트 마운트 전 깜빡임 및 SSR 런타임 에러 방지 🌟
+  // SSR 로딩 방어
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-300 text-xs font-bold">
@@ -1441,6 +1464,19 @@ export default function PraiseApp() {
   }
 
   // 2. 메인 콘티 목록 화면
+  const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
+  const customNote = currentConti?.customNote || '';
+
+  const filteredLibrary = librarySongs.filter((s) => {
+    const term = (librarySearchTerm || modalLibrarySearch).toLowerCase().trim();
+    if (!term) return true;
+    return (
+      (s.title || '').toLowerCase().includes(term) ||
+      (s.key || '').toLowerCase().includes(term) ||
+      (s.lyrics || '').toLowerCase().includes(term)
+    );
+  });
+
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 w-full max-w-[100vw] overflow-x-hidden ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 w-full">
@@ -1567,7 +1603,7 @@ export default function PraiseApp() {
                       }`}
                       title="이 콘티 전체 삭제"
                     >
-                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
