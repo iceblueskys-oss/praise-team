@@ -1,4 +1,4 @@
-import 입력 { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -6,22 +6,20 @@ export const metadata: Metadata = {
   description: "실시간 찬양팀 콘티 및 악보 뷰어",
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  minimumScale: 1,
-  userScalable: false,
-  viewportFit: "cover",
-};
-
-export 기본 function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="ko" className="overflow-x-hidden">
+      <head>
+        {/* 🌟 Next.js 버전 상관없이 사파리 임의 확대(Zoom)를 원천 차단하는 표준 메타태그 🌟 */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover"
+        />
+      </head>
       <body className="antialiased select-none overflow-x-hidden w-full max-w-[100vw]">
         {children}
       </body>
