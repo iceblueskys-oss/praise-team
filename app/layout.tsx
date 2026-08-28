@@ -6,12 +6,13 @@ export const metadata: Metadata = {
   description: "실시간 찬양팀 콘티 및 악보 뷰어",
 };
 
-// 🌟 아이폰 사파리 임의 확대 방지 설정 🌟
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  minimumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -20,8 +21,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
-      <body className="antialiased select-none">{children}</body>
+    <html lang="ko" className="overflow-x-hidden">
+      <body className="antialiased select-none overflow-x-hidden w-full max-w-[100vw]">
+        {children}
+      </body>
     </html>
   );
 }
