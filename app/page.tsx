@@ -193,7 +193,7 @@ export default function PraiseApp() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 🌟 안전한 초기 로드 (에러 방지 처리) 🌟
+  // 🌟 iOS 사파리 핀치 줌 & 더블 탭 확대 물리적 차단 🌟
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -203,6 +203,32 @@ export default function PraiseApp() {
         const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
         if (savedAdmin) setIsAdmin(true);
 
+        // 1. 사파리 멀티터치 제스처 줌 차단
+        const preventGesture = (e: Event) => e.preventDefault();
+        document.addEventListener('gesturestart', preventGesture, { passive: false });
+        document.addEventListener('gesturechange', preventGesture, { passive: false });
+        document.addEventListener('gestureend', preventGesture, { passive: false });
+
+        // 2. 사파리 2손가락 핀치 터치 줌 차단
+        const preventMultiTouch = (e: TouchEvent) => {
+          if (e.touches.length > 1) {
+            e.preventDefault();
+          }
+        };
+        document.addEventListener('touchstart', preventMultiTouch, { passive: false });
+
+        // 3. 사파리 더블 탭 확대 차단
+        let lastTouchEnd = 0;
+        const preventDoubleTap = (e: TouchEvent) => {
+          const now = Date.now();
+          if (now - lastTouchEnd <= 300) {
+            e.preventDefault();
+          }
+          lastTouchEnd = now;
+        };
+        document.addEventListener('touchend', preventDoubleTap, { passive: false });
+
+        // PDF 라이브러리 로드
         if (!(window as any).pdfjsLib) {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
@@ -216,7 +242,7 @@ export default function PraiseApp() {
         }
       }
     } catch (e) {
-      console.warn('초기화 에러 무시:', e);
+      console.warn('초기화 에러:', e);
     } finally {
       setMounted(true);
     }
@@ -1133,9 +1159,7 @@ export default function PraiseApp() {
   const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
-  // ==========================================
   // 1. 악보 & 가사 뷰어 화면
-  // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
     const currentSheetUrl = viewingSong.sheetUrls?.[currentPageIndex] || '';
@@ -1190,7 +1214,7 @@ export default function PraiseApp() {
                 </div>
 
                 {viewingSong.headerTag && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded shrink-0">
+                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
                     {viewingSong.headerTag}
                   </span>
                 )}
@@ -1360,7 +1384,6 @@ export default function PraiseApp() {
           )}
         </div>
 
-        {/* 뷰어 본문 */}
         <main
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
           className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${
@@ -1484,21 +1507,7 @@ export default function PraiseApp() {
     );
   }
 
-  // ==========================================
   // 2. 메인 콘티 목록 화면
-  // ==========================================
-  const assignedSingers = currentConti?.assignedSingers || [];
-  const customNote = currentConti?.customNote || '';
-
-  const filteredLibrary = librarySongs.filter((s) => {
-    const term = (librarySearchTerm || modalLibrarySearch).toLowerCase().trim();
-    if (!term) return true;
-    return (
-      s.title.toLowerCase().includes(term) ||
-      (s.key && s.key.toLowerCase().includes(term))
-    );
-  });
-
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 w-full max-w-[100vw] overflow-x-hidden ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 w-full">
@@ -1870,7 +1879,7 @@ export default function PraiseApp() {
                               {song.lyrics && (
                                 <button
                                   onClick={() => handleCopyLyrics(song.lyrics || '')}
-                                  className={`text-xs font-bold px-2 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
+                                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
                                     isDark
                                       ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
                                       : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
@@ -1882,7 +1891,7 @@ export default function PraiseApp() {
                               )}
                               <button
                                 onClick={() => handleSearchLyricsWeb(song.title)}
-                                className={`text-xs font-bold px-2 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
+                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
                                   isDark
                                     ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-blue-400'
                                     : 'bg-white hover:bg-slate-100 border-slate-300 text-blue-600'
@@ -2165,7 +2174,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 새 콘티 추가 달력 모달 */}
+      {/* 새 콘티 추가 달력 모달 (950 전용) */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-5 shadow-2xl border ${
