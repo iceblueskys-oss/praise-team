@@ -41,8 +41,6 @@ import {
   ChevronUp,
   SlidersHorizontal,
   Home,
-  Sparkles,
-  Activity,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -140,15 +138,12 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 🌟 앱 내 탭 전환 (conti: 콘티 목록, library: 보관소) 🌟
   const [activeTab, setActiveTab] = useState<'conti' | 'library'>('conti');
-
-  // 상단 싱어/메모 카드 접힘 상태
   const [isHeaderCardExpanded, setIsHeaderCardExpanded] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
-  // 가사 펼침 & 폰트 크기
-  const [expandedLyricsSongIds, setExpandedLyricsSongIds] = useState<string[]>([]);
+  // 🌟 한 번에 하나의 가사만 열리도록 단일 ID 관리 (string | null) 🌟
+  const [expandedLyricsSongId, setExpandedLyricsSongId] = useState<string | null>(null);
   const [lyricsFontSize, setLyricsFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
   const [isAdmin, setIsAdmin] = useState(false);
@@ -157,6 +152,7 @@ export default function PraiseApp() {
   const [isChangePwModalOpen, setIsChangePwModalOpen] = useState(false);
   const [newPwInput, setNewPwInput] = useState('');
 
+  const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
   const [previewLibSong, setPreviewLibSong] = useState<LibrarySong | null>(null);
@@ -215,10 +211,9 @@ export default function PraiseApp() {
     });
   }, []);
 
+  // 🌟 단일 아코디언 토글 (이미 열린 걸 누르면 닫히고, 다른 걸 누르면 기존 건 닫히고 새 가사가 펼쳐짐) 🌟
   const handleToggleLyricsExpand = (songId: string) => {
-    setExpandedLyricsSongIds((prev) =>
-      prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
-    );
+    setExpandedLyricsSongId((prev) => (prev === songId ? null : songId));
   };
 
   const handleSearchLyricsWeb = (titleToSearch?: string) => {
@@ -236,7 +231,7 @@ export default function PraiseApp() {
       return;
     }
     navigator.clipboard.writeText(textToCopy);
-    alert('가사가 복사되었습니다.');
+    alert('가사가 클립보드에 복사되었습니다.');
   };
 
   const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
@@ -559,7 +554,7 @@ export default function PraiseApp() {
       if (viewingSongId) setViewingSongId(null);
       alert(`[${currentConti.title}] 콘티가 삭제되었습니다.`);
     } catch (err: any) {
-      alert('콘티 삭제 중 오류 발생');
+      alert('콘티 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -1127,7 +1122,7 @@ export default function PraiseApp() {
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-300 text-xs font-bold">
-        앱 실행 중...
+        앱 불러오는 중...
       </div>
     );
   }
@@ -1138,7 +1133,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (전체화면 몰입형)
+  // 1. 악보 & 가사 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1194,7 +1189,7 @@ export default function PraiseApp() {
                 </div>
 
                 {viewingSong.headerTag && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
+                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded shrink-0">
                     {viewingSong.headerTag}
                   </span>
                 )}
@@ -1222,7 +1217,7 @@ export default function PraiseApp() {
                       ? 'bg-purple-950/40 border-purple-800 text-purple-300 hover:bg-purple-900/50'
                       : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
                   }`}
-                  title={viewMode === 'sheet' ? '가사 전용 뷰어' : '악보 보기'}
+                  title={viewMode === 'sheet' ? '가사 전용 뷰어로 전환' : '악보 보기로 전환'}
                 >
                   {viewMode === 'sheet' ? (
                     <>
@@ -1507,7 +1502,7 @@ export default function PraiseApp() {
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-24 p-3 sm:p-6 w-full max-w-[100vw] overflow-x-hidden ${bgClass}`}>
       <div className="max-w-2xl mx-auto space-y-3.5 w-full">
         
-        {/* 🌟 1. 앱 스타일 상단 바 🌟 */}
+        {/* 앱 스타일 상단 바 */}
         <header className="flex items-center justify-between gap-2 px-1 pt-1">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
@@ -1537,7 +1532,7 @@ export default function PraiseApp() {
           </div>
         </header>
 
-        {/* 🌟 탭 콘텐츠: 콘티 뷰 🌟 */}
+        {/* 탭 콘텐츠: 콘티 뷰 */}
         {activeTab === 'conti' && (
           <>
             {/* 콘티 선택 & 생성 드롭다운 바 */}
@@ -1605,7 +1600,6 @@ export default function PraiseApp() {
                   </div>
                 </div>
 
-                {/* 상세 펼침 영역 */}
                 {isHeaderCardExpanded && (
                   <div className={`p-3.5 border-t space-y-2.5 text-xs ${
                     isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50/80 border-slate-200'
@@ -1627,7 +1621,7 @@ export default function PraiseApp() {
                         {assignedSingers.map((singer) => (
                           <span
                             key={singer}
-                            className="px-2.5 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-bold text-xs flex items-center gap-1"
+                            className="px-2.5 py-0.5 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-bold text-xs flex items-center gap-1"
                           >
                             <Mic className="w-3 h-3" />
                             {singer}
@@ -1660,7 +1654,7 @@ export default function PraiseApp() {
                   currentSongs.map((song, idx) => {
                     const isBeingDragged = draggedIdx === idx;
                     const isDropTarget = dropTargetIdx === idx && draggedIdx !== null;
-                    const isLyricsExpanded = expandedLyricsSongIds.includes(song.id);
+                    const isLyricsExpanded = expandedLyricsSongId === song.id; // 🌟 단일 열림 체크 🌟
 
                     return (
                       <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
@@ -1775,7 +1769,7 @@ export default function PraiseApp() {
                                       setCurrentPageIndex(0);
                                       setViewMode('sheet');
                                     }}
-                                    className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 ${
+                                    className={`flex items-center justify-center gap-1 px-2.5 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 ${
                                       isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
                                     }`}
                                   >
@@ -1908,7 +1902,7 @@ export default function PraiseApp() {
           </>
         )}
 
-        {/* 🌟 탭 콘텐츠: 찬양 보관소 뷰 🌟 */}
+        {/* 탭 콘텐츠: 찬양 보관소 뷰 */}
         {activeTab === 'library' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
@@ -1917,7 +1911,7 @@ export default function PraiseApp() {
                   <Library className="w-4 h-4 text-purple-400" />
                   찬양 보관소 ({librarySongs.length}곡)
                 </h2>
-                <p className="text-[11px] opacity-60 mt-0.5">등록된 찬양을 검색하고 바로 미리보세요</p>
+                <p className="text-[11px] opacity-60 mt-0.5">등록된 찬양을 검색하고 미리보세요</p>
               </div>
 
               <button
@@ -1974,7 +1968,7 @@ export default function PraiseApp() {
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-xs font-bold text-purple-400 px-2 py-1 rounded-lg bg-purple-500/10">
+                      <span className="text-xs font-bold text-purple-400 px-2.5 py-1 rounded-lg bg-purple-500/10">
                         보기
                       </span>
                     </div>
@@ -2018,10 +2012,10 @@ export default function PraiseApp() {
         </div>
       </nav>
 
-      {/* 🌟 앱 설정 & 관리자 모달 🌟 */}
+      {/* 앱 설정 모달 */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-5 shadow-2xl border ${
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
@@ -2641,7 +2635,6 @@ export default function PraiseApp() {
                 />
               </div>
 
-              {/* 가사 입력 및 구글 검색 */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold opacity-80">찬양 가사 (선택)</label>
@@ -2666,7 +2659,6 @@ export default function PraiseApp() {
                 />
               </div>
 
-              {/* 악보 등록 방식 */}
               <div>
                 <label className="block text-xs font-semibold opacity-80 mb-1.5">악보 등록 방식</label>
                 <div className="grid grid-cols-3 gap-1.5 mb-3">
