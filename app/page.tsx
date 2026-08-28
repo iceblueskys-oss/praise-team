@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Plus,
   Trash2,
@@ -85,6 +85,7 @@ interface Conti {
   customNote?: string;
 }
 
+// 헬퍼 함수
 function getUpcomingSunday(): Date {
   const today = new Date();
   const dayOfWeek = today.getDay();
@@ -120,7 +121,6 @@ function formatImageUrl(url: string): string {
   return trimmed;
 }
 
-// 🌟 Firebase 문서 ID 내 슬래시(/) 등 특수문자 안전 치환 함수 🌟
 function getSafeDocId(title: string, key?: string | null): string {
   const cleanTitle = (title || 'untitled').trim();
   const cleanKey = (key || 'NOKEY').trim();
@@ -129,6 +129,7 @@ function getSafeDocId(title: string, key?: string | null): string {
 }
 
 export default function PraiseApp() {
+  // 1. 상태 변수 선언
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [contis, setContis] = useState<Conti[]>([]);
@@ -137,41 +138,33 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 목록 가사 펼침 상태
   const [expandedLyricsSongIds, setExpandedLyricsSongIds] = useState<string[]>([]);
-
-  // 관리자 권한 상태
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authPasswordInput, setAuthPasswordInput] = useState('');
   const [isChangePwModalOpen, setIsChangePwModalOpen] = useState(false);
   const [newPwInput, setNewPwInput] = useState('');
 
-  // 찬양 보관소 모달 상태
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
 
-  // 새 콘티 달력 모달 상태
   const [isNewContiModalOpen, setIsNewContiModalOpen] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>('');
   const [contiTitleInput, setContiTitleInput] = useState<string>('');
   const [currentCalMonth, setCurrentCalMonth] = useState<Date>(new Date());
 
-  // 싱어 풀 상태
   const [masterSingers, setMasterSingers] = useState<string[]>([]);
   const [newSingerName, setNewSingerName] = useState('');
   const [isSingerModalOpen, setIsSingerModalOpen] = useState(false);
   const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState('');
 
-  // 드래그 상태
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
-  // 곡 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [modalHeaderTag, setModalHeaderTag] = useState('');
@@ -186,7 +179,6 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 뷰어 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -201,9 +193,83 @@ export default function PraiseApp() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 클라이언트 마운트
+  // 2. 주요 핸들러 함수를 호이스팅 문제 없도록 상단에 정의
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem('praise_app_theme', next);
+      } catch (e) {}
+      return next;
+    });
+  }, []);
+
+  const handleToggleLyricsExpand = (songId: string) => {
+    setExpandedLyricsSongIds((prev) =>
+      prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
+    );
+  };
+
+  const handleSearchLyricsWeb = (titleToSearch?: string) => {
+    const q = (titleToSearch || modalTitle || '').trim();
+    if (!q) {
+      alert('곡 제목이 없습니다.');
+      return;
+    }
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
+  };
+
+  const handleCopyLyrics = (textToCopy: string) => {
+    if (!textToCopy) {
+      alert('복사할 가사가 없습니다.');
+      return;
+    }
+    navigator.clipboard.writeText(textToCopy);
+    alert('가사가 복사되었습니다.');
+  };
+
+  const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
+    if (allSongs.length === 0) {
+      if (showSuccessAlert) alert('동기화할 기존 콘티 곡이 없습니다.');
+      return;
+    }
+    setIsSyncingLib(true);
+    try {
+      const batch = writeBatch(db);
+      allSongs.forEach((song) => {
+        const cleanTitle = (song.title || '').trim();
+        if (!cleanTitle) return;
+        const libDocId = getSafeDocId(cleanTitle, song.key);
+        const libRef = doc(db, 'song_library', libDocId);
+        
+        batch.set(
+          libRef,
+          {
+            id: libDocId,
+            title: cleanTitle,
+            key: song.key || null,
+            bpm: song.bpm || null,
+            comment: song.comment || '',
+            lyrics: song.lyrics || '',
+            sheetUrls: song.sheetUrls || [],
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      });
+      await batch.commit();
+      if (showSuccessAlert) {
+        alert('기존 콘티의 모든 찬양이 보관소로 안전하게 동기화되었습니다!');
+      }
+    } catch (e) {
+      console.error('보관소 동기화 오류:', e);
+    } finally {
+      setIsSyncingLib(false);
+    }
+  };
+
+  // 3. 마운트 시 안전 처리
   useEffect(() => {
-    setMounted(true);
     try {
       if (typeof window !== 'undefined') {
         const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
@@ -213,17 +279,10 @@ export default function PraiseApp() {
         if (savedAdmin) setIsAdmin(true);
       }
     } catch (e) {}
+    setMounted(true);
   }, []);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    try {
-      localStorage.setItem('praise_app_theme', nextTheme);
-    } catch (e) {}
-  };
-
-  // Firebase 실시간 동기화
+  // 4. Firebase 실시간 동기화
   useEffect(() => {
     if (!mounted) return;
 
@@ -319,11 +378,11 @@ export default function PraiseApp() {
     };
   }, [mounted]);
 
-  // 필기 동기화
+  // 필기 실시간 동기화
   useEffect(() => {
-    if (!viewingSong || viewMode === 'lyrics') return;
+    if (!viewingSongId || viewMode === 'lyrics') return;
 
-    const pageDrawId = `${viewingSong.id}_p${currentPageIndex}`;
+    const pageDrawId = `${viewingSongId}_p${currentPageIndex}`;
     const drawDocRef = doc(db, 'drawings_v2', pageDrawId);
 
     const unsubDraw = onSnapshot(drawDocRef, (docSnap) => {
@@ -349,7 +408,7 @@ export default function PraiseApp() {
     });
 
     return () => unsubDraw();
-  }, [viewingSong, currentPageIndex, viewMode]);
+  }, [viewingSongId, currentPageIndex, viewMode]);
 
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const currentSongs = allSongs
@@ -358,79 +417,14 @@ export default function PraiseApp() {
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
-  const handleToggleLyricsExpand = (songId: string) => {
-    setExpandedLyricsSongIds((prev) =>
-      prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
-    );
-  };
-
-  const handleSearchLyricsWeb = (titleToSearch?: string) => {
-    const q = (titleToSearch || viewingSong?.title || modalTitle || '').trim();
-    if (!q) {
-      alert('곡 제목이 없습니다.');
-      return;
-    }
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
-  };
-
   const handleUpdateViewingSongLyrics = async (newLyrics: string) => {
     if (!viewingSong) return;
     try {
       await setDoc(doc(db, 'songs_v2', viewingSong.id), { lyrics: newLyrics }, { merge: true });
-      
       const libDocId = getSafeDocId(viewingSong.title, viewingSong.key);
       await setDoc(doc(db, 'song_library', libDocId), { lyrics: newLyrics, updatedAt: Date.now() }, { merge: true });
     } catch (e) {
       console.error('가사 저장 오류:', e);
-    }
-  };
-
-  const handleCopyLyrics = (textToCopy: string) => {
-    if (!textToCopy) {
-      alert('복사할 가사가 없습니다.');
-      return;
-    }
-    navigator.clipboard.writeText(textToCopy);
-    alert('가사가 클립보드에 복사되었습니다.');
-  };
-
-  const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
-    if (allSongs.length === 0) {
-      if (showSuccessAlert) alert('동기화할 기존 콘티 곡이 없습니다.');
-      return;
-    }
-    setIsSyncingLib(true);
-    try {
-      const batch = writeBatch(db);
-      allSongs.forEach((song) => {
-        const cleanTitle = (song.title || '').trim();
-        if (!cleanTitle) return;
-        const libDocId = getSafeDocId(cleanTitle, song.key);
-        const libRef = doc(db, 'song_library', libDocId);
-        
-        batch.set(
-          libRef,
-          {
-            id: libDocId,
-            title: cleanTitle,
-            key: song.key || null,
-            bpm: song.bpm || null,
-            comment: song.comment || '',
-            lyrics: song.lyrics || '',
-            sheetUrls: song.sheetUrls || [],
-            updatedAt: Date.now(),
-          },
-          { merge: true }
-        );
-      });
-      await batch.commit();
-      if (showSuccessAlert) {
-        alert('기존 콘티의 모든 찬양이 보관소로 안전하게 동기화되었습니다!');
-      }
-    } catch (e) {
-      console.error('보관소 자동 동기화 오류:', e);
-    } finally {
-      setIsSyncingLib(false);
     }
   };
 
@@ -918,7 +912,6 @@ export default function PraiseApp() {
 
       await setDoc(doc(db, 'songs_v2', songDocId), songData);
 
-      // 🌟 슬래시(/) 방어 안전 ID 생성 🌟
       const libDocId = getSafeDocId(cleanTitle, modalKey);
 
       await setDoc(
@@ -1021,14 +1014,14 @@ export default function PraiseApp() {
     isDrawing.current = false;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas || !viewingSong) {
+    if (!ctx || !canvas || !viewingSongId) {
       isLocalDrawing.current = false;
       return;
     }
     history.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
 
     try {
-      const pageDrawId = `${viewingSong.id}_p${currentPageIndex}`;
+      const pageDrawId = `${viewingSongId}_p${currentPageIndex}`;
       const dataUrl = canvas.toDataURL('image/png');
       await setDoc(doc(db, 'drawings_v2', pageDrawId), {
         drawingData: dataUrl,
@@ -1045,12 +1038,12 @@ export default function PraiseApp() {
     if (!confirm(`현재 페이지(${currentPageIndex + 1}p)의 필기를 모두 지우시겠습니까?`)) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas || !viewingSong) return;
+    if (!ctx || !canvas || !viewingSongId) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     history.current = [];
     try {
-      const pageDrawId = `${viewingSong.id}_p${currentPageIndex}`;
+      const pageDrawId = `${viewingSongId}_p${currentPageIndex}`;
       await deleteDoc(doc(db, 'drawings_v2', pageDrawId));
     } catch (e) {
       console.error(e);
@@ -1101,11 +1094,10 @@ export default function PraiseApp() {
     return days;
   };
 
-  // SSR 로딩 방어
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-300 text-xs font-bold">
-        로딩 중...
+        앱 불러오는 중...
       </div>
     );
   }
@@ -1603,7 +1595,7 @@ export default function PraiseApp() {
                       }`}
                       title="이 콘티 전체 삭제"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 )}
@@ -1698,6 +1690,7 @@ export default function PraiseApp() {
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                           {isAdmin ? (
                             <div
+                              data-drag-handle="true"
                               onTouchStart={(e) => handleTouchStart(idx, e)}
                               onTouchMove={handleTouchMove}
                               onTouchEnd={endDragAction}
@@ -2142,7 +2135,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 새 콘티 추가 달력 모달 (950 전용) */}
+      {/* 새 콘티 추가 달력 모달 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-5 shadow-2xl border ${
