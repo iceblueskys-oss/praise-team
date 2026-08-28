@@ -193,7 +193,7 @@ export default function PraiseApp() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 🌟 iOS 사파리 핀치 줌 & 더블 탭 확대 물리적 차단 🌟
+  // 🌟 안전한 클라이언트 마운트 & 이벤트 안전 등록 🌟
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -203,32 +203,7 @@ export default function PraiseApp() {
         const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
         if (savedAdmin) setIsAdmin(true);
 
-        // 1. 사파리 멀티터치 제스처 줌 차단
-        const preventGesture = (e: Event) => e.preventDefault();
-        document.addEventListener('gesturestart', preventGesture, { passive: false });
-        document.addEventListener('gesturechange', preventGesture, { passive: false });
-        document.addEventListener('gestureend', preventGesture, { passive: false });
-
-        // 2. 사파리 2손가락 핀치 터치 줌 차단
-        const preventMultiTouch = (e: TouchEvent) => {
-          if (e.touches.length > 1) {
-            e.preventDefault();
-          }
-        };
-        document.addEventListener('touchstart', preventMultiTouch, { passive: false });
-
-        // 3. 사파리 더블 탭 확대 차단
-        let lastTouchEnd = 0;
-        const preventDoubleTap = (e: TouchEvent) => {
-          const now = Date.now();
-          if (now - lastTouchEnd <= 300) {
-            e.preventDefault();
-          }
-          lastTouchEnd = now;
-        };
-        document.addEventListener('touchend', preventDoubleTap, { passive: false });
-
-        // PDF 라이브러리 로드
+        // PDF 라이브러리 비동기 로드
         if (!(window as any).pdfjsLib) {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
@@ -242,7 +217,7 @@ export default function PraiseApp() {
         }
       }
     } catch (e) {
-      console.warn('초기화 에러:', e);
+      console.warn('초기화 알림:', e);
     } finally {
       setMounted(true);
     }
@@ -329,6 +304,12 @@ export default function PraiseApp() {
       unsubSingers();
     };
   }, []);
+
+  useEffect(() => {
+    if (allSongs.length > 0 && librarySongs.length === 0 && !isSyncingLib) {
+      syncAllSongsToLibrary(false);
+    }
+  }, [allSongs, librarySongs]);
 
   const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
     if (allSongs.length === 0) {
@@ -1145,13 +1126,9 @@ export default function PraiseApp() {
     return days;
   };
 
+  // 🌟 SSR/초기 로딩 시 렌더링 지연 방지 🌟
   if (!mounted) {
-    return (
-      <div className={`min-h-screen flex flex-col items-center justify-center gap-2 ${theme === 'dark' ? 'bg-neutral-950 text-neutral-400' : 'bg-slate-50 text-slate-500'}`}>
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs font-semibold">찬양팀 앱 불러오는 중...</p>
-      </div>
-    );
+    return null;
   }
 
   const isDark = theme === 'dark';
@@ -1214,7 +1191,7 @@ export default function PraiseApp() {
                 </div>
 
                 {viewingSong.headerTag && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
+                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded shrink-0">
                     {viewingSong.headerTag}
                   </span>
                 )}
@@ -1384,6 +1361,7 @@ export default function PraiseApp() {
           )}
         </div>
 
+        {/* 뷰어 본문 */}
         <main
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
           className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${
@@ -1634,7 +1612,7 @@ export default function PraiseApp() {
                       }`}
                       title="이 콘티 전체 삭제"
                     >
-                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
@@ -1729,7 +1707,6 @@ export default function PraiseApp() {
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                           {isAdmin ? (
                             <div
-                              data-drag-handle="true"
                               onTouchStart={(e) => handleTouchStart(idx, e)}
                               onTouchMove={handleTouchMove}
                               onTouchEnd={endDragAction}
@@ -1879,7 +1856,7 @@ export default function PraiseApp() {
                               {song.lyrics && (
                                 <button
                                   onClick={() => handleCopyLyrics(song.lyrics || '')}
-                                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
+                                  className={`text-xs font-bold px-2 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
                                     isDark
                                       ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
                                       : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
@@ -1891,7 +1868,7 @@ export default function PraiseApp() {
                               )}
                               <button
                                 onClick={() => handleSearchLyricsWeb(song.title)}
-                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
+                                className={`text-xs font-bold px-2 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
                                   isDark
                                     ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-blue-400'
                                     : 'bg-white hover:bg-slate-100 border-slate-300 text-blue-600'
@@ -2529,7 +2506,7 @@ export default function PraiseApp() {
                 />
               </div>
 
-              {/* 가사 입력 및 원클릭 구글 가사 검색 */}
+              {/* 가사 입력 및 구글 검색 */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold opacity-80">찬양 가사 (선택)</label>
@@ -2554,7 +2531,7 @@ export default function PraiseApp() {
                 />
               </div>
 
-              {/* 3가지 악보 등록 방식 */}
+              {/* 악보 등록 방식 */}
               <div>
                 <label className="block text-xs font-semibold opacity-80 mb-1.5">악보 등록 방식</label>
                 <div className="grid grid-cols-3 gap-1.5 mb-3">
