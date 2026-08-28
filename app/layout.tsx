@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+import 입력 { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export 기본 function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
