@@ -39,6 +39,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  MoreVertical,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -136,45 +137,41 @@ export default function PraiseApp() {
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
 
-  // 🌟 목록 가사 펼침 & 폰트 크기 상태 (sm, md, lg) 🌟
+  // 🌟 상단 싱어/메모 카드 접힘 상태 🌟
+  const [isHeaderCardExpanded, setIsHeaderCardExpanded] = useState(false);
+  // 🌟 상단 추가 메뉴 드롭다운 상태 🌟
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+
   const [expandedLyricsSongIds, setExpandedLyricsSongIds] = useState<string[]>([]);
   const [lyricsFontSize, setLyricsFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
-  // 관리자 권한 상태
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authPasswordInput, setAuthPasswordInput] = useState('');
   const [isChangePwModalOpen, setIsChangePwModalOpen] = useState(false);
   const [newPwInput, setNewPwInput] = useState('');
 
-  // 찬양 보관소 모달 상태
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
-
-  // 🌟 찬양 보관소 곡 미리보기 모달 상태 🌟
   const [previewLibSong, setPreviewLibSong] = useState<LibrarySong | null>(null);
 
-  // 새 콘티 달력 모달 상태
   const [isNewContiModalOpen, setIsNewContiModalOpen] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>('');
   const [contiTitleInput, setContiTitleInput] = useState<string>('');
   const [currentCalMonth, setCurrentCalMonth] = useState<Date>(new Date());
 
-  // 싱어 풀 상태
   const [masterSingers, setMasterSingers] = useState<string[]>([]);
   const [newSingerName, setNewSingerName] = useState('');
   const [isSingerModalOpen, setIsSingerModalOpen] = useState(false);
   const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState('');
 
-  // 드래그 상태
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
-  // 곡 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [modalHeaderTag, setModalHeaderTag] = useState('');
@@ -189,7 +186,6 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 뷰어 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -235,10 +231,9 @@ export default function PraiseApp() {
       return;
     }
     navigator.clipboard.writeText(textToCopy);
-    alert('가사가 클립보드에 복사되었습니다.');
+    alert('가사가 복사되었습니다.');
   };
 
-  // 🌟 보관소 자동 동기화 (기존 데이터 덮어쓰기 방식으로 중복 축적 방지) 🌟
   const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
     if (allSongs.length === 0) {
       if (showSuccessAlert) alert('동기화할 기존 콘티 곡이 없습니다.');
@@ -874,7 +869,6 @@ export default function PraiseApp() {
     setModalSheetUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // 🌟 곡 저장 및 보관소 중복 갱신 처리 🌟
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim()) {
@@ -907,7 +901,6 @@ export default function PraiseApp() {
         finalSheets = modalSheetUrls;
       }
 
-      // 수정 중인 경우 기존 곡의 이전 제목/Key를 찾아 보관소 중복 레코드 정리
       if (editingSongId) {
         const oldSong = allSongs.find((s) => s.id === editingSongId);
         if (oldSong && (oldSong.title !== modalTitle.trim() || oldSong.key !== (modalKey.trim() || null))) {
@@ -945,7 +938,6 @@ export default function PraiseApp() {
 
       await setDoc(doc(db, 'songs_v2', songDocId), songData);
 
-      // 보관소 덮어쓰기 등록
       const libDocId = getSafeDocId(cleanTitle, modalKey);
       await setDoc(
         doc(db, 'song_library', libDocId),
@@ -1140,7 +1132,9 @@ export default function PraiseApp() {
   const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
+  // ==========================================
   // 1. 악보 & 가사 뷰어 화면
+  // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
     const currentSheetUrl = viewingSong.sheetUrls?.[currentPageIndex] || '';
@@ -1488,7 +1482,9 @@ export default function PraiseApp() {
     );
   }
 
-  // 2. 메인 콘티 목록 화면
+  // ==========================================
+  // 2. 메인 콘티 목록 화면 (정리된 깔끔한 UI)
+  // ==========================================
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
 
@@ -1504,13 +1500,15 @@ export default function PraiseApp() {
 
   return (
     <div className={`min-h-screen transition-colors duration-200 p-3 sm:p-6 md:p-8 w-full max-w-[100vw] overflow-x-hidden ${bgClass}`}>
-      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 w-full">
-        <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border shadow-md w-full ${cardBgClass}`}>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+      <div className="max-w-3xl mx-auto space-y-3.5 w-full">
+        
+        {/* 🌟 1. 상단 컨트롤 바 (슬림 & 정돈) 🌟 */}
+        <header className={`flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-2xl border shadow-sm w-full relative ${cardBgClass}`}>
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <select
               value={selectedContiId}
               onChange={(e) => setSelectedContiId(e.target.value)}
-              className={`flex-1 sm:flex-none border font-bold rounded-xl px-3 py-2 text-base sm:text-sm focus:outline-none ${
+              className={`border font-bold rounded-xl px-2.5 py-1.5 text-sm max-w-[180px] xs:max-w-[220px] sm:max-w-xs focus:outline-none truncate ${
                 isDark
                   ? 'bg-neutral-800 border-neutral-700 text-white focus:border-blue-500'
                   : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
@@ -1529,106 +1527,123 @@ export default function PraiseApp() {
 
             <button
               onClick={handleOpenAddContiModal}
-              className={`flex items-center justify-center gap-1 px-3 py-2 border rounded-xl text-xs font-semibold shrink-0 transition active:scale-95 ${subCardBg}`}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 border rounded-xl text-xs font-semibold shrink-0 transition active:scale-95 flex items-center gap-1 ${subCardBg}`}
+              title="새 콘티 생성"
             >
               <FolderPlus className="w-4 h-4 text-blue-500" />
-              <span className="hidden xs:inline">새 콘티</span>
+              <span className="hidden sm:inline">새 콘티</span>
             </button>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => {
                 setLibrarySearchTerm('');
                 setIsLibraryModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 border border-purple-500/50 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl text-xs font-bold transition active:scale-95 shrink-0"
-              title="찬양팀 전체 찬양 보관소 열람"
+              className="flex items-center gap-1 px-2.5 py-1.5 border border-purple-500/40 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl text-xs font-bold transition active:scale-95 shrink-0"
+              title="찬양 보관소"
             >
               <Library className="w-3.5 h-3.5 text-purple-400" />
-              <span>찬양 보관소 ({librarySongs.length})</span>
+              <span className="hidden xs:inline">보관소</span>
+              <span className="text-[11px] opacity-75 font-normal">({librarySongs.length})</span>
             </button>
-
-            <button
-              onClick={() => (isAdmin ? handleLogoutAdmin() : setIsAuthModalOpen(true))}
-              className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition active:scale-95 ${
-                isAdmin
-                  ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-400 hover:bg-emerald-600/30'
-                  : subCardBg
-              }`}
-              title={isAdmin ? '수정 권한 잠금' : '수정 권한 얻기'}
-            >
-              {isAdmin ? <Unlock className="w-3.5 h-3.5 text-emerald-400" /> : <Lock className="w-3.5 h-3.5 opacity-60" />}
-              <span>{isAdmin ? '관리자 모드' : '수정 권한'}</span>
-            </button>
-
-            {isAdmin && (
-              <button
-                onClick={() => setIsChangePwModalOpen(true)}
-                className={`p-2 border rounded-xl transition ${subCardBg}`}
-                title="관리자 비밀번호 변경"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-neutral-400" />
-              </button>
-            )}
-
-            <button
-              onClick={toggleTheme}
-              className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-semibold shrink-0 transition active:scale-95 ${subCardBg}`}
-              title="테마 모드 변경"
-            >
-              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-600" />}
-              <span>{isDark ? '밝은 모드' : '어두운 모드'}</span>
-            </button>
-
-            {isAdmin && currentSongs.length > 1 && (
-              <button
-                onClick={() => setIsReordering(!isReordering)}
-                className={`flex items-center gap-1 px-3 py-2 border rounded-xl text-xs font-bold transition active:scale-95 ${
-                  isReordering
-                    ? 'bg-amber-500 border-amber-400 text-neutral-950'
-                    : subCardBg
-                }`}
-              >
-                {isReordering ? <Check className="w-3.5 h-3.5" /> : <GripVertical className="w-3.5 h-3.5" />}
-                <span>{isReordering ? '완료' : '순서 편집'}</span>
-              </button>
-            )}
 
             <button
               onClick={() => handleOpenModal()}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-blue-600/30 transition active:scale-95"
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 transition active:scale-95"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>곡 추가</span>
             </button>
-          </div>
-        </div>
 
+            {/* 🌟 우측 더보기(···) 메뉴 서랍 토글 🌟 */}
+            <div className="relative">
+              <button
+                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                className={`p-1.5 border rounded-xl transition ${subCardBg}`}
+                title="설정 및 추가 기능"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+
+              {isMoreMenuOpen && (
+                <div
+                  onClick={() => setIsMoreMenuOpen(false)}
+                  className={`absolute right-0 top-10 mt-1 w-44 rounded-2xl border shadow-2xl p-1.5 z-50 flex flex-col gap-1 text-xs font-semibold ${
+                    isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-200' : 'bg-white border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <button
+                    onClick={() => (isAdmin ? handleLogoutAdmin() : setIsAuthModalOpen(true))}
+                    className="w-full px-2.5 py-2 rounded-xl text-left flex items-center justify-between hover:bg-neutral-800/40 transition"
+                  >
+                    <span className="flex items-center gap-2">
+                      {isAdmin ? <Unlock className="w-3.5 h-3.5 text-emerald-400" /> : <Lock className="w-3.5 h-3.5 opacity-60" />}
+                      <span>{isAdmin ? '관리자 잠금' : '수정 권한 얻기'}</span>
+                    </span>
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={() => setIsChangePwModalOpen(true)}
+                      className="w-full px-2.5 py-2 rounded-xl text-left flex items-center gap-2 hover:bg-neutral-800/40 transition"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>비밀번호 변경</span>
+                    </button>
+                  )}
+
+                  {isAdmin && currentSongs.length > 1 && (
+                    <button
+                      onClick={() => setIsReordering(!isReordering)}
+                      className={`w-full px-2.5 py-2 rounded-xl text-left flex items-center gap-2 transition ${
+                        isReordering ? 'bg-amber-500/20 text-amber-400 font-bold' : 'hover:bg-neutral-800/40'
+                      }`}
+                    >
+                      <GripVertical className="w-3.5 h-3.5" />
+                      <span>{isReordering ? '순서 편집 완료' : '곡 순서 편집'}</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={toggleTheme}
+                    className="w-full px-2.5 py-2 rounded-xl text-left flex items-center gap-2 hover:bg-neutral-800/40 transition border-t border-neutral-800/60 pt-2"
+                  >
+                    {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-600" />}
+                    <span>{isDark ? '밝은 모드로 보기' : '어두운 모드로 보기'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* 🌟 2. 콘티 제목 & 접이식 싱어/메모 요약 바 🌟 */}
         {currentConti ? (
-          <div className="flex flex-col gap-3 w-full">
+          <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2 min-w-0">
-                <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
-                <h1 className="text-lg sm:text-2xl font-black truncate">{currentConti.title}</h1>
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 shrink-0" />
+                <h2 className="text-base sm:text-lg font-black truncate">{currentConti.title}</h2>
                 
                 {isAdmin && (
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={handleEditContiTitle}
-                      className={`p-1.5 border rounded-lg transition active:scale-95 ${subCardBg}`}
+                      className={`p-1 border rounded-lg transition ${subCardBg}`}
                       title="콘티 제목 수정"
                     >
-                      <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
+                      <Edit3 className="w-3 h-3 text-blue-500" />
                     </button>
                     <button
                       onClick={handleDeleteConti}
-                      className={`p-1.5 border rounded-lg transition active:scale-95 ${
+                      className={`p-1 border rounded-lg transition ${
                         isDark ? 'bg-neutral-800 hover:bg-red-950/70 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
                       }`}
                       title="이 콘티 전체 삭제"
                     >
-                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 )}
@@ -1636,67 +1651,82 @@ export default function PraiseApp() {
 
               <button
                 onClick={handleOpenSingerModal}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-400 font-bold rounded-xl text-xs transition active:scale-95 shrink-0"
+                className="text-[11px] font-bold text-blue-500 hover:underline shrink-0"
               >
-                <Users className="w-3.5 h-3.5" />
-                <span>싱어 배정 / 관리</span>
+                + 싱어 관리
               </button>
             </div>
 
-            <div className={`p-3.5 sm:p-4 rounded-2xl border transition ${cardBgClass}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold flex items-center gap-1.5 opacity-80">
-                  <Mic className="w-3.5 h-3.5 text-blue-500" />
-                  이번 주 싱어 명단
-                </span>
-                {isAdmin && (
-                  <span
-                    onClick={handleOpenSingerModal}
-                    className="text-[11px] text-blue-400 cursor-pointer hover:underline"
-                  >
-                    {assignedSingers.length > 0 ? '싱어 변경하기' : '+ 이번 주 싱어 지정하기'}
-                  </span>
-                )}
+            {/* 🌟 싱어/메모 접이식 슬림 카드 🌟 */}
+            <div className={`rounded-xl border transition-all overflow-hidden ${cardBgClass}`}>
+              <div
+                onClick={() => setIsHeaderCardExpanded(!isHeaderCardExpanded)}
+                className="flex items-center justify-between p-2.5 px-3 cursor-pointer hover:bg-neutral-800/30 transition text-xs select-none"
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Mic className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <div className="flex items-center gap-1.5 truncate text-[11px] font-medium opacity-85">
+                    {assignedSingers.length > 0 ? (
+                      <span className="font-bold text-blue-400 truncate">
+                        싱어: {assignedSingers.join(', ')}
+                      </span>
+                    ) : (
+                      <span className="opacity-60">싱어 미지정</span>
+                    )}
+                    {customNote && (
+                      <span className="opacity-60 truncate">| {customNote}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-[11px] font-bold opacity-60 shrink-0 ml-2">
+                  <span>{isHeaderCardExpanded ? '접기' : '상세'}</span>
+                  {isHeaderCardExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </div>
               </div>
 
-              {assignedSingers.length > 0 ? (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {assignedSingers.map((singer) => (
-                    <div
-                      key={singer}
-                      className="px-3 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-bold flex items-center gap-1.5"
-                    >
-                      <Mic className="w-3 h-3" />
-                      <span>{singer}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs opacity-60">이번 주 지정된 싱어가 없습니다.</p>
-              )}
+              {/* 상세 펼침 영역 */}
+              {isHeaderCardExpanded && (
+                <div className={`p-3 border-t space-y-2 text-xs ${
+                  isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50/80 border-slate-200'
+                }`}>
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-bold opacity-70 block">이번 주 싱어 명단</span>
+                    {assignedSingers.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {assignedSingers.map((singer) => (
+                          <span
+                            key={singer}
+                            className="px-2.5 py-0.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-400 font-bold text-[11px] flex items-center gap-1"
+                          >
+                            <Mic className="w-2.5 h-2.5" />
+                            {singer}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] opacity-60">지정된 싱어가 없습니다.</p>
+                    )}
+                  </div>
 
-              {customNote && (
-                <div className="mt-2.5 pt-2 border-t border-neutral-800/60 text-xs flex items-center gap-1.5 opacity-80">
-                  <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <span className="font-semibold shrink-0">메모:</span>
-                  <span className="truncate">{customNote}</span>
+                  {customNote && (
+                    <div className="pt-2 border-t border-neutral-800/60 flex items-start gap-1.5 text-[11px] opacity-85">
+                      <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                      <span>{customNote}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
-        ) : (
-          <div className={`p-8 border rounded-2xl text-center space-y-2 ${cardBgClass}`}>
-            <p className="font-bold text-sm">등록된 예배 콘티가 없습니다.</p>
-            <p className="text-xs opacity-70">상단의 [+ 새 콘티] 버튼을 눌러 새 콘티를 생성해주세요.</p>
-          </div>
-        )}
+        ) : null}
 
-        {/* 곡 목록 리스트 */}
+        {/* 🌟 3. 곡 목록 리스트 (간결하고 정돈된 카드) 🌟 */}
         {currentConti && (
-          <div className="space-y-2.5 sm:space-y-3 relative select-none w-full">
+          <div className="space-y-2 relative select-none w-full pt-1">
             {currentSongs.length === 0 ? (
-              <div className={`text-center py-12 sm:py-16 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
-                등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-500 font-semibold">[+ 곡 추가]</span> 버튼으로 새 곡을 추가해보세요.
+              <div className={`text-center py-12 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
+                등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-500 font-semibold">[+ 곡 추가]</span> 버튼을 눌러보세요.
               </div>
             ) : (
               currentSongs.map((song, idx) => {
@@ -1707,20 +1737,20 @@ export default function PraiseApp() {
                 return (
                   <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
                     {isDropTarget && !isBeingDragged && (
-                      <div className="absolute -top-1.5 inset-x-0 h-1 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.8)] z-10 animate-pulse" />
+                      <div className="absolute -top-1 inset-x-0 h-1 bg-blue-500 rounded-full z-10 animate-pulse" />
                     )}
 
                     <div
                       className={`flex flex-col border transition-all duration-150 overflow-hidden w-full ${
-                        isLyricsExpanded ? 'rounded-2xl shadow-md' : 'rounded-2xl'
+                        isLyricsExpanded ? 'rounded-2xl shadow-md ring-1 ring-purple-500/30' : 'rounded-2xl'
                       } ${
                         isBeingDragged
                           ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
                           : cardBgClass
                       }`}
                     >
-                      <div className="flex items-center justify-between p-3 sm:p-4 gap-2 sm:gap-3 w-full">
-                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <div className="flex items-center justify-between p-2.5 sm:p-3.5 gap-2 sm:gap-3 w-full">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           {isAdmin ? (
                             <div
                               onTouchStart={(e) => handleTouchStart(idx, e)}
@@ -1728,54 +1758,49 @@ export default function PraiseApp() {
                               onTouchEnd={endDragAction}
                               onMouseDown={(e) => handleMouseDown(idx, e)}
                               style={{ touchAction: 'none' }}
-                              className="p-1.5 -m-1.5 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
+                              className="p-1 -m-1 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
                               title="길게 눌러 드래그"
                             >
-                              <GripVertical className="w-5 h-5" />
+                              <GripVertical className="w-4 h-4" />
                             </div>
                           ) : null}
 
-                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                          <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center font-black text-[11px] shrink-0 ${
                             isDark ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/80' : 'bg-slate-100 text-slate-700 border border-slate-200'
                           }`}>
-                            {String(idx + 1).padStart(2, '0')}
+                            {idx + 1}
                           </div>
 
                           <div className="min-w-0 flex-1 space-y-0.5">
-                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {song.headerTag && (
-                                <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
+                                <span className="px-1.5 py-0.2 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
                                   {song.headerTag}
                                 </span>
                               )}
 
-                              <h3 className="text-xs sm:text-base font-bold truncate max-w-[140px] xs:max-w-[180px] sm:max-w-sm">
+                              <h3 className="text-xs sm:text-sm font-bold truncate max-w-[150px] xs:max-w-[200px] sm:max-w-sm">
                                 {song.title}
                               </h3>
 
                               {song.key && (
-                                <span className={`px-1.5 py-0.5 text-[10px] sm:text-[11px] font-bold border rounded shrink-0 ${
+                                <span className={`px-1.5 py-0.2 text-[10px] font-bold border rounded shrink-0 ${
                                   isDark ? 'bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'
                                 }`}>
                                   {song.key} Key
                                 </span>
                               )}
                               {song.sheetUrls && song.sheetUrls.length > 1 && (
-                                <span className={`flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border rounded shrink-0 ${
-                                  isDark ? 'bg-purple-600/30 border-purple-500/40 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
+                                <span className={`flex items-center gap-0.5 px-1 py-0.2 text-[10px] font-bold border rounded opacity-75 shrink-0 ${
+                                  isDark ? 'border-neutral-700' : 'border-slate-200'
                                 }`}>
-                                  <Layers className="w-3 h-3" /> {song.sheetUrls.length}장
-                                </span>
-                              )}
-                              {song.bpm && (
-                                <span className="text-[10px] opacity-70 font-medium shrink-0">
-                                  BPM {song.bpm}
+                                  <Layers className="w-2.5 h-2.5" /> {song.sheetUrls.length}p
                                 </span>
                               )}
                             </div>
 
                             {song.comment && (
-                              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-blue-500 dark:text-blue-400 font-medium">
+                              <div className="flex items-center gap-1 text-[11px] text-blue-500 dark:text-blue-400 font-medium">
                                 <MessageSquare className="w-3 h-3 shrink-0" />
                                 <span className="truncate">{song.comment}</span>
                               </div>
@@ -1783,7 +1808,7 @@ export default function PraiseApp() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                           {isReordering && isAdmin ? (
                             <div className="flex items-center gap-1">
                               <button
@@ -1805,7 +1830,7 @@ export default function PraiseApp() {
                             <>
                               <button
                                 onClick={() => handleToggleLyricsExpand(song.id)}
-                                className={`flex items-center justify-center gap-0.5 sm:gap-1 px-2 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[32px] sm:min-h-[34px] ${
+                                className={`flex items-center justify-center gap-0.5 px-2 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 ${
                                   isLyricsExpanded
                                     ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
                                     : isDark
@@ -1815,8 +1840,7 @@ export default function PraiseApp() {
                                 title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
                               >
                                 <BookOpen className="w-3.5 h-3.5" />
-                                <span className="hidden xs:inline">{isLyricsExpanded ? '가사 닫기' : '가사'}</span>
-                                {isLyricsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                <span className="hidden xs:inline">{isLyricsExpanded ? '닫기' : '가사'}</span>
                               </button>
 
                               <button
@@ -1825,26 +1849,26 @@ export default function PraiseApp() {
                                   setCurrentPageIndex(0);
                                   setViewMode('sheet');
                                 }}
-                                className={`flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 min-h-[32px] sm:min-h-[34px] ${
+                                className={`flex items-center justify-center gap-1 px-2.5 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 ${
                                   isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
                                 }`}
                               >
                                 <Eye className="w-3.5 h-3.5 text-blue-500" />
-                                <span className="hidden xs:inline">악보 보기</span>
+                                <span>악보</span>
                               </button>
 
                               {isAdmin && (
                                 <>
                                   <button
                                     onClick={() => handleOpenModal(song)}
-                                    className={`p-1.5 sm:p-2 border rounded-xl transition active:scale-95 min-h-[32px] sm:min-h-[34px] flex items-center justify-center ${subCardBg}`}
+                                    className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${subCardBg}`}
                                     title="곡 수정"
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteSong(song.id)}
-                                    className={`p-1.5 sm:p-2 border rounded-xl transition active:scale-95 min-h-[32px] sm:min-h-[34px] flex items-center justify-center ${
+                                    className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${
                                       isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
                                     }`}
                                     title="곡 삭제"
@@ -1858,60 +1882,47 @@ export default function PraiseApp() {
                         </div>
                       </div>
 
-                      {/* 🌟 가사 펼침 섹션 (폰트 크기 3단계 조절 버튼 탑재) 🌟 */}
+                      {/* 가사 아코디언 본문 */}
                       {isLyricsExpanded && (
-                        <div className={`border-t px-3 sm:px-4 py-3 space-y-2.5 ${
+                        <div className={`border-t px-3 py-3 space-y-2.5 ${
                           isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50/80 border-slate-200'
                         }`}>
-                          <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center justify-between flex-wrap gap-1.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
-                                <BookOpen className="w-3.5 h-3.5" />
-                                찬양 가사
+                              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                                <BookOpen className="w-3 h-3" /> 찬양 가사
                               </span>
 
-                              {/* 글자 크기 조절 버튼 바 */}
                               <div className={`flex items-center rounded-lg border p-0.5 text-[10px] font-bold ${
                                 isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-200 border-slate-300'
                               }`}>
                                 <button
                                   onClick={() => handleChangeFontSize('sm')}
-                                  className={`px-1.5 py-0.5 rounded transition ${
-                                    lyricsFontSize === 'sm' ? 'bg-purple-600 text-white' : 'opacity-60'
-                                  }`}
-                                  title="작은 글씨"
+                                  className={`px-1.5 py-0.2 rounded transition ${lyricsFontSize === 'sm' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
                                 >
                                   소
                                 </button>
                                 <button
                                   onClick={() => handleChangeFontSize('base')}
-                                  className={`px-1.5 py-0.5 rounded transition ${
-                                    lyricsFontSize === 'base' ? 'bg-purple-600 text-white' : 'opacity-60'
-                                  }`}
-                                  title="보통 글씨"
+                                  className={`px-1.5 py-0.2 rounded transition ${lyricsFontSize === 'base' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
                                 >
                                   중
                                 </button>
                                 <button
                                   onClick={() => handleChangeFontSize('lg')}
-                                  className={`px-1.5 py-0.5 rounded transition ${
-                                    lyricsFontSize === 'lg' ? 'bg-purple-600 text-white' : 'opacity-60'
-                                  }`}
-                                  title="큰 글씨"
+                                  className={`px-1.5 py-0.2 rounded transition ${lyricsFontSize === 'lg' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
                                 >
                                   대
                                 </button>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               {song.lyrics && (
                                 <button
                                   onClick={() => handleCopyLyrics(song.lyrics || '')}
-                                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
-                                    isDark
-                                      ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
-                                      : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
+                                  className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 transition ${
+                                    isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-white border-slate-300 text-slate-800'
                                   }`}
                                 >
                                   <Copy className="w-3 h-3 text-purple-500" />
@@ -1920,10 +1931,8 @@ export default function PraiseApp() {
                               )}
                               <button
                                 onClick={() => handleSearchLyricsWeb(song.title)}
-                                className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition shadow-sm ${
-                                  isDark
-                                    ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-blue-400'
-                                    : 'bg-white hover:bg-slate-100 border-slate-300 text-blue-600'
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 transition ${
+                                  isDark ? 'bg-neutral-800 border-neutral-700 text-blue-400' : 'bg-white border-slate-300 text-blue-600'
                                 }`}
                               >
                                 <Globe className="w-3 h-3" />
@@ -1933,35 +1942,27 @@ export default function PraiseApp() {
                           </div>
 
                           {song.lyrics ? (
-                            <div className={`font-medium leading-relaxed sm:leading-loose whitespace-pre-wrap p-3 rounded-xl border max-h-80 overflow-y-auto ${
-                              lyricsFontSize === 'sm'
-                                ? 'text-xs'
-                                : lyricsFontSize === 'lg'
-                                ? 'text-base font-semibold'
-                                : 'text-sm'
-                            } ${
-                              isDark
-                                ? 'bg-neutral-900 border-neutral-800 text-neutral-100'
-                                : 'bg-white border-slate-200 text-slate-900'
-                            }`}>
+                            <div className={`font-medium leading-relaxed whitespace-pre-wrap p-3 rounded-xl border max-h-72 overflow-y-auto ${
+                              lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-semibold' : 'text-sm'
+                            } ${isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'}`}>
                               {song.lyrics}
                             </div>
                           ) : (
-                            <div className={`py-6 text-center rounded-xl border border-dashed space-y-2.5 ${
+                            <div className={`py-5 text-center rounded-xl border border-dashed space-y-2 ${
                               isDark ? 'border-neutral-800 bg-neutral-900/40 text-neutral-400' : 'border-slate-300 bg-white/60 text-slate-600'
                             }`}>
                               <p className="text-xs font-semibold">등록된 가사가 없습니다.</p>
                               <div className="flex justify-center gap-2">
                                 <button
                                   onClick={() => handleSearchLyricsWeb(song.title)}
-                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-sm"
+                                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-sm"
                                 >
                                   구글에서 가사 찾기 ↗
                                 </button>
                                 {isAdmin && (
                                   <button
                                     onClick={() => handleOpenModal(song)}
-                                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-sm"
+                                    className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-sm"
                                   >
                                     + 가사 직접 등록
                                   </button>
@@ -1979,6 +1980,7 @@ export default function PraiseApp() {
           </div>
         )}
 
+        {/* 드래그 고스트 카드 */}
         {draggedIdx !== null && dragPos && currentSongs[draggedIdx] && (
           <div
             style={{
@@ -1989,16 +1991,16 @@ export default function PraiseApp() {
               pointerEvents: 'none',
               zIndex: 9999,
             }}
-            className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border-2 border-blue-500 shadow-2xl scale-105 opacity-90 backdrop-blur-md ${
+            className={`flex items-center justify-between p-3 rounded-2xl border-2 border-blue-500 shadow-2xl scale-105 opacity-90 backdrop-blur-md ${
               isDark ? 'bg-neutral-900/95 text-white' : 'bg-white/95 text-slate-900'
             }`}
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <GripVertical className="w-5 h-5 text-blue-500 shrink-0" />
-              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0">
-                {String(draggedIdx + 1).padStart(2, '0')}
+              <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0">
+                {draggedIdx + 1}
               </div>
-              <h3 className="text-sm sm:text-base font-bold truncate">
+              <h3 className="text-sm font-bold truncate">
                 {currentSongs[draggedIdx].headerTag ? `[${currentSongs[draggedIdx].headerTag}] ` : ''}
                 {currentSongs[draggedIdx].title}
               </h3>
@@ -2008,7 +2010,7 @@ export default function PraiseApp() {
         )}
       </div>
 
-      {/* 🌟 찬양 보관소 모달 (미리보기 기능 연동) 🌟 */}
+      {/* 찬양 보관소 모달 */}
       {isLibraryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-2xl p-5 sm:p-6 shadow-2xl max-h-[85vh] flex flex-col border ${
@@ -2093,7 +2095,6 @@ export default function PraiseApp() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* 🌟 미리보기 버튼 🌟 */}
                       <button
                         onClick={() => setPreviewLibSong(libSong)}
                         className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-1 ${
@@ -2123,7 +2124,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 🌟 찬양 보관소 곡 악보/가사 미리보기 모달 🌟 */}
+      {/* 찬양 보관소 곡 미리보기 모달 */}
       {previewLibSong && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-6">
           <div className={`rounded-2xl w-full max-w-2xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${
@@ -2145,7 +2146,6 @@ export default function PraiseApp() {
             </div>
 
             <div className="mt-3 flex-1 overflow-y-auto space-y-4 pr-1">
-              {/* 악보 이미지 미리보기 */}
               {previewLibSong.sheetUrls && previewLibSong.sheetUrls.length > 0 ? (
                 <div className="space-y-2">
                   <span className="text-xs font-bold opacity-80 block">등록된 악보 ({previewLibSong.sheetUrls.length}장)</span>
@@ -2163,7 +2163,6 @@ export default function PraiseApp() {
                 <p className="text-xs opacity-60">등록된 악보 이미지가 없습니다.</p>
               )}
 
-              {/* 가사 미리보기 */}
               <div className="space-y-1.5 pt-2 border-t border-neutral-800">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-purple-400 flex items-center gap-1">
@@ -2307,7 +2306,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 새 콘티 추가 달력 모달 (950 전용) */}
+      {/* 새 콘티 추가 달력 모달 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-5 shadow-2xl border ${
@@ -2540,7 +2539,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 모달 (곡 추가/수정 & 가사 등록 폼) */}
+      {/* 곡 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2608,7 +2607,7 @@ export default function PraiseApp() {
                   required
                   value={modalTitle}
                   onChange={(e) => setModalTitle(e.target.value)}
-                  placeholder="예: 꽃들도, 빛의 사자들이여 (헤더 없이 순수 곡명만 입력)"
+                  placeholder="예: 꽃들도, 빛의 사자들이여"
                   className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
@@ -2662,7 +2661,6 @@ export default function PraiseApp() {
                 />
               </div>
 
-              {/* 가사 입력 및 구글 검색 */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold opacity-80">찬양 가사 (선택)</label>
@@ -2687,7 +2685,6 @@ export default function PraiseApp() {
                 />
               </div>
 
-              {/* 악보 등록 방식 */}
               <div>
                 <label className="block text-xs font-semibold opacity-80 mb-1.5">악보 등록 방식</label>
                 <div className="grid grid-cols-3 gap-1.5 mb-3">
