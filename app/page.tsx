@@ -193,17 +193,19 @@ export default function PraiseApp() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 🌟 클라이언트 마운트 안전 처리 (하이드레이션 에러 방지) 🌟
+  // 🌟 안전한 초기 클라이언트 마운트 🌟
   useEffect(() => {
     setMounted(true);
     try {
-      const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
-      if (savedTheme) setTheme(savedTheme);
+      if (typeof window !== 'undefined') {
+        const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
+        if (savedTheme) setTheme(savedTheme);
 
-      const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
-      if (savedAdmin) setIsAdmin(true);
+        const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
+        if (savedAdmin) setIsAdmin(true);
+      }
     } catch (e) {
-      console.warn('로컬 스토리지 로드 실패:', e);
+      console.warn('스토리지 로드 실패:', e);
     }
   }, []);
 
@@ -217,6 +219,8 @@ export default function PraiseApp() {
 
   // Firebase 실시간 동기화
   useEffect(() => {
+    if (!mounted) return;
+
     let unsubContis = () => {};
     let unsubSongs = () => {};
     let unsubLib = () => {};
@@ -287,13 +291,84 @@ export default function PraiseApp() {
       unsubLib();
       unsubSingers();
     };
-  }, []);
+  }, [mounted]);
 
+  // 필기 동기화
   useEffect(() => {
-    if (allSongs.length > 0 && librarySongs.length === 0 && !isSyncingLib) {
-      syncAllSongsToLibrary(false);
+    if (!viewingSong || viewMode === 'lyrics') return;
+
+    const pageDrawId = `${viewingSong.id}_p${currentPageIndex}`;
+    const drawDocRef = doc(db, 'drawings_v2', pageDrawId);
+
+    const unsubDraw = onSnapshot(drawDocRef, (docSnap) => {
+      if (isLocalDrawing.current) return;
+
+      const data = docSnap.data();
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) return;
+
+      if (data?.drawingData) {
+        const dImg = new Image();
+        dImg.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(dImg, 0, 0, canvas.width, canvas.height);
+          history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+        };
+        dImg.src = data.drawingData;
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+      }
+    });
+
+    return () => unsubDraw();
+  }, [viewingSong, currentPageIndex, viewMode]);
+
+  const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
+  const currentSongs = allSongs
+    .filter((s) => s.contiId === currentConti?.id)
+    .sort((a, b) => a.order - b.order);
+  const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
+  const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
+
+  const handleToggleLyricsExpand = (songId: string) => {
+    setExpandedLyricsSongIds((prev) =>
+      prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
+    );
+  };
+
+  const handleSearchLyricsWeb = (titleToSearch?: string) => {
+    const q = (titleToSearch || viewingSong?.title || modalTitle || '').trim();
+    if (!q) {
+      alert('곡 제목이 없습니다.');
+      return;
     }
-  }, [allSongs, librarySongs]);
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
+  };
+
+  const handleUpdateViewingSongLyrics = async (newLyrics: string) => {
+    if (!viewingSong) return;
+    try {
+      await setDoc(doc(db, 'songs_v2', viewingSong.id), { lyrics: newLyrics }, { merge: true });
+      
+      const cleanTitle = viewingSong.title.trim();
+      const cleanKey = viewingSong.key ? viewingSong.key.trim().toUpperCase() : 'NOKEY';
+      const libDocId = `lib_${cleanTitle.replace(/\s+/g, '_')}_${cleanKey}`;
+      await setDoc(doc(db, 'song_library', libDocId), { lyrics: newLyrics, updatedAt: Date.now() }, { merge: true });
+    } catch (e) {
+      console.error('가사 저장 오류:', e);
+    }
+  };
+
+  const handleCopyLyrics = (textToCopy: string) => {
+    if (!textToCopy) {
+      alert('복사할 가사가 없습니다.');
+      return;
+    }
+    navigator.clipboard.writeText(textToCopy);
+    alert('가사가 클립보드에 복사되었습니다.');
+  };
 
   const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
     if (allSongs.length === 0) {
@@ -334,83 +409,6 @@ export default function PraiseApp() {
     } finally {
       setIsSyncingLib(false);
     }
-  };
-
-  const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
-  const currentSongs = allSongs
-    .filter((s) => s.contiId === currentConti?.id)
-    .sort((a, b) => a.order - b.order);
-  const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
-  const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
-
-  // 필기 동기화
-  useEffect(() => {
-    if (!viewingSong || viewMode === 'lyrics') return;
-
-    const pageDrawId = `${viewingSong.id}_p${currentPageIndex}`;
-    const drawDocRef = doc(db, 'drawings_v2', pageDrawId);
-
-    const unsubDraw = onSnapshot(drawDocRef, (docSnap) => {
-      if (isLocalDrawing.current) return;
-
-      const data = docSnap.data();
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext('2d');
-      if (!canvas || !ctx) return;
-
-      if (data?.drawingData) {
-        const dImg = new Image();
-        dImg.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(dImg, 0, 0, canvas.width, canvas.height);
-          history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
-        };
-        dImg.src = data.drawingData;
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
-      }
-    });
-
-    return () => unsubDraw();
-  }, [viewingSong, currentPageIndex, viewMode]);
-
-  const handleToggleLyricsExpand = (songId: string) => {
-    setExpandedLyricsSongIds((prev) =>
-      prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
-    );
-  };
-
-  const handleSearchLyricsWeb = (titleToSearch?: string) => {
-    const q = (titleToSearch || viewingSong?.title || modalTitle || '').trim();
-    if (!q) {
-      alert('곡 제목이 없습니다.');
-      return;
-    }
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
-  };
-
-  const handleUpdateViewingSongLyrics = async (newLyrics: string) => {
-    if (!viewingSong) return;
-    try {
-      await setDoc(doc(db, 'songs_v2', viewingSong.id), { lyrics: newLyrics }, { merge: true });
-      
-      const cleanTitle = viewingSong.title.trim();
-      const cleanKey = viewingSong.key ? viewingSong.key.trim().toUpperCase() : 'NOKEY';
-      const libDocId = `lib_${cleanTitle.replace(/\s+/g, '_')}_${cleanKey}`;
-      await setDoc(doc(db, 'song_library', libDocId), { lyrics: newLyrics, updatedAt: Date.now() }, { merge: true });
-    } catch (e) {
-      console.error('가사 저장 오류:', e);
-    }
-  };
-
-  const handleCopyLyrics = (textToCopy: string) => {
-    if (!textToCopy) {
-      alert('복사할 가사가 없습니다.');
-      return;
-    }
-    navigator.clipboard.writeText(textToCopy);
-    alert('가사가 클립보드에 복사되었습니다.');
   };
 
   const handleLoginAdmin = async (e: React.FormEvent) => {
@@ -1080,12 +1078,11 @@ export default function PraiseApp() {
     return days;
   };
 
-  // SSR 로딩 방어
+  // 🌟 클라이언트 마운트 전 깜빡임 및 SSR 런타임 에러 방지 🌟
   if (!mounted) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center gap-2 ${theme === 'dark' ? 'bg-neutral-950 text-neutral-400' : 'bg-slate-50 text-slate-500'}`}>
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs font-semibold">찬양팀 앱 불러오는 중...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-300 text-xs font-bold">
+        로딩 중...
       </div>
     );
   }
@@ -2330,7 +2327,7 @@ export default function PraiseApp() {
                   취소
                 </button>
                 <button
-                  type="button"
+                  type="submit"
                   onClick={handleSaveContiSingers}
                   className="flex-1 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30"
                 >
