@@ -148,6 +148,7 @@ export default function PraiseApp() {
   const [isHeaderCardExpanded, setIsHeaderCardExpanded] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
+  // 공지 및 참석 여부 모달 상태
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [noticeInput, setNoticeInput] = useState('');
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -163,7 +164,6 @@ export default function PraiseApp() {
   const [isChangePwModalOpen, setIsChangePwModalOpen] = useState(false);
   const [newPwInput, setNewPwInput] = useState('');
 
-  const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
   const [previewLibSong, setPreviewLibSong] = useState<LibrarySong | null>(null);
@@ -241,7 +241,7 @@ export default function PraiseApp() {
       return;
     }
     navigator.clipboard.writeText(textToCopy);
-    alert('가사가 클립보드에 복사되었습니다.');
+    alert('가사가 복사되었습니다.');
   };
 
   const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
@@ -257,7 +257,7 @@ export default function PraiseApp() {
         if (!cleanTitle) return;
         const libDocId = getSafeDocId(cleanTitle, song.key);
         const libRef = doc(db, 'song_library', libDocId);
-        
+
         batch.set(
           libRef,
           {
@@ -476,8 +476,8 @@ export default function PraiseApp() {
     }
 
     try {
-      const currentAttendance = currentConti.attendance || {};
-      const updatedAttendance = { ...currentAttendance, [name]: status };
+      const currentAtt = currentConti.attendance || {};
+      const updatedAttendance = { ...currentAtt, [name]: status };
 
       await setDoc(doc(db, 'contis_v2', currentConti.id), { attendance: updatedAttendance }, { merge: true });
       try {
@@ -485,7 +485,7 @@ export default function PraiseApp() {
       } catch (e) {}
 
       setIsAttendanceModalOpen(false);
-      alert(`[${name}]님의 참석 여부가 반영되었습니다!`);
+      alert(`[${name}]님의 참석 여부(${status === 'yes' ? '참석' : status === 'no' ? '불참' : '미정'})가 반영되었습니다!`);
     } catch (e) {
       alert('참석 여부 저장 실패');
     }
@@ -1187,7 +1187,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (다이나믹 아일랜드 대응 패딩 적용)
+  // 1. 악보 & 가사 뷰어 화면 (다이나믹 아일랜드 안전 영역)
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1537,7 +1537,7 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 화면 (다이나믹 아일랜드 대응 패딩 적용)
+  // 2. 메인 화면
   // ==========================================
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
@@ -1629,7 +1629,7 @@ export default function PraiseApp() {
               </button>
             </div>
 
-            {/* 공지사항 & 참석 여부 패널 */}
+            {/* 공지사항 & 출석 패널 */}
             {currentConti && (
               <div className={`rounded-2xl border p-3.5 space-y-3 ${cardBgClass}`}>
                 <div className="flex items-start justify-between gap-2">
@@ -1758,7 +1758,7 @@ export default function PraiseApp() {
                         {assignedSingers.map((singer) => (
                           <span
                             key={singer}
-                            className="px-2.5 py-0.5 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-bold text-xs flex items-center gap-1"
+                            className="px-2.5 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-bold text-xs flex items-center gap-1"
                           >
                             <Mic className="w-3 h-3" />
                             {singer}
@@ -1780,9 +1780,9 @@ export default function PraiseApp() {
               </div>
             )}
 
-            {/* 곡 목록 리스트 (모바일 텍스트 겹침 완벽 방지 레이아웃) */}
+            {/* 🌟 곡 목록 리스트 (곡 제목 클릭 시 악보 열림) 🌟 */}
             {currentConti ? (
-              <div className="space-y-2.5 relative select-none w-full">
+              <div className="space-y-2 relative select-none w-full">
                 {currentSongs.length === 0 ? (
                   <div className={`text-center py-14 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
                     등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-500 font-bold">[+ 곡 추가]</span>를 눌러보세요.
@@ -1809,9 +1809,18 @@ export default function PraiseApp() {
                           }`}
                         >
                           <div className="flex items-center justify-between p-3 sm:p-3.5 gap-2 w-full">
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {/* 🌟 터치 시 악보 보기로 바로 이동하는 곡 정보 영역 🌟 */}
+                            <div
+                              onClick={() => {
+                                setViewingSongId(song.id);
+                                setCurrentPageIndex(0);
+                                setViewMode('sheet');
+                              }}
+                              className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
+                            >
                               {isAdmin ? (
                                 <div
+                                  onClick={(e) => e.stopPropagation()} // 드래그 핸들은 곡 뷰어 이동 방지
                                   onTouchStart={(e) => handleTouchStart(idx, e)}
                                   onTouchMove={handleTouchMove}
                                   onTouchEnd={endDragAction}
@@ -1824,12 +1833,11 @@ export default function PraiseApp() {
                                 </div>
                               ) : null}
 
-                              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black text-xs shrink-0">
+                              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition">
                                 {idx + 1}
                               </div>
 
-                              {/* 🌟 텍스트 겹침 방지 세로 정렬 구조 🌟 */}
-                              <div className="min-w-0 flex-1 flex flex-col justify-center">
+                              <div className="min-w-0 flex-1 space-y-0.5">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   {song.headerTag && (
                                     <span className="px-1.5 py-0.2 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
@@ -1837,7 +1845,7 @@ export default function PraiseApp() {
                                     </span>
                                   )}
 
-                                  <h3 className="text-xs sm:text-sm font-bold truncate max-w-[140px] xs:max-w-[190px] sm:max-w-sm">
+                                  <h3 className="text-xs sm:text-sm font-bold truncate max-w-[170px] xs:max-w-[220px] sm:max-w-sm group-hover:text-blue-500 transition">
                                     {song.title}
                                   </h3>
 
@@ -1858,7 +1866,7 @@ export default function PraiseApp() {
                                 </div>
 
                                 {song.comment && (
-                                  <div className="flex items-center gap-1 text-[11px] text-blue-500 dark:text-blue-400 font-medium mt-0.5">
+                                  <div className="flex items-center gap-1 text-[11px] text-blue-500 dark:text-blue-400 font-medium">
                                     <MessageSquare className="w-3 h-3 shrink-0" />
                                     <span className="truncate">{song.comment}</span>
                                   </div>
@@ -1866,6 +1874,7 @@ export default function PraiseApp() {
                               </div>
                             </div>
 
+                            {/* 우측 버튼 그룹: 가사 버튼 및 관리자 버튼 */}
                             <div className="flex items-center gap-1 shrink-0">
                               {isReordering && isAdmin ? (
                                 <div className="flex items-center gap-1">
@@ -1899,20 +1908,6 @@ export default function PraiseApp() {
                                   >
                                     <BookOpen className="w-3.5 h-3.5" />
                                     <span className="hidden xs:inline">{isLyricsExpanded ? '닫기' : '가사'}</span>
-                                  </button>
-
-                                  <button
-                                    onClick={() => {
-                                      setViewingSongId(song.id);
-                                      setCurrentPageIndex(0);
-                                      setViewMode('sheet');
-                                    }}
-                                    className={`flex items-center justify-center gap-1 px-2.5 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 ${
-                                      isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-100 border-blue-200 text-blue-700'
-                                    }`}
-                                  >
-                                    <Eye className="w-3.5 h-3.5 text-blue-500" />
-                                    <span>악보</span>
                                   </button>
 
                                   {isAdmin && (
@@ -2494,7 +2489,7 @@ export default function PraiseApp() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-md shadow-blue-600/30"
                 >
                   인증하기
                 </button>
@@ -2545,7 +2540,7 @@ export default function PraiseApp() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-md shadow-blue-600/30"
                 >
                   변경 완료
                 </button>
@@ -2788,7 +2783,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 모달 (곡 추가/수정) */}
+      {/* 곡 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -3132,4 +3127,3 @@ export default function PraiseApp() {
     </div>
   );
 }
-
