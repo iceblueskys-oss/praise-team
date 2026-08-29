@@ -83,19 +83,14 @@ interface LibrarySong {
   updatedAt: number;
 }
 
-interface AttendanceItem {
-  name: string;
-  status: 'yes' | 'no' | 'maybe';
-}
-
 interface Conti {
   id: string;
   title: string;
   date: string;
   assignedSingers?: string[];
   customNote?: string;
-  notice?: string; // 🌟 공지사항
-  attendance?: Record<string, 'yes' | 'no' | 'maybe'>; // 🌟 팀원 참석 여부
+  notice?: string;
+  attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
 }
 
 function getUpcomingSunday(): Date {
@@ -153,7 +148,6 @@ export default function PraiseApp() {
   const [isHeaderCardExpanded, setIsHeaderCardExpanded] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
-  // 공지 및 참석 여부 모달 상태
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [noticeInput, setNoticeInput] = useState('');
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -462,7 +456,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 🌟 공지사항 저장 🌟
   const handleSaveNotice = async () => {
     if (!currentConti) return;
     try {
@@ -474,7 +467,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 🌟 참석 여부 제출 🌟
   const handleSubmitAttendance = async (status: 'yes' | 'no' | 'maybe') => {
     if (!currentConti) return;
     const name = myAttendanceName.trim();
@@ -493,7 +485,7 @@ export default function PraiseApp() {
       } catch (e) {}
 
       setIsAttendanceModalOpen(false);
-      alert(`[${name}]님의 참석 여부(${status === 'yes' ? '참석' : status === 'no' ? '불참' : '미정'})가 반영되었습니다!`);
+      alert(`[${name}]님의 참석 여부가 반영되었습니다!`);
     } catch (e) {
       alert('참석 여부 저장 실패');
     }
@@ -1195,7 +1187,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (다이나믹 아일랜드 pt 안전 패딩 적용)
+  // 1. 악보 & 가사 뷰어 화면 (다이나믹 아일랜드 대응 패딩 적용)
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1545,14 +1537,13 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 화면 (다이나믹 아일랜드 패딩 + 공지 & 참석 여부 기능 탑재)
+  // 2. 메인 화면 (다이나믹 아일랜드 대응 패딩 적용)
   // ==========================================
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
   const currentNotice = currentConti?.notice || '';
   const currentAttendance = currentConti?.attendance || {};
 
-  // 참석 인원 집계
   const yesCount = Object.values(currentAttendance).filter((v) => v === 'yes').length;
   const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
   const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
@@ -1638,10 +1629,9 @@ export default function PraiseApp() {
               </button>
             </div>
 
-            {/* 🌟 3. 공지사항 & 참석 여부 (출석체크) 패널 🌟 */}
+            {/* 공지사항 & 참석 여부 패널 */}
             {currentConti && (
               <div className={`rounded-2xl border p-3.5 space-y-3 ${cardBgClass}`}>
-                {/* 공지사항 바 */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2 min-w-0 flex-1">
                     <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
@@ -1682,7 +1672,6 @@ export default function PraiseApp() {
                     </button>
                   </div>
 
-                  {/* 출석 집계 뱃지 바 */}
                   <div className="flex items-center gap-2 text-xs font-bold flex-wrap">
                     <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" /> 참석 ({yesCount})
@@ -1695,7 +1684,6 @@ export default function PraiseApp() {
                     </span>
                   </div>
 
-                  {/* 세부 명단 */}
                   {Object.keys(currentAttendance).length > 0 && (
                     <div className="mt-2.5 flex flex-wrap gap-1 text-[11px]">
                       {Object.entries(currentAttendance).map(([name, status]) => (
@@ -1792,9 +1780,9 @@ export default function PraiseApp() {
               </div>
             )}
 
-            {/* 곡 목록 리스트 */}
+            {/* 곡 목록 리스트 (모바일 텍스트 겹침 완벽 방지 레이아웃) */}
             {currentConti ? (
-              <div className="space-y-2 relative select-none w-full">
+              <div className="space-y-2.5 relative select-none w-full">
                 {currentSongs.length === 0 ? (
                   <div className={`text-center py-14 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
                     등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-500 font-bold">[+ 곡 추가]</span>를 눌러보세요.
@@ -1840,7 +1828,8 @@ export default function PraiseApp() {
                                 {idx + 1}
                               </div>
 
-                              <div className="min-w-0 flex-1 space-y-0.5">
+                              {/* 🌟 텍스트 겹침 방지 세로 정렬 구조 🌟 */}
+                              <div className="min-w-0 flex-1 flex flex-col justify-center">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   {song.headerTag && (
                                     <span className="px-1.5 py-0.2 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
@@ -1848,7 +1837,7 @@ export default function PraiseApp() {
                                     </span>
                                   )}
 
-                                  <h3 className="text-xs sm:text-sm font-bold truncate max-w-[150px] xs:max-w-[200px] sm:max-w-sm">
+                                  <h3 className="text-xs sm:text-sm font-bold truncate max-w-[140px] xs:max-w-[190px] sm:max-w-sm">
                                     {song.title}
                                   </h3>
 
@@ -1869,7 +1858,7 @@ export default function PraiseApp() {
                                 </div>
 
                                 {song.comment && (
-                                  <div className="flex items-center gap-1 text-[11px] text-blue-500 dark:text-blue-400 font-medium">
+                                  <div className="flex items-center gap-1 text-[11px] text-blue-500 dark:text-blue-400 font-medium mt-0.5">
                                     <MessageSquare className="w-3 h-3 shrink-0" />
                                     <span className="truncate">{song.comment}</span>
                                   </div>
@@ -1919,7 +1908,7 @@ export default function PraiseApp() {
                                       setViewMode('sheet');
                                     }}
                                     className={`flex items-center justify-center gap-1 px-2.5 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 ${
-                                      isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
+                                      isDark ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-100 border-blue-200 text-blue-700'
                                     }`}
                                   >
                                     <Eye className="w-3.5 h-3.5 text-blue-500" />
@@ -2161,7 +2150,7 @@ export default function PraiseApp() {
         </div>
       </nav>
 
-      {/* 🌟 공지사항 작성 모달 🌟 */}
+      {/* 공지사항 작성 모달 */}
       {isNoticeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
@@ -2208,7 +2197,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 🌟 참석 여부 체크 모달 🌟 */}
+      {/* 참석 여부 체크 모달 */}
       {isAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
