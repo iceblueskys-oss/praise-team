@@ -5,7 +5,6 @@ import {
   Plus,
   Trash2,
   Edit3,
-  Eye,
   Calendar,
   FolderPlus,
   X,
@@ -46,8 +45,6 @@ import {
   XCircle,
   HelpCircle,
   RotateCcw,
-  Maximize2,
-  Minimize2,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -151,7 +148,6 @@ export default function PraiseApp() {
   const [isHeaderCardExpanded, setIsHeaderCardExpanded] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
-  // 공지 및 참석 여부 모달 상태
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [noticeInput, setNoticeInput] = useState('');
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -201,7 +197,6 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🌟 뷰어 고도화 상태 🌟
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -209,7 +204,7 @@ export default function PraiseApp() {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser'>('pen');
   const [penColor, setPenColor] = useState('#ef4444');
-  const [showViewerControls, setShowViewerControls] = useState(true); // 컨트롤바 자동/수동 토글
+  const [showViewerControls, setShowViewerControls] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -1142,7 +1137,7 @@ export default function PraiseApp() {
 
     const days = [];
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-9" />);
+      days.push(<div key={`empty-${i}`} className="h-10" />);
     }
 
     for (let d = 1; d <= lastDate; d++) {
@@ -1156,7 +1151,7 @@ export default function PraiseApp() {
           key={d}
           type="button"
           onClick={() => handleSelectCalendarDate(dateObj)}
-          className={`h-9 w-full rounded-xl flex flex-col items-center justify-center font-bold text-xs transition ${
+          className={`h-10 w-full rounded-xl flex flex-col items-center justify-center font-bold text-sm transition ${
             isSelected
               ? 'bg-blue-600 text-white shadow-md scale-105'
               : isSunday
@@ -1170,7 +1165,7 @@ export default function PraiseApp() {
         >
           <span>{d}</span>
           {isSunday && !isSelected && (
-            <span className="w-1 h-1 bg-red-500 rounded-full mt-0.5"></span>
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full mt-0.5"></span>
           )}
         </button>
       );
@@ -1180,7 +1175,7 @@ export default function PraiseApp() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-300 text-xs font-bold">
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-300 text-sm font-bold">
         앱 불러오는 중...
       </div>
     );
@@ -1188,11 +1183,11 @@ export default function PraiseApp() {
 
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-100 text-slate-900';
-  const cardBgClass = isDark ? 'bg-neutral-900/90 border-neutral-800 backdrop-blur-md' : 'bg-white/95 border-slate-200/90 shadow-sm backdrop-blur-md';
+  const cardBgClass = isDark ? 'bg-neutral-900/95 border-neutral-800 backdrop-blur-md' : 'bg-white border-slate-200 shadow-sm backdrop-blur-md';
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 🌟 악보 & 가사 뷰어 화면 (플로팅 글래스모피즘 앱 UI) 🌟
+  // 1. 🌟 악보 & 가사 뷰어 화면 (깔끔한 화이트/밝은 배경 & 큼직한 모바일 UI) 🌟
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1201,11 +1196,9 @@ export default function PraiseApp() {
     return (
       <div
         style={{ overscrollBehavior: 'none' }}
-        className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none ${
-          isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-900 text-slate-100'
-        }`}
+        className="fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none bg-slate-100 text-slate-900"
       >
-        {/* 🌟 1. 상단 플로팅 글래스 캡슐 바 (Floating Glass TopBar) 🌟 */}
+        {/* 상단 플로팅 글래스 캡슐 바 */}
         <div
           className={`fixed top-3 sm:top-5 inset-x-3 sm:inset-x-6 z-50 transition-all duration-300 pointer-events-none ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
@@ -1213,83 +1206,78 @@ export default function PraiseApp() {
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="max-w-3xl mx-auto w-full flex flex-col gap-2">
-            <div className="pointer-events-auto flex items-center justify-between p-1.5 sm:p-2 rounded-2xl bg-neutral-900/80 border border-neutral-700/60 shadow-2xl backdrop-blur-xl">
+            <div className="pointer-events-auto flex items-center justify-between p-2 rounded-2xl bg-white/95 border border-slate-200 shadow-2xl backdrop-blur-xl text-slate-900">
               
-              {/* 좌측: 닫기 & 곡 정보 */}
-              <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <button
                   onClick={() => {
                     setViewingSongId(null);
                     setCurrentPageIndex(0);
                     setViewMode('sheet');
                   }}
-                  className="w-8 h-8 rounded-xl bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 flex items-center justify-center border border-neutral-700/70 transition active:scale-90 shrink-0"
+                  className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center border border-slate-300 transition active:scale-90 shrink-0"
                   title="목록으로 나가기"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-5 h-5" />
                 </button>
 
-                <div className="flex items-center gap-1.5 min-w-0 truncate">
+                <div className="flex items-center gap-2 min-w-0 truncate">
                   {viewingSong.headerTag && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg shrink-0">
+                    <span className="px-2 py-0.5 text-xs font-black bg-amber-500/20 text-amber-700 border border-amber-500/40 rounded-lg shrink-0">
                       {viewingSong.headerTag}
                     </span>
                   )}
-                  <h1 className="font-bold text-xs sm:text-sm truncate text-white">
+                  <h1 className="font-bold text-sm sm:text-base truncate text-slate-900">
                     {viewingSong.title}
                   </h1>
                   {viewingSong.key && (
-                    <span className="px-2 py-0.5 text-[10px] sm:text-xs font-bold bg-blue-600 rounded-lg text-white shrink-0">
+                    <span className="px-2.5 py-0.5 text-xs font-bold bg-blue-600 rounded-lg text-white shrink-0 shadow-sm">
                       {viewingSong.key} Key
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* 우측 도구 액션 버튼들 */}
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                {/* 가사/악보 전환 */}
+              <div className="flex items-center gap-2 shrink-0 ml-2">
                 <button
                   onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition active:scale-95 ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border transition active:scale-95 ${
                     viewMode === 'lyrics'
-                      ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/30'
-                      : 'bg-neutral-800/90 border-neutral-700/80 text-purple-300 hover:bg-neutral-700'
+                      ? 'bg-purple-600 border-purple-500 text-white shadow-md'
+                      : 'bg-slate-100 border-slate-300 text-purple-700 hover:bg-purple-50'
                   }`}
                   title={viewMode === 'sheet' ? '가사 뷰어로 전환' : '악보 보기로 전환'}
                 >
-                  {viewMode === 'sheet' ? <BookOpen className="w-3.5 h-3.5 text-purple-400" /> : <FileText className="w-3.5 h-3.5 text-white" />}
-                  <span className="hidden xs:inline">{viewMode === 'sheet' ? '가사' : '악보'}</span>
+                  {viewMode === 'sheet' ? <BookOpen className="w-4 h-4 text-purple-600" /> : <FileText className="w-4 h-4 text-white" />}
+                  <span>{viewMode === 'sheet' ? '가사' : '악보'}</span>
                 </button>
 
-                {/* 필기 토글 버튼 (악보 모드에서만) */}
                 {viewMode === 'sheet' && currentSheetUrl && (
                   <button
                     onClick={() => setIsDrawingMode(!isDrawingMode)}
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition active:scale-95 ${
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border transition active:scale-95 ${
                       isDrawingMode
-                        ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-lg shadow-amber-500/30'
-                        : 'bg-neutral-800/90 border-neutral-700/80 text-neutral-300 hover:bg-neutral-700'
+                        ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-md'
+                        : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
                     }`}
-                    title="필기 모드 켜기/끄기"
+                    title="필기 모드"
                   >
-                    <PenTool className="w-3.5 h-3.5" />
-                    <span className="hidden xs:inline">{isDrawingMode ? '완료' : '필기'}</span>
+                    <PenTool className="w-4 h-4" />
+                    <span>{isDrawingMode ? '완료' : '필기'}</span>
                   </button>
                 )}
 
-                {/* 배율 조절 */}
                 {viewMode === 'sheet' && (
-                  <div className="flex items-center rounded-xl bg-neutral-800/90 border border-neutral-700/80 p-0.5">
+                  <div className="flex items-center rounded-xl bg-slate-100 border border-slate-300 p-0.5">
                     <button
                       onClick={() => setScale((s) => Math.max(s - 0.1, 0.5))}
-                      className="w-6 h-6 flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white"
+                      className="w-8 h-8 flex items-center justify-center text-sm font-bold text-slate-700 hover:text-black"
                     >
                       -
                     </button>
                     <button
                       onClick={() => setScale((s) => Math.min(s + 0.1, 2.0))}
-                      className="w-6 h-6 flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white"
+                      className="w-8 h-8 flex items-center justify-center text-sm font-bold text-slate-700 hover:text-black"
                     >
                       +
                     </button>
@@ -1298,10 +1286,9 @@ export default function PraiseApp() {
               </div>
             </div>
 
-            {/* 연주 순서 메모 (있을 때만 슬림하게 노출) */}
             {viewingSong.comment && (
-              <div className="pointer-events-auto self-center px-3.5 py-1 rounded-full bg-blue-950/80 border border-blue-800/60 shadow-lg backdrop-blur-md text-[11px] font-medium text-blue-200 flex items-center gap-1.5 max-w-sm sm:max-w-md truncate">
-                <MessageSquare className="w-3 h-3 text-blue-400 shrink-0" />
+              <div className="pointer-events-auto self-center px-4 py-1.5 rounded-full bg-blue-50 border border-blue-200 shadow-md text-xs font-semibold text-blue-900 flex items-center gap-1.5 max-w-sm sm:max-w-md truncate">
+                <MessageSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                 <span className="font-bold shrink-0">진행:</span>
                 <span className="truncate">{viewingSong.comment}</span>
               </div>
@@ -1309,91 +1296,89 @@ export default function PraiseApp() {
           </div>
         </div>
 
-        {/* 🌟 2. 애플 펜슬 스타일 플로팅 필기 도구 팔레트 (Drawing Palette) 🌟 */}
+        {/* 플로팅 필기 도구 팔레트 */}
         {viewMode === 'sheet' && isDrawingMode && (
           <div
-            className={`fixed top-20 sm:top-24 inset-x-3 sm:inset-x-0 z-50 flex justify-center transition-all duration-300 pointer-events-none ${
+            className={`fixed top-24 sm:top-28 inset-x-3 sm:inset-x-0 z-50 flex justify-center transition-all duration-300 pointer-events-none ${
               showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
             }`}
           >
-            <div className="pointer-events-auto flex items-center gap-2 p-1.5 px-2.5 rounded-2xl bg-neutral-900/90 border border-neutral-700/80 shadow-2xl backdrop-blur-xl">
-              <div className="flex items-center p-0.5 rounded-xl bg-neutral-800 border border-neutral-700 gap-0.5">
+            <div className="pointer-events-auto flex items-center gap-2 p-2 rounded-2xl bg-white/95 border border-slate-300 shadow-2xl backdrop-blur-xl">
+              <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-300 gap-1">
                 <button
                   onClick={() => setCurrentTool('pen')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'pen' ? 'bg-blue-600 text-white shadow-sm' : 'text-neutral-400'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${currentTool === 'pen' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600'}`}
                 >
                   펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('highlighter')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'highlighter' ? 'bg-yellow-500 text-black shadow-sm' : 'text-neutral-400'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${currentTool === 'highlighter' ? 'bg-yellow-400 text-black shadow-sm' : 'text-slate-600'}`}
                 >
                   형광펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('eraser')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'eraser' ? 'bg-neutral-600 text-white shadow-sm' : 'text-neutral-400'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${currentTool === 'eraser' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600'}`}
                 >
                   지우개
                 </button>
               </div>
 
-              {/* 색상 선택 */}
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-neutral-800/80 border border-neutral-700">
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-300">
                 {['#ef4444', '#3b82f6', '#10b981', '#000000', '#eab308'].map((color) => (
                   <button
                     key={color}
                     onClick={() => setPenColor(color)}
                     style={{ backgroundColor: color }}
-                    className={`w-4 h-4 rounded-full border-2 transition ${
-                      penColor === color ? 'border-white scale-125 shadow' : 'border-transparent opacity-80'
+                    className={`w-5 h-5 rounded-full border-2 transition ${
+                      penColor === color ? 'border-slate-800 scale-125 shadow-md' : 'border-transparent opacity-80'
                     }`}
                   />
                 ))}
               </div>
 
-              {/* 필기 리셋 */}
               <button
                 onClick={handleClearDrawing}
-                className="p-1.5 rounded-xl bg-neutral-800 hover:bg-red-950/80 text-red-400 border border-neutral-700 transition"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-red-50 text-red-600 border border-slate-300 transition"
                 title="현재 페이지 필기 지우기"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* 🌟 3. 메인 콘텐츠 영역 (화면 탭 시 컨트롤 토글) 🌟 */}
+        {/* 메인 콘텐츠 영역 (화이트 배경 복원) */}
         <main
           onClick={() => {
             if (!isDrawingMode) setShowViewerControls(!showViewerControls);
           }}
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
-          className="flex-1 overflow-auto flex items-center justify-center p-0 relative"
+          className="flex-1 overflow-auto flex items-center justify-center p-0 relative bg-white"
         >
           {viewMode === 'lyrics' ? (
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xl h-full p-4 sm:p-6 flex flex-col justify-center pt-20 pb-24"
+              className="w-full max-w-xl h-full p-4 sm:p-6 flex flex-col justify-center pt-24 pb-28"
             >
-              <div className="w-full h-full rounded-3xl p-5 border border-neutral-800 bg-neutral-900/90 shadow-2xl backdrop-blur-xl flex flex-col">
-                <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-2">
-                  <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+              <div className="w-full h-full rounded-3xl p-6 border border-slate-200 bg-white shadow-xl flex flex-col">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+                  <span className="text-sm font-bold text-purple-700 flex items-center gap-1.5">
                     <BookOpen className="w-4 h-4" /> 찬양 가사
                   </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleSearchLyricsWeb(viewingSong.title)}
-                      className="text-[11px] font-bold px-2 py-1 rounded-lg border border-blue-500/40 bg-blue-600/20 text-blue-300"
+                      className="text-xs font-bold px-2.5 py-1 rounded-lg border border-blue-500/40 bg-blue-50 text-blue-700"
                     >
                       구글 검색 ↗
                     </button>
                     <button
                       onClick={() => handleCopyLyrics(viewingSong.lyrics || '')}
-                      className="text-[11px] font-bold px-2 py-1 rounded-lg border border-purple-500/40 bg-purple-600/20 text-purple-300 flex items-center gap-1"
+                      className="text-xs font-bold px-2.5 py-1 rounded-lg border border-purple-500/40 bg-purple-50 text-purple-700 flex items-center gap-1"
                     >
-                      <Copy className="w-3 h-3" /> 복사
+                      <Copy className="w-3.5 h-3.5" /> 복사
                     </button>
                   </div>
                 </div>
@@ -1402,14 +1387,14 @@ export default function PraiseApp() {
                   value={viewingSong.lyrics || ''}
                   onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
                   placeholder="등록된 가사가 없습니다. 가사를 입력하거나 복사해 붙여넣으세요."
-                  className="w-full flex-1 p-3 rounded-2xl bg-neutral-950/60 border border-neutral-800 text-sm sm:text-base font-medium leading-relaxed focus:outline-none focus:border-purple-500 resize-none text-neutral-100"
+                  className="w-full flex-1 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-base sm:text-lg font-medium leading-relaxed focus:outline-none focus:border-purple-500 resize-none text-slate-900"
                 />
               </div>
             </div>
           ) : !currentSheetUrl ? (
-            <div className="text-center p-8 rounded-3xl border border-neutral-800 bg-neutral-900/80 shadow-2xl max-w-xs">
-              <p className="font-bold text-sm mb-1 text-white">등록된 악보가 없습니다.</p>
-              <p className="text-xs opacity-60 text-neutral-400">곡 수정 메뉴에서 악보 이미지를 첨부해주세요.</p>
+            <div className="text-center p-8 rounded-3xl border border-slate-200 bg-white shadow-xl max-w-xs">
+              <p className="font-bold text-base mb-1 text-slate-800">등록된 악보가 없습니다.</p>
+              <p className="text-xs text-slate-500">곡 수정 메뉴에서 악보 이미지를 첨부해주세요.</p>
             </div>
           ) : (
             <div
@@ -1423,7 +1408,7 @@ export default function PraiseApp() {
                 src={currentSheetUrl}
                 alt={`${viewingSong.title} - ${currentPageIndex + 1}p`}
                 onLoad={initCanvas}
-                className="max-h-[100dvh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none shadow-2xl"
+                className="max-h-[100dvh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none"
               />
               <canvas
                 ref={canvasRef}
@@ -1443,55 +1428,52 @@ export default function PraiseApp() {
           )}
         </main>
 
-        {/* 🌟 4. 하단 플로팅 글래스 네비게이션 독 (Mini Floating Controller) 🌟 */}
+        {/* 하단 플로팅 글래스 네비게이션 독 */}
         <footer
           className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
         >
-          <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-full bg-neutral-900/85 border border-neutral-700/70 shadow-2xl backdrop-blur-xl">
-            {/* 이전 곡 */}
+          <div className="pointer-events-auto flex items-center gap-2 p-2 rounded-full bg-white/95 border border-slate-300 shadow-2xl backdrop-blur-xl">
             <button
               onClick={handlePrevSong}
               disabled={currentSongIndex <= 0}
-              className="px-3 py-1.5 rounded-full text-xs font-bold text-white hover:bg-neutral-800 disabled:opacity-20 active:scale-95 transition flex items-center gap-1"
+              className="px-4 py-2 rounded-full text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-30 active:scale-95 transition flex items-center gap-1.5"
             >
-              <SkipBack className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden xs:inline">이전 곡</span>
+              <SkipBack className="w-4 h-4 text-blue-600" />
+              <span>이전 곡</span>
             </button>
 
-            {/* 악보 페이지 넘김 독 */}
             {viewMode === 'sheet' && totalPages > 1 && (
-              <div className="flex items-center gap-1 px-1.5 border-x border-neutral-700/80">
+              <div className="flex items-center gap-1.5 px-2 border-x border-slate-300">
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
                   disabled={currentPageIndex === 0}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white disabled:opacity-20 transition"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-slate-700 hover:text-black hover:bg-slate-100 disabled:opacity-30 transition"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-5 h-5" />
                 </button>
-                <span className="text-xs font-black text-blue-400 px-1 min-w-[32px] text-center">
+                <span className="text-sm font-black text-blue-600 px-1 min-w-[36px] text-center">
                   {currentPageIndex + 1}/{totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
                   disabled={currentPageIndex === totalPages - 1}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white disabled:opacity-20 transition"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-slate-700 hover:text-black hover:bg-slate-100 disabled:opacity-30 transition"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
             )}
 
-            {/* 다음 곡 */}
             <button
               onClick={handleNextSong}
               disabled={currentSongIndex >= currentSongs.length - 1}
-              className="px-3 py-1.5 rounded-full text-xs font-bold text-white hover:bg-neutral-800 disabled:opacity-20 active:scale-95 transition flex items-center gap-1"
+              className="px-4 py-2 rounded-full text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-30 active:scale-95 transition flex items-center gap-1.5"
             >
-              <span className="hidden xs:inline">다음 곡</span>
-              <SkipForward className="w-3.5 h-3.5 text-blue-400" />
+              <span>다음 곡</span>
+              <SkipForward className="w-4 h-4 text-blue-600" />
             </button>
           </div>
         </footer>
@@ -1522,32 +1504,32 @@ export default function PraiseApp() {
   });
 
   return (
-    <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-3 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),16px)] ${bgClass}`}>
-      <div className="max-w-2xl mx-auto space-y-3.5 w-full">
+    <div className={`min-h-[100dvh] transition-colors duration-200 pb-32 p-3.5 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),18px)] ${bgClass}`}>
+      <div className="max-w-2xl mx-auto space-y-4 w-full">
         
         {/* 앱 스타일 상단 바 */}
         <header className="flex items-center justify-between gap-2 px-1 pt-1">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Music className="w-4 h-4" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+              <Music className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-sm sm:text-base font-black tracking-tight leading-none">찬양팀</h1>
-              <p className="text-[10px] font-semibold opacity-50 mt-0.5">Worship Sheet App</p>
+              <h1 className="text-base sm:text-lg font-black tracking-tight leading-none">찬양팀</h1>
+              <p className="text-xs font-semibold opacity-60 mt-0.5">Worship Sheet App</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => handleOpenModal()}
-              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/30 transition active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-600/30 transition active:scale-95"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
               <span>곡 추가</span>
             </button>
             <button
               onClick={() => setIsSettingsModalOpen(true)}
-              className={`p-2 border rounded-xl transition active:scale-95 ${subCardBg}`}
+              className={`p-2.5 border rounded-xl transition active:scale-95 ${subCardBg}`}
               title="설정 및 관리"
             >
               <SlidersHorizontal className="w-4 h-4" />
@@ -1559,12 +1541,12 @@ export default function PraiseApp() {
         {activeTab === 'conti' && (
           <>
             {/* 콘티 선택 & 생성 드롭다운 바 */}
-            <div className={`flex items-center justify-between p-2 sm:p-2.5 rounded-2xl border shadow-sm ${cardBgClass}`}>
+            <div className={`flex items-center justify-between p-2.5 rounded-2xl border shadow-sm ${cardBgClass}`}>
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <select
                   value={selectedContiId}
                   onChange={(e) => setSelectedContiId(e.target.value)}
-                  className={`w-full border font-bold rounded-xl px-2.5 py-1.5 text-xs sm:text-sm focus:outline-none truncate ${
+                  className={`w-full border font-bold rounded-xl px-3 py-2 text-sm sm:text-base focus:outline-none truncate ${
                     isDark
                       ? 'bg-neutral-800 border-neutral-700 text-white focus:border-blue-500'
                       : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
@@ -1584,38 +1566,38 @@ export default function PraiseApp() {
 
               <button
                 onClick={handleOpenAddContiModal}
-                className={`ml-2 px-2.5 py-1.5 border rounded-xl text-xs font-bold shrink-0 transition active:scale-95 flex items-center gap-1 ${subCardBg}`}
+                className={`ml-2 px-3 py-2 border rounded-xl text-xs sm:text-sm font-bold shrink-0 transition active:scale-95 flex items-center gap-1.5 ${subCardBg}`}
                 title="새 콘티 생성"
               >
-                <FolderPlus className="w-3.5 h-3.5 text-blue-500" />
-                <span className="hidden xs:inline">새 콘티</span>
+                <FolderPlus className="w-4 h-4 text-blue-500" />
+                <span>새 콘티</span>
               </button>
             </div>
 
             {/* 공지사항 & 출석 패널 */}
             {currentConti && (
-              <div className={`rounded-2xl border p-3.5 space-y-3 ${cardBgClass}`}>
+              <div className={`rounded-2xl border p-4 space-y-3.5 ${cardBgClass}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2 min-w-0 flex-1">
-                    <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
-                      <Bell className="w-3.5 h-3.5 text-amber-500" />
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <Bell className="w-4 h-4 text-amber-500" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold opacity-70">예배 공지사항</span>
+                        <span className="text-xs font-bold opacity-75">예배 공지사항</span>
                         {isAdmin && (
                           <button
                             onClick={() => {
                               setNoticeInput(currentNotice);
                               setIsNoticeModalOpen(true);
                             }}
-                            className="text-[11px] font-bold text-blue-400 hover:underline"
+                            className="text-xs font-bold text-blue-500 hover:underline"
                           >
                             공지 작성 ↗
                           </button>
                         )}
                       </div>
-                      <p className="text-xs font-semibold mt-0.5 whitespace-pre-wrap leading-relaxed opacity-90">
+                      <p className="text-xs sm:text-sm font-semibold mt-1 whitespace-pre-wrap leading-relaxed opacity-90">
                         {currentNotice || '등록된 공지사항이 없습니다.'}
                       </p>
                     </div>
@@ -1623,41 +1605,41 @@ export default function PraiseApp() {
                 </div>
 
                 <div className="border-t border-neutral-800/40 pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold opacity-70 flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5 text-blue-400" /> 이번 주 참석 여부
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-xs font-bold opacity-75 flex items-center gap-1">
+                      <Users className="w-4 h-4 text-blue-500" /> 이번 주 참석 여부
                     </span>
                     <button
                       onClick={() => setIsAttendanceModalOpen(true)}
-                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-sm transition active:scale-95"
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95"
                     >
                       출석 체크하기
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs font-bold flex-wrap">
-                    <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> 참석 ({yesCount})
+                  <div className="flex items-center gap-2 text-xs sm:text-sm font-bold flex-wrap">
+                    <span className="px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> 참석 ({yesCount})
                     </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 flex items-center gap-1">
-                      <XCircle className="w-3 h-3" /> 불참 ({noCount})
+                    <span className="px-3 py-1 rounded-xl bg-red-500/15 border border-red-500/30 text-red-500 flex items-center gap-1.5">
+                      <XCircle className="w-3.5 h-3.5" /> 불참 ({noCount})
                     </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
-                      <HelpCircle className="w-3 h-3" /> 미정 ({maybeCount})
+                    <span className="px-3 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center gap-1.5">
+                      <HelpCircle className="w-3.5 h-3.5" /> 미정 ({maybeCount})
                     </span>
                   </div>
 
                   {Object.keys(currentAttendance).length > 0 && (
-                    <div className="mt-2.5 flex flex-wrap gap-1 text-[11px]">
+                    <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs">
                       {Object.entries(currentAttendance).map(([name, status]) => (
                         <span
                           key={name}
-                          className={`px-2 py-0.5 rounded-lg border font-medium ${
+                          className={`px-2.5 py-1 rounded-lg border font-medium ${
                             status === 'yes'
-                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                               : status === 'no'
-                              ? 'bg-red-500/10 border-red-500/20 text-red-300'
-                              : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                              ? 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+                              : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
                           }`}
                         >
                           {name} ({status === 'yes' ? '참석' : status === 'no' ? '불참' : '미정'})
@@ -1674,15 +1656,15 @@ export default function PraiseApp() {
               <div className={`rounded-2xl border transition-all overflow-hidden ${cardBgClass}`}>
                 <div
                   onClick={() => setIsHeaderCardExpanded(!isHeaderCardExpanded)}
-                  className="flex items-center justify-between p-2.5 px-3.5 cursor-pointer hover:bg-neutral-800/30 transition text-xs select-none"
+                  className="flex items-center justify-between p-3 px-4 cursor-pointer hover:bg-neutral-800/20 transition text-sm select-none"
                 >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="w-5 h-5 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
-                      <Mic className="w-3 h-3 text-blue-500" />
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-6 h-6 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+                      <Mic className="w-3.5 h-3.5 text-blue-500" />
                     </div>
-                    <div className="flex items-center gap-1.5 truncate text-[11px] font-medium opacity-85">
+                    <div className="flex items-center gap-2 truncate text-xs sm:text-sm font-medium opacity-90">
                       {assignedSingers.length > 0 ? (
-                        <span className="font-bold text-blue-400 truncate">
+                        <span className="font-bold text-blue-500 truncate">
                           싱어: {assignedSingers.join(', ')}
                         </span>
                       ) : (
@@ -1694,22 +1676,22 @@ export default function PraiseApp() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 text-[11px] font-bold opacity-60 shrink-0 ml-2">
+                  <div className="flex items-center gap-1 text-xs font-bold opacity-70 shrink-0 ml-2">
                     <span>{isHeaderCardExpanded ? '접기' : '상세'}</span>
-                    {isHeaderCardExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    {isHeaderCardExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </div>
                 </div>
 
                 {isHeaderCardExpanded && (
-                  <div className={`p-3.5 border-t space-y-2.5 text-xs ${
-                    isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50/80 border-slate-200'
+                  <div className={`p-4 border-t space-y-3 text-xs sm:text-sm ${
+                    isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50 border-slate-200'
                   }`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold opacity-70 block">이번 주 찬양 싱어</span>
+                      <span className="font-bold opacity-75 block">이번 주 찬양 싱어</span>
                       {isAdmin && (
                         <button
                           onClick={handleOpenSingerModal}
-                          className="text-[11px] font-bold text-blue-400 hover:underline"
+                          className="font-bold text-blue-500 hover:underline"
                         >
                           싱어 배정 / 명단 관리 ↗
                         </button>
@@ -1717,24 +1699,24 @@ export default function PraiseApp() {
                     </div>
 
                     {assignedSingers.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-2">
                         {assignedSingers.map((singer) => (
                           <span
                             key={singer}
-                            className="px-2.5 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-bold text-xs flex items-center gap-1"
+                            className="px-3 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-500 font-bold text-xs sm:text-sm flex items-center gap-1.5"
                           >
-                            <Mic className="w-3 h-3" />
+                            <Mic className="w-3.5 h-3.5" />
                             {singer}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-[11px] opacity-60">지정된 싱어가 없습니다.</p>
+                      <p className="text-xs opacity-60">지정된 싱어가 없습니다.</p>
                     )}
 
                     {customNote && (
-                      <div className="pt-2 border-t border-neutral-800/60 flex items-start gap-1.5 text-xs opacity-90">
-                        <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                      <div className="pt-2.5 border-t border-neutral-800/60 flex items-start gap-2 text-xs sm:text-sm opacity-90">
+                        <MessageSquare className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
                         <span>{customNote}</span>
                       </div>
                     )}
@@ -1743,11 +1725,11 @@ export default function PraiseApp() {
               </div>
             )}
 
-            {/* 곡 목록 리스트 (곡 제목 클릭 시 악보 열림) */}
+            {/* 곡 목록 리스트 */}
             {currentConti ? (
-              <div className="space-y-2 relative select-none w-full">
+              <div className="space-y-2.5 relative select-none w-full">
                 {currentSongs.length === 0 ? (
-                  <div className={`text-center py-14 border rounded-2xl text-xs sm:text-sm px-4 opacity-70 ${cardBgClass}`}>
+                  <div className={`text-center py-16 border rounded-2xl text-sm sm:text-base px-4 opacity-70 ${cardBgClass}`}>
                     등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-500 font-bold">[+ 곡 추가]</span>를 눌러보세요.
                   </div>
                 ) : (
@@ -1764,15 +1746,14 @@ export default function PraiseApp() {
 
                         <div
                           className={`flex flex-col border transition-all duration-150 overflow-hidden w-full ${
-                            isLyricsExpanded ? 'rounded-2xl shadow-md ring-1 ring-purple-500/40' : 'rounded-2xl'
+                            isLyricsExpanded ? 'rounded-2xl shadow-md ring-2 ring-purple-500/40' : 'rounded-2xl'
                           } ${
                             isBeingDragged
                               ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
                               : cardBgClass
                           }`}
                         >
-                          <div className="flex items-center justify-between p-3 sm:p-3.5 gap-2 w-full">
-                            {/* 터치 시 악보 보기로 바로 이동하는 곡 정보 영역 */}
+                          <div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
                             <div
                               onClick={() => {
                                 setViewingSongId(song.id);
@@ -1780,7 +1761,7 @@ export default function PraiseApp() {
                                 setViewMode('sheet');
                                 setShowViewerControls(true);
                               }}
-                              className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
+                              className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
                             >
                               {isAdmin ? (
                                 <div
@@ -1790,69 +1771,68 @@ export default function PraiseApp() {
                                   onTouchEnd={endDragAction}
                                   onMouseDown={(e) => handleMouseDown(idx, e)}
                                   style={{ touchAction: 'none' }}
-                                  className="p-1 -m-1 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
+                                  className="p-1.5 -m-1.5 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
                                   title="길게 눌러 드래그"
                                 >
-                                  <GripVertical className="w-4 h-4" />
+                                  <GripVertical className="w-5 h-5" />
                                 </div>
                               ) : null}
 
-                              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black text-xs shrink-0 group-hover:scale-105 transition">
+                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-500 flex items-center justify-center font-black text-xs sm:text-sm shrink-0 group-hover:scale-105 transition">
                                 {idx + 1}
                               </div>
 
-                              <div className="min-w-0 flex-1 space-y-0.5">
-                                <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   {song.headerTag && (
-                                    <span className="px-1.5 py-0.2 text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40 rounded shrink-0">
+                                    <span className="px-2 py-0.5 text-xs font-black bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 rounded-lg shrink-0">
                                       {song.headerTag}
                                     </span>
                                   )}
 
-                                  <h3 className="text-xs sm:text-sm font-bold truncate max-w-[170px] xs:max-w-[220px] sm:max-w-sm group-hover:text-blue-500 transition">
+                                  <h3 className="text-sm sm:text-base font-bold truncate max-w-[170px] xs:max-w-[220px] sm:max-w-sm group-hover:text-blue-500 transition">
                                     {song.title}
                                   </h3>
 
                                   {song.key && (
-                                    <span className={`px-1.5 py-0.2 text-[10px] font-bold border rounded shrink-0 ${
+                                    <span className={`px-2 py-0.5 text-xs font-bold border rounded-lg shrink-0 ${
                                       isDark ? 'bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'
                                     }`}>
                                       {song.key} Key
                                     </span>
                                   )}
                                   {song.sheetUrls && song.sheetUrls.length > 1 && (
-                                    <span className={`flex items-center gap-0.5 px-1 py-0.2 text-[10px] font-bold border rounded opacity-75 shrink-0 ${
+                                    <span className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-bold border rounded-lg opacity-80 shrink-0 ${
                                       isDark ? 'border-neutral-700' : 'border-slate-200'
                                     }`}>
-                                      <Layers className="w-2.5 h-2.5" /> {song.sheetUrls.length}p
+                                      <Layers className="w-3 h-3" /> {song.sheetUrls.length}p
                                     </span>
                                   )}
                                 </div>
 
                                 {song.comment && (
-                                  <div className="flex items-center gap-1 text-[11px] text-blue-500 dark:text-blue-400 font-medium">
-                                    <MessageSquare className="w-3 h-3 shrink-0" />
+                                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                    <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                                     <span className="truncate">{song.comment}</span>
                                   </div>
                                 )}
                               </div>
                             </div>
 
-                            {/* 우측 가사 버튼 및 관리자 버튼 */}
-                            <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               {isReordering && isAdmin ? (
                                 <div className="flex items-center gap-1">
                                   <button
                                     onClick={() => executeReorder(idx, idx - 1)}
                                     disabled={idx === 0}
-                                    className={`px-2 py-1 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                                    className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
                                   >
                                     위로
                                   </button>
                                   <button
                                     onClick={() => executeReorder(idx, idx + 1)}
                                     disabled={idx === currentSongs.length - 1}
-                                    className={`px-2 py-1 rounded-lg border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                                    className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
                                   >
                                     아래로
                                   </button>
@@ -1861,7 +1841,7 @@ export default function PraiseApp() {
                                 <>
                                   <button
                                     onClick={() => handleToggleLyricsExpand(song.id)}
-                                    className={`flex items-center justify-center gap-0.5 px-2.5 py-1.5 border rounded-xl text-xs font-bold transition active:scale-95 ${
+                                    className={`flex items-center justify-center gap-1 px-3 py-2 border rounded-xl text-xs sm:text-sm font-bold transition active:scale-95 ${
                                       isLyricsExpanded
                                         ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
                                         : isDark
@@ -1870,27 +1850,27 @@ export default function PraiseApp() {
                                     }`}
                                     title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
                                   >
-                                    <BookOpen className="w-3.5 h-3.5" />
-                                    <span className="hidden xs:inline">{isLyricsExpanded ? '닫기' : '가사'}</span>
+                                    <BookOpen className="w-4 h-4" />
+                                    <span>{isLyricsExpanded ? '닫기' : '가사'}</span>
                                   </button>
 
                                   {isAdmin && (
                                     <>
                                       <button
                                         onClick={() => handleOpenModal(song)}
-                                        className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${subCardBg}`}
+                                        className={`p-2 border rounded-xl transition active:scale-95 flex items-center justify-center ${subCardBg}`}
                                         title="곡 수정"
                                       >
-                                        <Edit3 className="w-3.5 h-3.5" />
+                                        <Edit3 className="w-4 h-4" />
                                       </button>
                                       <button
                                         onClick={() => handleDeleteSong(song.id)}
-                                        className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${
+                                        className={`p-2 border rounded-xl transition active:scale-95 flex items-center justify-center ${
                                           isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
                                         }`}
                                         title="곡 삭제"
                                       >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-4 h-4" />
                                       </button>
                                     </>
                                   )}
@@ -1899,87 +1879,86 @@ export default function PraiseApp() {
                             </div>
                           </div>
 
-                          {/* 가사 아코디언 본문 */}
                           {isLyricsExpanded && (
-                            <div className={`border-t px-3.5 py-3 space-y-2.5 ${
-                              isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50/80 border-slate-200'
+                            <div className={`border-t px-4 py-3.5 space-y-3 ${
+                              isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50 border-slate-200'
                             }`}>
-                              <div className="flex items-center justify-between flex-wrap gap-1.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
-                                    <BookOpen className="w-3 h-3" /> 찬양 가사
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                                    <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
                                   </span>
 
-                                  <div className={`flex items-center rounded-lg border p-0.5 text-[10px] font-bold ${
+                                  <div className={`flex items-center rounded-xl border p-0.5 text-xs font-bold ${
                                     isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-200 border-slate-300'
                                   }`}>
                                     <button
                                       onClick={() => handleChangeFontSize('sm')}
-                                      className={`px-1.5 py-0.2 rounded transition ${lyricsFontSize === 'sm' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
+                                      className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'sm' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
                                     >
                                       소
                                     </button>
                                     <button
                                       onClick={() => handleChangeFontSize('base')}
-                                      className={`px-1.5 py-0.2 rounded transition ${lyricsFontSize === 'base' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
+                                      className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'base' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
                                     >
                                       중
                                     </button>
                                     <button
                                       onClick={() => handleChangeFontSize('lg')}
-                                      className={`px-1.5 py-0.2 rounded transition ${lyricsFontSize === 'lg' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
+                                      className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'lg' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
                                     >
                                       대
                                     </button>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
                                   {song.lyrics && (
                                     <button
                                       onClick={() => handleCopyLyrics(song.lyrics || '')}
-                                      className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 transition ${
+                                      className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition ${
                                         isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-white border-slate-300 text-slate-800'
                                       }`}
                                     >
-                                      <Copy className="w-3 h-3 text-purple-500" />
+                                      <Copy className="w-3.5 h-3.5 text-purple-500" />
                                       <span>복사</span>
                                     </button>
                                   )}
                                   <button
                                     onClick={() => handleSearchLyricsWeb(song.title)}
-                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 transition ${
+                                    className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition ${
                                       isDark ? 'bg-neutral-800 border-neutral-700 text-blue-400' : 'bg-white border-slate-300 text-blue-600'
                                     }`}
                                   >
-                                    <Globe className="w-3 h-3" />
+                                    <Globe className="w-3.5 h-3.5" />
                                     <span>구글 검색 ↗</span>
                                   </button>
                                 </div>
                               </div>
 
                               {song.lyrics ? (
-                                <div className={`font-medium leading-relaxed whitespace-pre-wrap p-3 rounded-xl border max-h-72 overflow-y-auto ${
-                                  lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-semibold' : 'text-sm'
+                                <div className={`font-medium leading-relaxed whitespace-pre-wrap p-3.5 rounded-2xl border max-h-80 overflow-y-auto ${
+                                  lyricsFontSize === 'sm' ? 'text-xs sm:text-sm' : lyricsFontSize === 'lg' ? 'text-base sm:text-lg font-semibold' : 'text-sm sm:text-base'
                                 } ${isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'}`}>
                                   {song.lyrics}
                                 </div>
                               ) : (
-                                <div className={`py-5 text-center rounded-xl border border-dashed space-y-2 ${
+                                <div className={`py-6 text-center rounded-2xl border border-dashed space-y-2.5 ${
                                   isDark ? 'border-neutral-800 bg-neutral-900/40 text-neutral-400' : 'border-slate-300 bg-white/60 text-slate-600'
                                 }`}>
-                                  <p className="text-xs font-semibold">등록된 가사가 없습니다.</p>
+                                  <p className="text-xs sm:text-sm font-semibold">등록된 가사가 없습니다.</p>
                                   <div className="flex justify-center gap-2">
                                     <button
                                       onClick={() => handleSearchLyricsWeb(song.title)}
-                                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-sm"
+                                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-sm"
                                     >
                                       구글에서 가사 찾기 ↗
                                     </button>
                                     {isAdmin && (
                                       <button
                                         onClick={() => handleOpenModal(song)}
-                                        className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-sm"
+                                        className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-sm"
                                       >
                                         + 가사 직접 등록
                                       </button>
@@ -2001,71 +1980,71 @@ export default function PraiseApp() {
 
         {/* 탭 콘텐츠: 찬양 보관소 뷰 */}
         {activeTab === 'library' && (
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             <div className="flex items-center justify-between px-1">
               <div>
-                <h2 className="text-base font-bold flex items-center gap-1.5">
-                  <Library className="w-4 h-4 text-purple-400" />
+                <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <Library className="w-5 h-5 text-purple-400" />
                   찬양 보관소 ({librarySongs.length}곡)
                 </h2>
-                <p className="text-[11px] opacity-60 mt-0.5">등록된 찬양을 검색하고 미리보세요</p>
+                <p className="text-xs opacity-60 mt-0.5">등록된 찬양을 검색하고 미리보세요</p>
               </div>
 
               <button
                 onClick={() => syncAllSongsToLibrary(true)}
                 disabled={isSyncingLib}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition active:scale-95 ${subCardBg}`}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition active:scale-95 ${subCardBg}`}
               >
-                <RefreshCw className={`w-3 h-3 text-purple-400 ${isSyncingLib ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-purple-400 ${isSyncingLib ? 'animate-spin' : ''}`} />
                 <span>동기화</span>
               </button>
             </div>
 
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-neutral-400" />
+              <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-neutral-400" />
               <input
                 type="text"
                 value={librarySearchTerm}
                 onChange={(e) => setLibrarySearchTerm(e.target.value)}
                 placeholder="찬양 제목, Key, 가사 본문 검색"
-                className={`w-full border rounded-2xl pl-9 pr-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-purple-500 shadow-sm ${
+                className={`w-full border rounded-2xl pl-10 pr-4 py-3 text-sm sm:text-base focus:outline-none focus:border-purple-500 shadow-sm ${
                   isDark ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-900'
                 }`}
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {filteredLibrary.length === 0 ? (
-                <div className={`p-10 rounded-2xl border text-center space-y-2 ${cardBgClass}`}>
-                  <p className="text-xs opacity-60">검색된 찬양이 없습니다.</p>
+                <div className={`p-12 rounded-2xl border text-center space-y-2 ${cardBgClass}`}>
+                  <p className="text-sm opacity-60">검색된 찬양이 없습니다.</p>
                 </div>
               ) : (
                 filteredLibrary.map((libSong) => (
                   <div
                     key={libSong.id}
                     onClick={() => setPreviewLibSong(libSong)}
-                    className={`flex items-center justify-between p-3.5 rounded-2xl border gap-2 cursor-pointer transition active:scale-[0.99] hover:border-purple-500/50 ${cardBgClass}`}
+                    className={`flex items-center justify-between p-4 rounded-2xl border gap-2.5 cursor-pointer transition active:scale-[0.99] hover:border-purple-500/50 ${cardBgClass}`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-xs sm:text-sm truncate">{libSong.title}</span>
+                        <span className="font-bold text-sm sm:text-base truncate">{libSong.title}</span>
                         {libSong.key && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded">
+                          <span className="px-2 py-0.5 text-xs font-bold bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-lg">
                             {libSong.key} Key
                           </span>
                         )}
                         {libSong.bpm && (
-                          <span className="text-[10px] opacity-70 font-medium">BPM {libSong.bpm}</span>
+                          <span className="text-xs opacity-70 font-medium">BPM {libSong.bpm}</span>
                         )}
-                        <span className="text-[10px] opacity-50">{libSong.sheetUrls?.length || 0}장 악보</span>
+                        <span className="text-xs opacity-50">{libSong.sheetUrls?.length || 0}장 악보</span>
                       </div>
                       {libSong.lyrics && (
-                        <p className="text-[11px] opacity-60 truncate mt-1">{libSong.lyrics}</p>
+                        <p className="text-xs sm:text-sm opacity-60 truncate mt-1">{libSong.lyrics}</p>
                       )}
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-xs font-bold text-purple-400 px-2.5 py-1 rounded-lg bg-purple-500/10">
+                      <span className="text-xs sm:text-sm font-bold text-purple-400 px-3 py-1.5 rounded-xl bg-purple-500/10">
                         보기
                       </span>
                     </div>
@@ -2078,14 +2057,14 @@ export default function PraiseApp() {
 
       </div>
 
-      {/* 하단 고정 네이티브 앱 플로팅 독 (Floating Tab Bar) */}
-      <nav className="fixed bottom-3 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
-        <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-3xl border shadow-2xl backdrop-blur-xl ${
-          isDark ? 'bg-neutral-900/90 border-neutral-800' : 'bg-white/90 border-slate-200'
+      {/* 하단 고정 플로팅 독 */}
+      <nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
+        <div className={`pointer-events-auto flex items-center gap-1.5 p-2 rounded-3xl border shadow-2xl backdrop-blur-xl ${
+          isDark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-white/95 border-slate-300'
         }`}>
           <button
             onClick={() => setActiveTab('conti')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-bold transition active:scale-95 ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition active:scale-95 ${
               activeTab === 'conti'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'opacity-60 hover:opacity-100'
@@ -2097,7 +2076,7 @@ export default function PraiseApp() {
 
           <button
             onClick={() => setActiveTab('library')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-bold transition active:scale-95 ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition active:scale-95 ${
               activeTab === 'library'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                 : 'opacity-60 hover:opacity-100'
@@ -2112,41 +2091,41 @@ export default function PraiseApp() {
       {/* 공지사항 작성 모달 */}
       {isNoticeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+          <div className={`rounded-3xl w-full max-w-sm p-6 shadow-2xl border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-sm font-bold flex items-center gap-1.5">
-                <Bell className="w-4 h-4 text-amber-500" />
+            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Bell className="w-5 h-5 text-amber-500" />
                 예배 공지사항 작성
               </h2>
               <button onClick={() => setIsNoticeModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-3.5">
               <textarea
                 rows={5}
                 value={noticeInput}
                 onChange={(e) => setNoticeInput(e.target.value)}
                 placeholder="예: 이번 주 리허설은 오전 9시까지 연습실로 모입니다."
-                className={`w-full border rounded-2xl p-3 text-xs sm:text-sm focus:outline-none focus:border-amber-500 resize-none ${
+                className={`w-full border rounded-2xl p-3.5 text-sm sm:text-base focus:outline-none focus:border-amber-500 resize-none ${
                   isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
               />
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsNoticeModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveNotice}
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 rounded-xl font-bold text-xs text-neutral-950 shadow-md"
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 rounded-xl font-bold text-xs sm:text-sm text-neutral-950 shadow-md"
                 >
                   공지 등록
                 </button>
@@ -2159,40 +2138,40 @@ export default function PraiseApp() {
       {/* 참석 여부 체크 모달 */}
       {isAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+          <div className={`rounded-3xl w-full max-w-sm p-6 shadow-2xl border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-sm font-bold flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-blue-500" />
+            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500" />
                 이번 주 예배 참석 여부
               </h2>
               <button onClick={() => setIsAttendanceModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-3.5">
+            <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-semibold opacity-70 mb-1">이름 (또는 직분)</label>
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">이름 (또는 직분)</label>
                 <input
                   type="text"
                   value={myAttendanceName}
                   onChange={(e) => setMyAttendanceName(e.target.value)}
                   placeholder="예: 김지은 싱어"
-                  className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold opacity-70 mb-1.5">참석 상태 선택</label>
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2">참석 상태 선택</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setMyAttendanceStatus('yes')}
-                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
                       myAttendanceStatus === 'yes'
                         ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
                         : subCardBg
@@ -2203,7 +2182,7 @@ export default function PraiseApp() {
                   <button
                     type="button"
                     onClick={() => setMyAttendanceStatus('no')}
-                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
                       myAttendanceStatus === 'no'
                         ? 'bg-red-600 border-red-500 text-white shadow-md'
                         : subCardBg
@@ -2214,7 +2193,7 @@ export default function PraiseApp() {
                   <button
                     type="button"
                     onClick={() => setMyAttendanceStatus('maybe')}
-                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
                       myAttendanceStatus === 'maybe'
                         ? 'bg-amber-600 border-amber-500 text-white shadow-md'
                         : subCardBg
@@ -2225,18 +2204,18 @@ export default function PraiseApp() {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsAttendanceModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSubmitAttendance(myAttendanceStatus)}
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md shadow-blue-600/30"
                 >
                   출석 제출
                 </button>
@@ -2249,33 +2228,33 @@ export default function PraiseApp() {
       {/* 앱 설정 모달 */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-6 shadow-2xl border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
               <h2 className="text-base font-bold flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-blue-500" />
+                <SlidersHorizontal className="w-5 h-5 text-blue-500" />
                 앱 설정 및 관리
               </h2>
-              <button onClick={() => setIsSettingsModalOpen(false)} className="p-1.5 opacity-70 hover:opacity-100 rounded-lg">
-                <X className="w-4 h-4" />
+              <button onClick={() => setIsSettingsModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-3 text-xs">
+            <div className="mt-4 space-y-3.5 text-xs sm:text-sm">
               <button
                 onClick={() => {
                   setIsSettingsModalOpen(false);
                   if (isAdmin) handleLogoutAdmin();
                   else setIsAuthModalOpen(true);
                 }}
-                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
+                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   {isAdmin ? <Unlock className="w-4 h-4 text-emerald-400" /> : <Lock className="w-4 h-4 opacity-60" />}
                   <span>{isAdmin ? '관리자 모드 (활성화됨)' : '관리자 수정 권한 얻기'}</span>
                 </div>
-                <span className="text-[11px] opacity-60">{isAdmin ? '잠금' : '인증'}</span>
+                <span className="text-xs opacity-60">{isAdmin ? '잠금' : '인증'}</span>
               </button>
 
               {isAdmin && (
@@ -2285,7 +2264,7 @@ export default function PraiseApp() {
                       setIsSettingsModalOpen(false);
                       setIsChangePwModalOpen(true);
                     }}
-                    className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${cardBgClass}`}
+                    className={`w-full p-3.5 rounded-2xl border flex items-center gap-3 font-bold transition ${cardBgClass}`}
                   >
                     <KeyRound className="w-4 h-4 text-blue-500" />
                     <span>관리자 비밀번호 변경</span>
@@ -2296,8 +2275,8 @@ export default function PraiseApp() {
                       setIsSettingsModalOpen(false);
                       setIsReordering(!isReordering);
                     }}
-                    className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${
-                      isReordering ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : cardBgClass
+                    className={`w-full p-3.5 rounded-2xl border flex items-center gap-3 font-bold transition ${
+                      isReordering ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' : cardBgClass
                     }`}
                   >
                     <GripVertical className="w-4 h-4" />
@@ -2308,13 +2287,13 @@ export default function PraiseApp() {
 
               <button
                 onClick={toggleTheme}
-                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
+                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-600" />}
                   <span>테마 모드</span>
                 </div>
-                <span className="text-[11px] opacity-60">{isDark ? '어두운 모드' : '밝은 모드'}</span>
+                <span className="text-xs opacity-60">{isDark ? '어두운 모드' : '밝은 모드'}</span>
               </button>
             </div>
           </div>
@@ -2323,35 +2302,35 @@ export default function PraiseApp() {
 
       {/* 보관소 미리보기 모달 */}
       {previewLibSong && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-6">
-          <div className={`rounded-3xl w-full max-w-2xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-3.5 sm:p-6">
+          <div className={`rounded-3xl w-full max-w-2xl p-5 sm:p-6 shadow-2xl border flex flex-col max-h-[90vh] ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className={`flex items-center justify-between pb-3.5 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
               <div className="flex items-center gap-2 min-w-0">
                 <Music className="w-5 h-5 text-purple-400 shrink-0" />
                 <h2 className="text-base sm:text-lg font-bold truncate">{previewLibSong.title}</h2>
                 {previewLibSong.key && (
-                  <span className="px-2 py-0.5 text-xs font-bold bg-blue-600 text-white rounded-lg">
+                  <span className="px-2.5 py-0.5 text-xs font-bold bg-blue-600 text-white rounded-lg">
                     {previewLibSong.key} Key
                   </span>
                 )}
               </div>
-              <button onClick={() => setPreviewLibSong(null)} className="p-1.5 opacity-70 hover:opacity-100 rounded-lg">
+              <button onClick={() => setPreviewLibSong(null)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-3 flex-1 overflow-y-auto space-y-4 pr-1">
+            <div className="mt-4 flex-1 overflow-y-auto space-y-4 pr-1">
               {previewLibSong.sheetUrls && previewLibSong.sheetUrls.length > 0 ? (
                 <div className="space-y-2">
-                  <span className="text-xs font-bold opacity-80 block">등록된 악보 ({previewLibSong.sheetUrls.length}장)</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <span className="text-xs font-bold opacity-75 block">등록된 악보 ({previewLibSong.sheetUrls.length}장)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {previewLibSong.sheetUrls.map((url, idx) => (
-                      <div key={idx} className="border rounded-2xl p-1 bg-white flex flex-col items-center shadow-sm">
+                      <div key={idx} className="border rounded-2xl p-1.5 bg-white flex flex-col items-center shadow-sm">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={`${idx + 1}p`} className="w-full h-auto max-h-60 object-contain rounded-xl" />
-                        <span className="text-[10px] font-bold text-slate-600 mt-1">{idx + 1} 페이지</span>
+                        <img src={url} alt={`${idx + 1}p`} className="w-full h-auto max-h-64 object-contain rounded-xl" />
+                        <span className="text-xs font-bold text-slate-600 mt-1.5">{idx + 1} 페이지</span>
                       </div>
                     ))}
                   </div>
@@ -2360,24 +2339,24 @@ export default function PraiseApp() {
                 <p className="text-xs opacity-60">등록된 악보 이미지가 없습니다.</p>
               )}
 
-              <div className="space-y-1.5 pt-2 border-t border-neutral-800">
+              <div className="space-y-2 pt-3 border-t border-neutral-800">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-purple-400 flex items-center gap-1">
-                    <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
+                  <span className="text-xs sm:text-sm font-bold text-purple-400 flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4" /> 찬양 가사
                   </span>
                   {previewLibSong.lyrics && (
                     <button
                       onClick={() => handleCopyLyrics(previewLibSong.lyrics || '')}
-                      className={`text-xs font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 ${
+                      className={`text-xs font-bold px-3 py-1 rounded-xl border flex items-center gap-1 ${
                         isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-300 text-slate-800'
                       }`}
                     >
-                      <Copy className="w-3 h-3" /> 복사
+                      <Copy className="w-3.5 h-3.5" /> 복사
                     </button>
                   )}
                 </div>
                 {previewLibSong.lyrics ? (
-                  <div className={`p-3.5 rounded-2xl border text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap ${
+                  <div className={`p-4 rounded-2xl border text-sm sm:text-base font-medium leading-relaxed whitespace-pre-wrap ${
                     isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-slate-50 border-slate-200'
                   }`}>
                     {previewLibSong.lyrics}
@@ -2388,21 +2367,21 @@ export default function PraiseApp() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-neutral-800 flex justify-between items-center shrink-0">
+            <div className="pt-3.5 border-t border-neutral-800 flex justify-between items-center shrink-0">
               {isAdmin && (
                 <button
                   onClick={() => {
                     handleDeleteFromLibrary(previewLibSong.id, previewLibSong.title);
                     setPreviewLibSong(null);
                   }}
-                  className="px-3 py-1.5 text-xs text-red-500 hover:bg-red-500/10 rounded-xl font-bold"
+                  className="px-3.5 py-2 text-xs sm:text-sm text-red-500 hover:bg-red-500/10 rounded-xl font-bold"
                 >
                   보관소에서 삭제
                 </button>
               )}
               <button
                 onClick={() => setPreviewLibSong(null)}
-                className={`ml-auto px-4 py-2 rounded-xl text-xs font-bold ${subCardBg}`}
+                className={`ml-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold ${subCardBg}`}
               >
                 닫기
               </button>
@@ -2414,22 +2393,22 @@ export default function PraiseApp() {
       {/* 관리자 인증 모달 */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
+          <div className={`rounded-3xl w-full max-w-xs p-6 shadow-2xl border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-sm font-bold flex items-center gap-1.5">
+            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-base font-bold flex items-center gap-2">
                 <Lock className="w-4 h-4 text-blue-500" />
                 관리자 수정 권한 인증
               </h2>
               <button onClick={() => setIsAuthModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleLoginAdmin} className="mt-4 space-y-3">
+            <form onSubmit={handleLoginAdmin} className="mt-4 space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold opacity-70 mb-1">관리자 비밀번호</label>
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">관리자 비밀번호</label>
                 <input
                   type="password"
                   required
@@ -2437,23 +2416,23 @@ export default function PraiseApp() {
                   value={authPasswordInput}
                   onChange={(e) => setAuthPasswordInput(e.target.value)}
                   placeholder="비밀번호 입력 (기본: 1234)"
-                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsAuthModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${subCardBg}`}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md shadow-blue-600/30"
                 >
                   인증하기
                 </button>
@@ -2466,45 +2445,45 @@ export default function PraiseApp() {
       {/* 비밀번호 변경 모달 */}
       {isChangePwModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
+          <div className={`rounded-3xl w-full max-w-xs p-6 shadow-2xl border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-sm font-bold flex items-center gap-1.5">
+            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-base font-bold flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-blue-500" />
                 관리자 비밀번호 변경
               </h2>
               <button onClick={() => setIsChangePwModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleChangeAdminPassword} className="mt-4 space-y-3">
+            <form onSubmit={handleChangeAdminPassword} className="mt-4 space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold opacity-70 mb-1">새 비밀번호</label>
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">새 비밀번호</label>
                 <input
                   type="password"
                   required
                   value={newPwInput}
                   onChange={(e) => setNewPwInput(e.target.value)}
                   placeholder="변경할 새 비밀번호 입력"
-                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsChangePwModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${subCardBg}`}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md shadow-blue-600/30"
                 >
                   변경 완료
                 </button>
@@ -2517,28 +2496,28 @@ export default function PraiseApp() {
       {/* 새 콘티 추가 달력 모달 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-6 shadow-2xl border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
               <h2 className="text-base font-bold flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-blue-500" />
                 950 콘티 날짜 선택
               </h2>
               <button
                 onClick={() => setIsNewContiModalOpen(false)}
-                className="p-1.5 opacity-70 hover:opacity-100 rounded-lg"
+                className="p-1 opacity-70 hover:opacity-100 rounded-lg"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmCreateConti} className="mt-4 space-y-3.5">
+            <form onSubmit={handleConfirmCreateConti} className="mt-4 space-y-4">
               <div className="flex items-center justify-between px-1">
-                <span className="font-black text-sm">
+                <span className="font-black text-sm sm:text-base">
                   {currentCalMonth.getFullYear()}년 {currentCalMonth.getMonth() + 1}월
                 </span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() =>
@@ -2546,9 +2525,9 @@ export default function PraiseApp() {
                         new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() - 1, 1)
                       )
                     }
-                    className={`p-1.5 rounded-lg border ${subCardBg}`}
+                    className={`p-2 rounded-xl border ${subCardBg}`}
                   >
-                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
@@ -2557,14 +2536,14 @@ export default function PraiseApp() {
                         new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() + 1, 1)
                       )
                     }
-                    className={`p-1.5 rounded-lg border ${subCardBg}`}
+                    className={`p-2 rounded-xl border ${subCardBg}`}
                   >
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold opacity-60">
+              <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold opacity-60">
                 <span className="text-red-500">일</span>
                 <span>월</span>
                 <span>화</span>
@@ -2577,7 +2556,7 @@ export default function PraiseApp() {
               <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
 
               <div className="pt-1">
-                <label className="block text-[11px] font-semibold opacity-70 mb-1">
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">
                   생성될 콘티 제목
                 </label>
                 <input
@@ -2585,23 +2564,23 @@ export default function PraiseApp() {
                   required
                   value={contiTitleInput}
                   onChange={(e) => setContiTitleInput(e.target.value)}
-                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs font-bold focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base font-bold focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsNewContiModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition ${subCardBg}`}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-xs text-white shadow-lg shadow-blue-600/30"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-xs sm:text-sm text-white shadow-lg shadow-blue-600/30"
                 >
                   콘티 생성
                 </button>
@@ -2614,17 +2593,17 @@ export default function PraiseApp() {
       {/* 싱어 관리 모달 */}
       {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
               <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <Mic className="w-5 h-5 text-blue-500" />
                 이번 주 싱어 배정 & 싱어 명단
               </h2>
               <button
                 onClick={() => setIsSingerModalOpen(false)}
-                className="p-1.5 opacity-70 hover:opacity-100 rounded-lg"
+                className="p-1 opacity-70 hover:opacity-100 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2632,15 +2611,15 @@ export default function PraiseApp() {
 
             <div className="mt-4 space-y-4 text-xs sm:text-sm">
               <div>
-                <label className="block text-xs font-semibold opacity-80 mb-2">
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2.5">
                   이번 주 찬양 싱어 선택 (클릭하여 토글)
                 </label>
                 {masterSingers.length === 0 ? (
-                  <div className={`p-4 rounded-xl border text-center text-xs opacity-60 ${subCardBg}`}>
+                  <div className={`p-5 rounded-2xl border text-center text-xs opacity-60 ${subCardBg}`}>
                     등록된 전체 싱어가 없습니다. 아래에서 싱어를 먼저 추가해주세요.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-52 overflow-y-auto p-1">
                     {masterSingers.map((singer) => {
                       const isChecked = selectedSingers.includes(singer);
                       return (
@@ -2648,7 +2627,7 @@ export default function PraiseApp() {
                           key={singer}
                           type="button"
                           onClick={() => handleToggleSinger(singer)}
-                          className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                          className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
                             isChecked
                               ? 'bg-blue-600 border-blue-500 text-white shadow-md'
                               : isDark
@@ -2657,7 +2636,7 @@ export default function PraiseApp() {
                           }`}
                         >
                           <span className="truncate">{singer}</span>
-                          {isChecked && <Check className="w-3.5 h-3.5 shrink-0" />}
+                          {isChecked && <Check className="w-4 h-4 shrink-0" />}
                         </button>
                       );
                     })}
@@ -2665,8 +2644,8 @@ export default function PraiseApp() {
                 )}
               </div>
 
-              <div className={`p-3 rounded-2xl border space-y-2.5 ${isDark ? 'bg-neutral-800/50 border-neutral-800' : 'bg-slate-50 border-slate-200'}`}>
-                <span className="text-xs font-bold block opacity-90">찬양팀 싱어 전체 명단 관리</span>
+              <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? 'bg-neutral-800/50 border-neutral-800' : 'bg-slate-50 border-slate-200'}`}>
+                <span className="text-xs sm:text-sm font-bold block opacity-90">찬양팀 싱어 전체 명단 관리</span>
                 
                 <form onSubmit={handleAddMasterSinger} className="flex gap-2">
                   <input
@@ -2674,25 +2653,25 @@ export default function PraiseApp() {
                     value={newSingerName}
                     onChange={(e) => setNewSingerName(e.target.value)}
                     placeholder="새 싱어 이름 입력"
-                    className={`flex-1 border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
+                    className={`flex-1 border rounded-xl px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                     }`}
                   />
                   <button
                     type="submit"
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 shrink-0"
+                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shrink-0"
                   >
-                    <PlusCircle className="w-3.5 h-3.5" />
+                    <PlusCircle className="w-4 h-4" />
                     <span>추가</span>
                   </button>
                 </form>
 
                 {masterSingers.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     {masterSingers.map((singer) => (
                       <span
                         key={singer}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] border ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border ${
                           isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-300' : 'bg-white border-slate-300 text-slate-700'
                         }`}
                       >
@@ -2703,7 +2682,7 @@ export default function PraiseApp() {
                           className="text-neutral-500 hover:text-red-500 ml-0.5"
                           title="명단에서 삭제"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </span>
                     ))}
@@ -2712,7 +2691,7 @@ export default function PraiseApp() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold opacity-80 mb-1">
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">
                   이번 주 콘티 특이사항 메모
                 </label>
                 <input
@@ -2720,24 +2699,24 @@ export default function PraiseApp() {
                   value={noteInput}
                   onChange={(e) => setNoteInput(e.target.value)}
                   placeholder="예: 13:00 찬양팀 모임 / 단체복: 흰색 상의"
-                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsSingerModalOpen(false)}
-                  className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold transition ${subCardBg}`}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   onClick={handleSaveContiSingers}
-                  className="flex-1 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-xs sm:text-sm text-white shadow-lg shadow-blue-600/30"
                 >
                   배정 저장
                 </button>
@@ -2750,35 +2729,35 @@ export default function PraiseApp() {
       {/* 곡 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
             isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className={`flex items-center justify-between pb-3 sm:pb-4 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
               <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <Music className="w-5 h-5 text-blue-500" />
                 {editingSongId ? '찬양 곡 수정' : '찬양 곡 추가'}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 opacity-70 hover:opacity-100 rounded-lg"
+                className="p-1 opacity-70 hover:opacity-100 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="mt-4 space-y-3.5 sm:space-y-4 text-xs sm:text-sm">
+            <form onSubmit={handleSaveModal} className="mt-4 space-y-4 text-xs sm:text-sm">
               <div>
-                <label className="block text-xs font-semibold opacity-80 mb-1 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-amber-500" />
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5 flex items-center gap-1.5">
+                  <Tag className="w-4 h-4 text-amber-500" />
                   예배 순서 헤더 (선택 - 예: 입례, 파송, 헌금)
                 </label>
-                <div className="flex gap-1.5 mb-1.5 flex-wrap">
+                <div className="flex gap-1.5 mb-2 flex-wrap">
                   {['<입례>', '<송영>', '<경배와찬양>', '<기도송>', '<헌금>', '<파송>', '<특송>'].map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => setModalHeaderTag(tag)}
-                      className={`px-2 py-1 rounded-lg text-xs font-semibold border transition ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
                         modalHeaderTag === tag
                           ? 'bg-amber-500 border-amber-400 text-neutral-950 font-black'
                           : subCardBg
@@ -2791,7 +2770,7 @@ export default function PraiseApp() {
                     <button
                       type="button"
                       onClick={() => setModalHeaderTag('')}
-                      className="px-2 py-1 rounded-lg text-xs font-semibold border border-red-500/40 text-red-400"
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-red-500/40 text-red-400"
                     >
                       초기화
                     </button>
@@ -2802,33 +2781,33 @@ export default function PraiseApp() {
                   value={modalHeaderTag}
                   onChange={(e) => setModalHeaderTag(e.target.value)}
                   placeholder="직접 입력하거나 위 태그를 누르세요"
-                  className={`w-full border rounded-xl px-3 py-2 text-base sm:text-xs focus:outline-none focus:border-amber-500 ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold opacity-80 mb-1">순수 곡 제목 *</label>
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">순수 곡 제목 *</label>
                 <input
                   type="text"
                   required
                   value={modalTitle}
                   onChange={(e) => setModalTitle(e.target.value)}
                   placeholder="예: 꽃들도, 빛의 사자들이여"
-                  className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold opacity-80 mb-1">Key (선택)</label>
+                  <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">Key (선택)</label>
                   <select
                     value={modalKey}
                     onChange={(e) => setModalKey(e.target.value)}
-                    className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
+                    className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                     }`}
                   >
@@ -2841,13 +2820,13 @@ export default function PraiseApp() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold opacity-80 mb-1">BPM (템포, 선택)</label>
+                  <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">BPM (템포, 선택)</label>
                   <input
                     type="number"
                     value={modalBpm}
                     onChange={(e) => setModalBpm(e.target.value)}
                     placeholder="예: 72"
-                    className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
+                    className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                     }`}
                   />
@@ -2855,7 +2834,7 @@ export default function PraiseApp() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold opacity-80 mb-1">
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">
                   진행 순서 / 연주 메모 (선택)
                 </label>
                 <input
@@ -2863,22 +2842,22 @@ export default function PraiseApp() {
                   value={modalComment}
                   onChange={(e) => setModalComment(e.target.value)}
                   placeholder="예: Intro 4마디 후 시작 · 2절 후렴 반복"
-                  className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold opacity-80">찬양 가사 (선택)</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-sm font-semibold opacity-75">찬양 가사 (선택)</label>
                   <button
                     type="button"
                     onClick={() => handleSearchLyricsWeb(modalTitle)}
-                    className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    className="text-xs font-bold text-blue-500 hover:underline flex items-center gap-1"
                     title="구글에서 찬양 가사 검색 후 복사해 오기"
                   >
-                    <Globe className="w-3 h-3" />
+                    <Globe className="w-3.5 h-3.5" />
                     <span>구글 가사 검색 ↗</span>
                   </button>
                 </div>
@@ -2887,19 +2866,19 @@ export default function PraiseApp() {
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
                   placeholder="가사를 입력하거나 구글에서 복사해 붙여넣으세요"
-                  className={`w-full border rounded-xl p-3 text-base sm:text-xs focus:outline-none focus:border-purple-500 resize-none ${
+                  className={`w-full border rounded-xl p-3.5 text-xs sm:text-sm focus:outline-none focus:border-purple-500 resize-none ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold opacity-80 mb-1.5">악보 등록 방식</label>
-                <div className="grid grid-cols-3 gap-1.5 mb-3">
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2">악보 등록 방식</label>
+                <div className="grid grid-cols-3 gap-2 mb-3.5">
                   <button
                     type="button"
                     onClick={() => setModalSheetType('file')}
-                    className={`flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
                       modalSheetType === 'file'
                         ? 'bg-blue-600 border-blue-500 text-white'
                         : isDark
@@ -2907,13 +2886,13 @@ export default function PraiseApp() {
                         : 'bg-slate-100 border-slate-300 text-slate-600'
                     }`}
                   >
-                    <FileText className="w-3.5 h-3.5" />
+                    <FileText className="w-4 h-4" />
                     <span>파일 첨부</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setModalSheetType('url')}
-                    className={`flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
                       modalSheetType === 'url'
                         ? 'bg-blue-600 border-blue-500 text-white'
                         : isDark
@@ -2921,13 +2900,13 @@ export default function PraiseApp() {
                         : 'bg-slate-100 border-slate-300 text-slate-600'
                     }`}
                   >
-                    <LinkIcon className="w-3.5 h-3.5" />
+                    <LinkIcon className="w-4 h-4" />
                     <span>링크/주소</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setModalSheetType('library')}
-                    className={`flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition ${
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
                       modalSheetType === 'library'
                         ? 'bg-purple-600 border-purple-500 text-white'
                         : isDark
@@ -2935,24 +2914,24 @@ export default function PraiseApp() {
                         : 'bg-slate-100 border-slate-300 text-slate-600'
                     }`}
                   >
-                    <Library className="w-3.5 h-3.5" />
+                    <Library className="w-4 h-4" />
                     <span>보관함 ({librarySongs.length})</span>
                   </button>
                 </div>
 
                 {modalSheetType === 'file' && (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {modalSheetUrls.length > 0 && (
-                      <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-xl max-h-48 overflow-y-auto ${isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-200'}`}>
+                      <div className={`grid grid-cols-3 gap-2.5 p-3 border rounded-2xl max-h-52 overflow-y-auto ${isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-200'}`}>
                         {modalSheetUrls.map((url, index) => (
-                          <div key={index} className={`relative group border rounded-lg p-1 flex flex-col items-center ${isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-slate-300'}`}>
+                          <div key={index} className={`relative group border rounded-xl p-1.5 flex flex-col items-center ${isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-slate-300'}`}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={url}
                               alt={`${index + 1}p`}
-                              className="w-full h-16 object-contain rounded bg-white"
+                              className="w-full h-16 object-contain rounded-lg bg-white"
                             />
-                            <span className="text-[10px] font-bold opacity-80 mt-1">
+                            <span className="text-xs font-bold opacity-80 mt-1">
                               {index + 1} 페이지
                             </span>
                             <button
@@ -2961,7 +2940,7 @@ export default function PraiseApp() {
                               className="absolute -top-1.5 -right-1.5 p-1 bg-red-600 hover:bg-red-500 text-white rounded-full shadow"
                               title="이 페이지 삭제"
                             >
-                              <X className="w-3 h-3" />
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ))}
@@ -2973,14 +2952,14 @@ export default function PraiseApp() {
                       accept="image/*"
                       multiple
                       onChange={handleFileChange}
-                      className={`w-full text-xs file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 cursor-pointer ${
+                      className={`w-full text-xs sm:text-sm file:mr-2.5 file:py-2 file:px-3.5 file:rounded-xl file:border-0 cursor-pointer ${
                         isDark
                           ? 'text-neutral-400 file:bg-neutral-800 file:text-neutral-200'
                           : 'text-slate-600 file:bg-slate-200 file:text-slate-800'
                       }`}
                     />
                     {isProcessing && (
-                      <span className="text-xs text-blue-500 block animate-pulse">
+                      <span className="text-xs sm:text-sm text-blue-500 block animate-pulse font-bold">
                         악보 처리 중...
                       </span>
                     )}
@@ -2988,22 +2967,22 @@ export default function PraiseApp() {
                 )}
 
                 {modalSheetType === 'url' && (
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => handleOpenSearchWeb('google')}
-                        className="flex-1 py-2 px-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-400 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                        className="flex-1 py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-500 font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition active:scale-95"
                       >
-                        <Globe className="w-3.5 h-3.5" />
+                        <Globe className="w-4 h-4" />
                         <span>구글 악보 찾기 ↗</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleOpenSearchWeb('daum')}
-                        className="flex-1 py-2 px-2.5 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-400 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                        className="flex-1 py-2.5 px-3 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-500 font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition active:scale-95"
                       >
-                        <Search className="w-3.5 h-3.5" />
+                        <Search className="w-4 h-4" />
                         <span>다음 악보 찾기 ↗</span>
                       </button>
                     </div>
@@ -3014,7 +2993,7 @@ export default function PraiseApp() {
                         value={modalUrlInput}
                         onChange={(e) => setModalUrlInput(e.target.value)}
                         placeholder="구글 드라이브 링크 또는 이미지 주소 붙여넣기"
-                        className={`w-full border rounded-xl px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
+                        className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                           isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
                       />
@@ -3023,42 +3002,42 @@ export default function PraiseApp() {
                 )}
 
                 {modalSheetType === 'library' && (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <div className="relative">
-                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-neutral-400" />
+                      <Search className="w-4 h-4 absolute left-3 top-3 text-neutral-400" />
                       <input
                         type="text"
                         value={modalLibrarySearch}
                         onChange={(e) => setModalLibrarySearch(e.target.value)}
                         placeholder="보관된 곡명 검색 (클릭 시 자동 입력)"
-                        className={`w-full border rounded-xl pl-8 pr-3 py-2 text-base sm:text-xs focus:outline-none focus:border-blue-500 ${
+                        className={`w-full border rounded-xl pl-9 pr-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                           isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
                       />
                     </div>
 
-                    <div className={`max-h-48 overflow-y-auto space-y-1.5 p-1.5 border rounded-xl ${
+                    <div className={`max-h-52 overflow-y-auto space-y-1.5 p-2 border rounded-2xl ${
                       isDark ? 'bg-neutral-800/50 border-neutral-700' : 'bg-slate-50 border-slate-200'
                     }`}>
                       {filteredLibrary.length === 0 ? (
-                        <p className="text-center py-4 text-xs opacity-60">검색된 보관 곡이 없습니다.</p>
+                        <p className="text-center py-5 text-xs opacity-60">검색된 보관 곡이 없습니다.</p>
                       ) : (
                         filteredLibrary.map((libSong) => (
                           <div
                             key={libSong.id}
                             onClick={() => handleSelectFromLibrary(libSong)}
-                            className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer hover:border-purple-500 hover:scale-[1.01] transition ${cardBgClass}`}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer hover:border-purple-500 hover:scale-[1.01] transition ${cardBgClass}`}
                           >
                             <div className="min-w-0 flex-1">
-                              <span className="font-bold text-xs truncate block">{libSong.title}</span>
-                              <div className="flex items-center gap-1.5 text-[10px] opacity-70 mt-0.5">
-                                {libSong.key && <span className="font-semibold text-blue-400">{libSong.key} Key</span>}
+                              <span className="font-bold text-xs sm:text-sm truncate block">{libSong.title}</span>
+                              <div className="flex items-center gap-2 text-xs opacity-70 mt-0.5">
+                                {libSong.key && <span className="font-semibold text-blue-500">{libSong.key} Key</span>}
                                 {libSong.bpm && <span>BPM {libSong.bpm}</span>}
                                 <span>악보 {libSong.sheetUrls?.length || 0}장</span>
                               </div>
                             </div>
-                            <span className="px-2 py-1 rounded bg-purple-600/30 text-purple-300 font-bold text-[10px] flex items-center gap-1 shrink-0">
-                              <ArrowDownToLine className="w-3 h-3" /> 가져오기
+                            <span className="px-2.5 py-1 rounded-lg bg-purple-600/30 text-purple-300 font-bold text-xs flex items-center gap-1 shrink-0">
+                              <ArrowDownToLine className="w-3.5 h-3.5" /> 가져오기
                             </span>
                           </div>
                         ))
@@ -3068,18 +3047,18 @@ export default function PraiseApp() {
                 )}
               </div>
 
-              <div className="flex gap-2 pt-3">
+              <div className="flex gap-2.5 pt-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold transition ${subCardBg}`}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="flex-1 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-xl font-semibold text-white shadow-lg shadow-blue-600/30"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-xl font-semibold text-xs sm:text-sm text-white shadow-lg shadow-blue-600/30"
                 >
                   {isProcessing ? '처리 중...' : editingSongId ? '수정 완료' : '콘티에 추가'}
                 </button>
