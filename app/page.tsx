@@ -1,3 +1,8 @@
+보내주신 스크린샷을 보면 4번 곡(예수 이름으로) 영역에서 [기도송] 태그와 곡 제목, 그리고 아래의 밴드만 할땐 높여서 코멘트 영역이 서로 겹치거나 글자가 뭉개지는 현상이 발생하고 있습니다.
+이 원인은 모바일 화면 폭이 좁은데 flex-wrap이나 truncate 처리가 빠져 있거나, 여러 개의 텍스트 요소가 한 줄에 강제로 들어가면서 레이아웃 공간을 초과했기 때문입니다.
+이 문제를 해결하기 위해 곡 제목 영역의 레이아웃 구조를 flex-col(세로 정렬) 및 반응형 줄바꿈 구조로 탄탄하게 개편했습니다.
+app/page.tsx (모바일 텍스트 겹침 완벽 해결 전체 교체 코드)
+GitHub 저장소의 app/page.tsx 파일을 열고 아래 코드로 전체 교체 후 커밋해 주세요:
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -3132,3 +3137,4 @@ export default function PraiseApp() {
     </div>
   );
 }
+
