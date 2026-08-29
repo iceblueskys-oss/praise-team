@@ -45,6 +45,9 @@ import {
   CheckCircle2,
   XCircle,
   HelpCircle,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -198,6 +201,7 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // 🌟 뷰어 고도화 상태 🌟
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -205,6 +209,7 @@ export default function PraiseApp() {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser'>('pen');
   const [penColor, setPenColor] = useState('#ef4444');
+  const [showViewerControls, setShowViewerControls] = useState(true); // 컨트롤바 자동/수동 토글
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -485,7 +490,7 @@ export default function PraiseApp() {
       } catch (e) {}
 
       setIsAttendanceModalOpen(false);
-      alert(`[${name}]님의 참석 여부(${status === 'yes' ? '참석' : status === 'no' ? '불참' : '미정'})가 반영되었습니다!`);
+      alert(`[${name}]님의 참석 여부가 반영되었습니다!`);
     } catch (e) {
       alert('참석 여부 저장 실패');
     }
@@ -1187,7 +1192,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (다이나믹 아일랜드 안전 영역)
+  // 1. 🌟 악보 & 가사 뷰어 화면 (플로팅 글래스모피즘 앱 UI) 🌟
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1196,156 +1201,95 @@ export default function PraiseApp() {
     return (
       <div
         style={{ overscrollBehavior: 'none' }}
-        className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none pt-[env(safe-area-inset-top)] ${
-          isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-200 text-slate-900'
+        className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none ${
+          isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-900 text-slate-100'
         }`}
       >
-        <div className="shrink-0 z-40 w-full flex flex-col shadow-md">
-          <header className={`flex flex-col md:flex-row md:items-center md:justify-between px-3 py-2 border-b gap-2 ${
-            isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200'
-          }`}>
-            <div className="flex items-center justify-between gap-1.5 min-w-0">
-              <div className="flex items-center gap-1.5 min-w-0">
+        {/* 🌟 1. 상단 플로팅 글래스 캡슐 바 (Floating Glass TopBar) 🌟 */}
+        <div
+          className={`fixed top-3 sm:top-5 inset-x-3 sm:inset-x-6 z-50 transition-all duration-300 pointer-events-none ${
+            showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
+          }`}
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          <div className="max-w-3xl mx-auto w-full flex flex-col gap-2">
+            <div className="pointer-events-auto flex items-center justify-between p-1.5 sm:p-2 rounded-2xl bg-neutral-900/80 border border-neutral-700/60 shadow-2xl backdrop-blur-xl">
+              
+              {/* 좌측: 닫기 & 곡 정보 */}
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <button
                   onClick={() => {
                     setViewingSongId(null);
                     setCurrentPageIndex(0);
                     setViewMode('sheet');
                   }}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border shrink-0 cursor-pointer transition ${
-                    isDark ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
-                  }`}
+                  className="w-8 h-8 rounded-xl bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 flex items-center justify-center border border-neutral-700/70 transition active:scale-90 shrink-0"
+                  title="목록으로 나가기"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  <span>목록</span>
                 </button>
 
-                <div className={`flex items-center rounded-lg border p-0.5 shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
-                  <button
-                    onClick={handlePrevSong}
-                    disabled={currentSongIndex <= 0}
-                    className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30 hover:text-blue-500"
-                    title="이전 곡"
-                  >
-                    <SkipBack className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-[11px] font-bold px-1 min-w-[36px] text-center text-neutral-400">
-                    {currentSongIndex + 1}/{currentSongs.length}
-                  </span>
-                  <button
-                    onClick={handleNextSong}
-                    disabled={currentSongIndex >= currentSongs.length - 1}
-                    className="w-7 h-7 flex items-center justify-center text-xs font-bold disabled:opacity-30 hover:text-blue-500"
-                    title="다음 곡"
-                  >
-                    <SkipForward className="w-3.5 h-3.5" />
-                  </button>
+                <div className="flex items-center gap-1.5 min-w-0 truncate">
+                  {viewingSong.headerTag && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg shrink-0">
+                      {viewingSong.headerTag}
+                    </span>
+                  )}
+                  <h1 className="font-bold text-xs sm:text-sm truncate text-white">
+                    {viewingSong.title}
+                  </h1>
+                  {viewingSong.key && (
+                    <span className="px-2 py-0.5 text-[10px] sm:text-xs font-bold bg-blue-600 rounded-lg text-white shrink-0">
+                      {viewingSong.key} Key
+                    </span>
+                  )}
                 </div>
-
-                {viewingSong.headerTag && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded shrink-0">
-                    {viewingSong.headerTag}
-                  </span>
-                )}
-
-                <h1 className="font-bold text-xs sm:text-sm truncate max-w-[130px] xs:max-w-[180px] sm:max-w-xs">
-                  {viewingSong.title}
-                </h1>
               </div>
 
-              {viewingSong.key && (
-                <span className="px-2 py-0.5 text-[10px] sm:text-xs font-bold bg-blue-600 rounded text-white shrink-0">
-                  {viewingSong.key} Key
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between md:justify-end gap-1.5 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-neutral-800/40">
-              <div className="flex items-center gap-1.5">
+              {/* 우측 도구 액션 버튼들 */}
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {/* 가사/악보 전환 */}
                 <button
                   onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition active:scale-95 ${
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition active:scale-95 ${
                     viewMode === 'lyrics'
-                      ? 'bg-purple-600 border-purple-500 text-white shadow-md'
-                      : isDark
-                      ? 'bg-purple-950/40 border-purple-800 text-purple-300 hover:bg-purple-900/50'
-                      : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
+                      ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/30'
+                      : 'bg-neutral-800/90 border-neutral-700/80 text-purple-300 hover:bg-neutral-700'
                   }`}
-                  title={viewMode === 'sheet' ? '가사 전용 뷰어로 전환' : '악보 보기로 전환'}
+                  title={viewMode === 'sheet' ? '가사 뷰어로 전환' : '악보 보기로 전환'}
                 >
-                  {viewMode === 'sheet' ? (
-                    <>
-                      <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-                      <span>가사</span>
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="w-3.5 h-3.5 text-white" />
-                      <span>악보</span>
-                    </>
-                  )}
+                  {viewMode === 'sheet' ? <BookOpen className="w-3.5 h-3.5 text-purple-400" /> : <FileText className="w-3.5 h-3.5 text-white" />}
+                  <span className="hidden xs:inline">{viewMode === 'sheet' ? '가사' : '악보'}</span>
                 </button>
 
-                <button
-                  onClick={() => handleSearchLyricsWeb(viewingSong.title)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border border-blue-500/40 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 transition active:scale-95"
-                  title="구글 찬양 가사 검색"
-                >
-                  <Globe className="w-3 h-3 text-blue-400" />
-                  <span>가사 검색 ↗</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                {viewMode === 'sheet' && totalPages > 1 && (
-                  <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
-                    <button
-                      onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
-                      disabled={currentPageIndex === 0}
-                      className="w-6 h-6 flex items-center justify-center text-xs font-bold disabled:opacity-30"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-[10px] font-bold text-blue-400 px-1 min-w-[28px] text-center">
-                      {currentPageIndex + 1}/{totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
-                      disabled={currentPageIndex === totalPages - 1}
-                      className="w-6 h-6 flex items-center justify-center text-xs font-bold disabled:opacity-30"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-
+                {/* 필기 토글 버튼 (악보 모드에서만) */}
                 {viewMode === 'sheet' && currentSheetUrl && (
                   <button
                     onClick={() => setIsDrawingMode(!isDrawingMode)}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold cursor-pointer transition ${
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition active:scale-95 ${
                       isDrawingMode
-                        ? 'bg-amber-500 text-neutral-950'
-                        : isDark
-                        ? 'bg-neutral-800 text-neutral-200 border border-neutral-700'
-                        : 'bg-slate-100 text-slate-700 border border-slate-300'
+                        ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-lg shadow-amber-500/30'
+                        : 'bg-neutral-800/90 border-neutral-700/80 text-neutral-300 hover:bg-neutral-700'
                     }`}
+                    title="필기 모드 켜기/끄기"
                   >
-                    <PenTool className="w-3 h-3" />
-                    <span>{isDrawingMode ? '닫기' : '필기'}</span>
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span className="hidden xs:inline">{isDrawingMode ? '완료' : '필기'}</span>
                   </button>
                 )}
 
+                {/* 배율 조절 */}
                 {viewMode === 'sheet' && (
-                  <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+                  <div className="flex items-center rounded-xl bg-neutral-800/90 border border-neutral-700/80 p-0.5">
                     <button
                       onClick={() => setScale((s) => Math.max(s - 0.1, 0.5))}
-                      className="w-6 h-6 flex items-center justify-center text-xs font-bold"
+                      className="w-6 h-6 flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white"
                     >
                       -
                     </button>
                     <button
                       onClick={() => setScale((s) => Math.min(s + 0.1, 2.0))}
-                      className="w-6 h-6 flex items-center justify-center text-xs font-bold"
+                      className="w-6 h-6 flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white"
                     >
                       +
                     </button>
@@ -1353,109 +1297,119 @@ export default function PraiseApp() {
                 )}
               </div>
             </div>
-          </header>
 
-          {viewingSong.comment && (
-            <div className={`px-4 py-1.5 border-b text-[11px] sm:text-xs flex items-center gap-2 ${
-              isDark ? 'bg-blue-950/40 border-blue-900/60 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
-            }`}>
-              <MessageSquare className="w-3 h-3 text-blue-500 shrink-0" />
-              <span className="font-bold shrink-0">진행 순서:</span>
-              <span className="truncate">{viewingSong.comment}</span>
-            </div>
-          )}
+            {/* 연주 순서 메모 (있을 때만 슬림하게 노출) */}
+            {viewingSong.comment && (
+              <div className="pointer-events-auto self-center px-3.5 py-1 rounded-full bg-blue-950/80 border border-blue-800/60 shadow-lg backdrop-blur-md text-[11px] font-medium text-blue-200 flex items-center gap-1.5 max-w-sm sm:max-w-md truncate">
+                <MessageSquare className="w-3 h-3 text-blue-400 shrink-0" />
+                <span className="font-bold shrink-0">진행:</span>
+                <span className="truncate">{viewingSong.comment}</span>
+              </div>
+            )}
+          </div>
+        </div>
 
-          {viewMode === 'sheet' && isDrawingMode && (
-            <div className={`flex items-center justify-between sm:justify-center gap-2 py-1.5 px-3 border-b overflow-x-auto text-xs no-scrollbar ${
-              isDark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-white/95 border-slate-200'
-            }`}>
-              <div className={`flex items-center p-0.5 rounded-lg gap-1 border shrink-0 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+        {/* 🌟 2. 애플 펜슬 스타일 플로팅 필기 도구 팔레트 (Drawing Palette) 🌟 */}
+        {viewMode === 'sheet' && isDrawingMode && (
+          <div
+            className={`fixed top-20 sm:top-24 inset-x-3 sm:inset-x-0 z-50 flex justify-center transition-all duration-300 pointer-events-none ${
+              showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
+            }`}
+          >
+            <div className="pointer-events-auto flex items-center gap-2 p-1.5 px-2.5 rounded-2xl bg-neutral-900/90 border border-neutral-700/80 shadow-2xl backdrop-blur-xl">
+              <div className="flex items-center p-0.5 rounded-xl bg-neutral-800 border border-neutral-700 gap-0.5">
                 <button
                   onClick={() => setCurrentTool('pen')}
-                  className={`px-2 py-0.5 rounded text-[11px] transition ${currentTool === 'pen' ? 'bg-blue-600 text-white font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'pen' ? 'bg-blue-600 text-white shadow-sm' : 'text-neutral-400'}`}
                 >
                   펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('highlighter')}
-                  className={`px-2 py-0.5 rounded text-[11px] transition ${currentTool === 'highlighter' ? 'bg-yellow-500 text-black font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'highlighter' ? 'bg-yellow-500 text-black shadow-sm' : 'text-neutral-400'}`}
                 >
                   형광펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('eraser')}
-                  className={`px-2 py-0.5 rounded text-[11px] transition ${currentTool === 'eraser' ? 'bg-neutral-600 text-white font-bold' : isDark ? 'text-neutral-400' : 'text-slate-600'}`}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'eraser' ? 'bg-neutral-600 text-white shadow-sm' : 'text-neutral-400'}`}
                 >
                   지우개
                 </button>
               </div>
 
-              <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border shrink-0 ${isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-300'}`}>
+              {/* 색상 선택 */}
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-neutral-800/80 border border-neutral-700">
                 {['#ef4444', '#3b82f6', '#10b981', '#000000', '#eab308'].map((color) => (
                   <button
                     key={color}
                     onClick={() => setPenColor(color)}
                     style={{ backgroundColor: color }}
-                    className={`w-3.5 h-3.5 rounded-full border-2 transition ${
-                      penColor === color ? 'border-blue-400 scale-110 shadow' : 'border-transparent opacity-80'
+                    className={`w-4 h-4 rounded-full border-2 transition ${
+                      penColor === color ? 'border-white scale-125 shadow' : 'border-transparent opacity-80'
                     }`}
                   />
                 ))}
               </div>
 
+              {/* 필기 리셋 */}
               <button
                 onClick={handleClearDrawing}
-                className={`px-2 py-0.5 border rounded-lg text-[11px] shrink-0 ${isDark ? 'bg-neutral-800 hover:bg-red-950/80 text-red-400 border-neutral-700' : 'bg-slate-100 hover:bg-red-100 text-red-600 border-slate-300'}`}
+                className="p-1.5 rounded-xl bg-neutral-800 hover:bg-red-950/80 text-red-400 border border-neutral-700 transition"
+                title="현재 페이지 필기 지우기"
               >
-                {currentPageIndex + 1}p 필기 초기화
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
+        {/* 🌟 3. 메인 콘텐츠 영역 (화면 탭 시 컨트롤 토글) 🌟 */}
         <main
+          onClick={() => {
+            if (!isDrawingMode) setShowViewerControls(!showViewerControls);
+          }}
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
-          className={`flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 pb-28 relative ${
-            isDark ? 'bg-neutral-950' : 'bg-slate-200'
-          }`}
+          className="flex-1 overflow-auto flex items-center justify-center p-0 relative"
         >
           {viewMode === 'lyrics' ? (
-            <div className={`w-full max-w-2xl h-full p-4 sm:p-6 rounded-2xl border flex flex-col shadow-2xl ${cardBgClass}`}>
-              <div className="flex items-center justify-between pb-2 border-b border-neutral-700/60 mb-2">
-                <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
-                  <BookOpen className="w-4 h-4" />
-                  찬양 가사 뷰어
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => handleSearchLyricsWeb(viewingSong.title)}
-                    className="text-[11px] font-bold px-2 py-1 rounded-lg border border-blue-500/40 bg-blue-600/20 text-blue-300 hover:bg-blue-600/30"
-                  >
-                    구글에서 가사 복사 ↗
-                  </button>
-                  <button
-                    onClick={() => handleCopyLyrics(viewingSong.lyrics || '')}
-                    className="text-[11px] font-bold px-2 py-1 rounded-lg border border-purple-500/40 bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 flex items-center gap-1"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>가사 복사</span>
-                  </button>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xl h-full p-4 sm:p-6 flex flex-col justify-center pt-20 pb-24"
+            >
+              <div className="w-full h-full rounded-3xl p-5 border border-neutral-800 bg-neutral-900/90 shadow-2xl backdrop-blur-xl flex flex-col">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-2">
+                  <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4" /> 찬양 가사
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleSearchLyricsWeb(viewingSong.title)}
+                      className="text-[11px] font-bold px-2 py-1 rounded-lg border border-blue-500/40 bg-blue-600/20 text-blue-300"
+                    >
+                      구글 검색 ↗
+                    </button>
+                    <button
+                      onClick={() => handleCopyLyrics(viewingSong.lyrics || '')}
+                      className="text-[11px] font-bold px-2 py-1 rounded-lg border border-purple-500/40 bg-purple-600/20 text-purple-300 flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" /> 복사
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <textarea
-                value={viewingSong.lyrics || ''}
-                onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
-                placeholder="등록된 가사가 없습니다. '구글에서 가사 복사' 버튼을 눌러 가사를 복사한 뒤 여기에 붙여넣으세요."
-                className={`w-full flex-1 p-3 sm:p-4 rounded-xl border text-sm sm:text-base font-semibold leading-relaxed sm:leading-loose focus:outline-none focus:border-purple-500 resize-none ${
-                  isDark ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                }`}
-              />
+                <textarea
+                  value={viewingSong.lyrics || ''}
+                  onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
+                  placeholder="등록된 가사가 없습니다. 가사를 입력하거나 복사해 붙여넣으세요."
+                  className="w-full flex-1 p-3 rounded-2xl bg-neutral-950/60 border border-neutral-800 text-sm sm:text-base font-medium leading-relaxed focus:outline-none focus:border-purple-500 resize-none text-neutral-100"
+                />
+              </div>
             </div>
           ) : !currentSheetUrl ? (
-            <div className={`text-center p-6 border rounded-2xl max-w-xs ${cardBgClass}`}>
-              <p className="font-bold text-sm mb-1">등록된 악보가 없습니다.</p>
-              <p className="text-xs opacity-70">수정 버튼을 눌러 악보 파일 또는 링크를 등록해주세요.</p>
+            <div className="text-center p-8 rounded-3xl border border-neutral-800 bg-neutral-900/80 shadow-2xl max-w-xs">
+              <p className="font-bold text-sm mb-1 text-white">등록된 악보가 없습니다.</p>
+              <p className="text-xs opacity-60 text-neutral-400">곡 수정 메뉴에서 악보 이미지를 첨부해주세요.</p>
             </div>
           ) : (
             <div
@@ -1467,9 +1421,9 @@ export default function PraiseApp() {
                 ref={imageRef}
                 key={currentSheetUrl}
                 src={currentSheetUrl}
-                alt={`${viewingSong.title} - ${currentPageIndex + 1}페이지`}
+                alt={`${viewingSong.title} - ${currentPageIndex + 1}p`}
                 onLoad={initCanvas}
-                className="max-h-[75vh] w-auto max-w-full object-contain rounded bg-white shadow-2xl block select-none pointer-events-none"
+                className="max-h-[100dvh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none shadow-2xl"
               />
               <canvas
                 ref={canvasRef}
@@ -1481,7 +1435,7 @@ export default function PraiseApp() {
                 onTouchMove={onDraw}
                 onTouchEnd={stopDraw}
                 style={{ mixBlendMode: 'multiply' }}
-                className={`absolute inset-0 w-full h-full rounded ${
+                className={`absolute inset-0 w-full h-full ${
                   isDrawingMode ? 'cursor-crosshair touch-none' : 'pointer-events-none'
                 }`}
               />
@@ -1489,46 +1443,55 @@ export default function PraiseApp() {
           )}
         </main>
 
-        <footer className="fixed bottom-0 inset-x-0 z-40 flex justify-center items-center pb-[max(env(safe-area-inset-bottom),16px)] pt-2 px-4 pointer-events-none bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-          <div className="pointer-events-auto flex items-center gap-2 sm:gap-3 p-1.5 rounded-full backdrop-blur-xl border shadow-2xl bg-neutral-900/90 border-neutral-700/80">
+        {/* 🌟 4. 하단 플로팅 글래스 네비게이션 독 (Mini Floating Controller) 🌟 */}
+        <footer
+          className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
+            showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+        >
+          <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-full bg-neutral-900/85 border border-neutral-700/70 shadow-2xl backdrop-blur-xl">
+            {/* 이전 곡 */}
             <button
               onClick={handlePrevSong}
               disabled={currentSongIndex <= 0}
-              className="px-3.5 sm:px-4 py-2 rounded-full text-xs font-bold text-white hover:bg-neutral-800 disabled:opacity-20 active:scale-95 transition flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-full text-xs font-bold text-white hover:bg-neutral-800 disabled:opacity-20 active:scale-95 transition flex items-center gap-1"
             >
-              <SkipBack className="w-4 h-4 text-blue-400" />
+              <SkipBack className="w-3.5 h-3.5 text-blue-400" />
               <span className="hidden xs:inline">이전 곡</span>
             </button>
 
+            {/* 악보 페이지 넘김 독 */}
             {viewMode === 'sheet' && totalPages > 1 && (
-              <div className="flex items-center gap-1 px-1 border-x border-neutral-700/80">
+              <div className="flex items-center gap-1 px-1.5 border-x border-neutral-700/80">
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
                   disabled={currentPageIndex === 0}
-                  className="px-2.5 py-1.5 rounded-full text-xs font-bold text-neutral-300 hover:text-white disabled:opacity-20 transition"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white disabled:opacity-20 transition"
                 >
-                  ◀ 이전 장
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-xs font-black text-blue-400 px-1 min-w-[36px] text-center">
+                <span className="text-xs font-black text-blue-400 px-1 min-w-[32px] text-center">
                   {currentPageIndex + 1}/{totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
                   disabled={currentPageIndex === totalPages - 1}
-                  className="px-2.5 py-1.5 rounded-full text-xs font-bold text-neutral-300 hover:text-white disabled:opacity-20 transition"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white disabled:opacity-20 transition"
                 >
-                  다음 장 ▶
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             )}
 
+            {/* 다음 곡 */}
             <button
               onClick={handleNextSong}
               disabled={currentSongIndex >= currentSongs.length - 1}
-              className="px-3.5 sm:px-4 py-2 rounded-full text-xs font-bold text-white hover:bg-neutral-800 disabled:opacity-20 active:scale-95 transition flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-full text-xs font-bold text-white hover:bg-neutral-800 disabled:opacity-20 active:scale-95 transition flex items-center gap-1"
             >
               <span className="hidden xs:inline">다음 곡</span>
-              <SkipForward className="w-4 h-4 text-blue-400" />
+              <SkipForward className="w-3.5 h-3.5 text-blue-400" />
             </button>
           </div>
         </footer>
@@ -1780,7 +1743,7 @@ export default function PraiseApp() {
               </div>
             )}
 
-            {/* 🌟 곡 목록 리스트 (곡 제목 클릭 시 악보 열림) 🌟 */}
+            {/* 곡 목록 리스트 (곡 제목 클릭 시 악보 열림) */}
             {currentConti ? (
               <div className="space-y-2 relative select-none w-full">
                 {currentSongs.length === 0 ? (
@@ -1809,18 +1772,19 @@ export default function PraiseApp() {
                           }`}
                         >
                           <div className="flex items-center justify-between p-3 sm:p-3.5 gap-2 w-full">
-                            {/* 🌟 터치 시 악보 보기로 바로 이동하는 곡 정보 영역 🌟 */}
+                            {/* 터치 시 악보 보기로 바로 이동하는 곡 정보 영역 */}
                             <div
                               onClick={() => {
                                 setViewingSongId(song.id);
                                 setCurrentPageIndex(0);
                                 setViewMode('sheet');
+                                setShowViewerControls(true);
                               }}
                               className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
                             >
                               {isAdmin ? (
                                 <div
-                                  onClick={(e) => e.stopPropagation()} // 드래그 핸들은 곡 뷰어 이동 방지
+                                  onClick={(e) => e.stopPropagation()}
                                   onTouchStart={(e) => handleTouchStart(idx, e)}
                                   onTouchMove={handleTouchMove}
                                   onTouchEnd={endDragAction}
@@ -1874,7 +1838,7 @@ export default function PraiseApp() {
                               </div>
                             </div>
 
-                            {/* 우측 버튼 그룹: 가사 버튼 및 관리자 버튼 */}
+                            {/* 우측 가사 버튼 및 관리자 버튼 */}
                             <div className="flex items-center gap-1 shrink-0">
                               {isReordering && isAdmin ? (
                                 <div className="flex items-center gap-1">
@@ -2540,7 +2504,7 @@ export default function PraiseApp() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs text-white shadow-md shadow-blue-600/30"
                 >
                   변경 완료
                 </button>
