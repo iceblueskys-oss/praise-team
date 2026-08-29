@@ -41,6 +41,10 @@ import {
   ChevronUp,
   SlidersHorizontal,
   Home,
+  Bell,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -79,12 +83,19 @@ interface LibrarySong {
   updatedAt: number;
 }
 
+interface AttendanceItem {
+  name: string;
+  status: 'yes' | 'no' | 'maybe';
+}
+
 interface Conti {
   id: string;
   title: string;
   date: string;
   assignedSingers?: string[];
   customNote?: string;
+  notice?: string; // 🌟 공지사항
+  attendance?: Record<string, 'yes' | 'no' | 'maybe'>; // 🌟 팀원 참석 여부
 }
 
 function getUpcomingSunday(): Date {
@@ -142,7 +153,13 @@ export default function PraiseApp() {
   const [isHeaderCardExpanded, setIsHeaderCardExpanded] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
-  // 🌟 한 번에 하나의 가사만 열리도록 단일 ID 관리 (string | null) 🌟
+  // 공지 및 참석 여부 모달 상태
+  const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
+  const [noticeInput, setNoticeInput] = useState('');
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [myAttendanceName, setMyAttendanceName] = useState('');
+  const [myAttendanceStatus, setMyAttendanceStatus] = useState<'yes' | 'no' | 'maybe'>('yes');
+
   const [expandedLyricsSongId, setExpandedLyricsSongId] = useState<string | null>(null);
   const [lyricsFontSize, setLyricsFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
@@ -211,7 +228,6 @@ export default function PraiseApp() {
     });
   }, []);
 
-  // 🌟 단일 아코디언 토글 (이미 열린 걸 누르면 닫히고, 다른 걸 누르면 기존 건 닫히고 새 가사가 펼쳐짐) 🌟
   const handleToggleLyricsExpand = (songId: string) => {
     setExpandedLyricsSongId((prev) => (prev === songId ? null : songId));
   };
@@ -285,6 +301,9 @@ export default function PraiseApp() {
 
         const savedFontSize = localStorage.getItem('praise_lyrics_font_size') as 'sm' | 'base' | 'lg';
         if (savedFontSize) setLyricsFontSize(savedFontSize);
+
+        const savedMyName = localStorage.getItem('praise_user_my_name');
+        if (savedMyName) setMyAttendanceName(savedMyName);
       }
     } catch (e) {}
     setMounted(true);
@@ -317,6 +336,8 @@ export default function PraiseApp() {
             date: data?.date || '',
             assignedSingers: Array.isArray(data?.assignedSingers) ? data.assignedSingers : [],
             customNote: data?.customNote || '',
+            notice: data?.notice || '',
+            attendance: data?.attendance && typeof data.attendance === 'object' ? data.attendance : {},
           });
         });
         setContis(list);
@@ -441,6 +462,43 @@ export default function PraiseApp() {
     }
   };
 
+  // 🌟 공지사항 저장 🌟
+  const handleSaveNotice = async () => {
+    if (!currentConti) return;
+    try {
+      await setDoc(doc(db, 'contis_v2', currentConti.id), { notice: noticeInput.trim() }, { merge: true });
+      setIsNoticeModalOpen(false);
+      alert('공지사항이 등록되었습니다.');
+    } catch (e) {
+      alert('공지사항 저장 실패');
+    }
+  };
+
+  // 🌟 참석 여부 제출 🌟
+  const handleSubmitAttendance = async (status: 'yes' | 'no' | 'maybe') => {
+    if (!currentConti) return;
+    const name = myAttendanceName.trim();
+    if (!name) {
+      alert('이름을 입력해주세요.');
+      return;
+    }
+
+    try {
+      const currentAttendance = currentConti.attendance || {};
+      const updatedAttendance = { ...currentAttendance, [name]: status };
+
+      await setDoc(doc(db, 'contis_v2', currentConti.id), { attendance: updatedAttendance }, { merge: true });
+      try {
+        localStorage.setItem('praise_user_my_name', name);
+      } catch (e) {}
+
+      setIsAttendanceModalOpen(false);
+      alert(`[${name}]님의 참석 여부(${status === 'yes' ? '참석' : status === 'no' ? '불참' : '미정'})가 반영되었습니다!`);
+    } catch (e) {
+      alert('참석 여부 저장 실패');
+    }
+  };
+
   const handleLoginAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -524,6 +582,8 @@ export default function PraiseApp() {
       date: calendarSelectedDate,
       assignedSingers: [],
       customNote: '',
+      notice: '',
+      attendance: {},
     };
 
     await setDoc(doc(db, 'contis_v2', newId), newConti);
@@ -889,6 +949,8 @@ export default function PraiseApp() {
           date: formatDateToStr(defaultSunday),
           assignedSingers: [],
           customNote: '',
+          notice: '',
+          attendance: {},
         });
         setSelectedContiId(activeContiId);
       }
@@ -1133,7 +1195,7 @@ export default function PraiseApp() {
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면
+  // 1. 악보 & 가사 뷰어 화면 (다이나믹 아일랜드 pt 안전 패딩 적용)
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1142,7 +1204,7 @@ export default function PraiseApp() {
     return (
       <div
         style={{ overscrollBehavior: 'none' }}
-        className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none ${
+        className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none pt-[env(safe-area-inset-top)] ${
           isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-200 text-slate-900'
         }`}
       >
@@ -1483,10 +1545,17 @@ export default function PraiseApp() {
   }
 
   // ==========================================
-  // 2. 메인 화면 (네이티브 앱 감성 탭바 & 세련된 디자인)
+  // 2. 메인 화면 (다이나믹 아일랜드 패딩 + 공지 & 참석 여부 기능 탑재)
   // ==========================================
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
+  const currentNotice = currentConti?.notice || '';
+  const currentAttendance = currentConti?.attendance || {};
+
+  // 참석 인원 집계
+  const yesCount = Object.values(currentAttendance).filter((v) => v === 'yes').length;
+  const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
+  const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
 
   const filteredLibrary = librarySongs.filter((s) => {
     const term = (librarySearchTerm || modalLibrarySearch).toLowerCase().trim();
@@ -1499,7 +1568,7 @@ export default function PraiseApp() {
   });
 
   return (
-    <div className={`min-h-[100dvh] transition-colors duration-200 pb-24 p-3 sm:p-6 w-full max-w-[100vw] overflow-x-hidden ${bgClass}`}>
+    <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-3 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),16px)] ${bgClass}`}>
       <div className="max-w-2xl mx-auto space-y-3.5 w-full">
         
         {/* 앱 스타일 상단 바 */}
@@ -1568,6 +1637,86 @@ export default function PraiseApp() {
                 <span className="hidden xs:inline">새 콘티</span>
               </button>
             </div>
+
+            {/* 🌟 3. 공지사항 & 참석 여부 (출석체크) 패널 🌟 */}
+            {currentConti && (
+              <div className={`rounded-2xl border p-3.5 space-y-3 ${cardBgClass}`}>
+                {/* 공지사항 바 */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                    <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <Bell className="w-3.5 h-3.5 text-amber-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold opacity-70">예배 공지사항</span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              setNoticeInput(currentNotice);
+                              setIsNoticeModalOpen(true);
+                            }}
+                            className="text-[11px] font-bold text-blue-400 hover:underline"
+                          >
+                            공지 작성 ↗
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs font-semibold mt-0.5 whitespace-pre-wrap leading-relaxed opacity-90">
+                        {currentNotice || '등록된 공지사항이 없습니다.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-neutral-800/40 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold opacity-70 flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5 text-blue-400" /> 이번 주 참석 여부
+                    </span>
+                    <button
+                      onClick={() => setIsAttendanceModalOpen(true)}
+                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-sm transition active:scale-95"
+                    >
+                      출석 체크하기
+                    </button>
+                  </div>
+
+                  {/* 출석 집계 뱃지 바 */}
+                  <div className="flex items-center gap-2 text-xs font-bold flex-wrap">
+                    <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> 참석 ({yesCount})
+                    </span>
+                    <span className="px-2.5 py-1 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 flex items-center gap-1">
+                      <XCircle className="w-3 h-3" /> 불참 ({noCount})
+                    </span>
+                    <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
+                      <HelpCircle className="w-3 h-3" /> 미정 ({maybeCount})
+                    </span>
+                  </div>
+
+                  {/* 세부 명단 */}
+                  {Object.keys(currentAttendance).length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1 text-[11px]">
+                      {Object.entries(currentAttendance).map(([name, status]) => (
+                        <span
+                          key={name}
+                          className={`px-2 py-0.5 rounded-lg border font-medium ${
+                            status === 'yes'
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                              : status === 'no'
+                              ? 'bg-red-500/10 border-red-500/20 text-red-300'
+                              : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                          }`}
+                        >
+                          {name} ({status === 'yes' ? '참석' : status === 'no' ? '불참' : '미정'})
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* 콘티 싱어 / 특이사항 슬림 카드 */}
             {currentConti && (
@@ -1654,7 +1803,7 @@ export default function PraiseApp() {
                   currentSongs.map((song, idx) => {
                     const isBeingDragged = draggedIdx === idx;
                     const isDropTarget = dropTargetIdx === idx && draggedIdx !== null;
-                    const isLyricsExpanded = expandedLyricsSongId === song.id; // 🌟 단일 열림 체크 🌟
+                    const isLyricsExpanded = expandedLyricsSongId === song.id;
 
                     return (
                       <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
@@ -1981,7 +2130,7 @@ export default function PraiseApp() {
 
       </div>
 
-      {/* 🌟 하단 고정 네이티브 앱 플로팅 독 (Floating Tab Bar) 🌟 */}
+      {/* 하단 고정 네이티브 앱 플로팅 독 (Floating Tab Bar) */}
       <nav className="fixed bottom-3 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
         <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-3xl border shadow-2xl backdrop-blur-xl ${
           isDark ? 'bg-neutral-900/90 border-neutral-800' : 'bg-white/90 border-slate-200'
@@ -2011,6 +2160,143 @@ export default function PraiseApp() {
           </button>
         </div>
       </nav>
+
+      {/* 🌟 공지사항 작성 모달 🌟 */}
+      {isNoticeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-sm font-bold flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-amber-500" />
+                예배 공지사항 작성
+              </h2>
+              <button onClick={() => setIsNoticeModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <textarea
+                rows={5}
+                value={noticeInput}
+                onChange={(e) => setNoticeInput(e.target.value)}
+                placeholder="예: 이번 주 리허설은 오전 9시까지 연습실로 모입니다."
+                className={`w-full border rounded-2xl p-3 text-xs sm:text-sm focus:outline-none focus:border-amber-500 resize-none ${
+                  isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                }`}
+              />
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsNoticeModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveNotice}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 rounded-xl font-bold text-xs text-neutral-950 shadow-md"
+                >
+                  공지 등록
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 참석 여부 체크 모달 🌟 */}
+      {isAttendanceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+              <h2 className="text-sm font-bold flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-blue-500" />
+                이번 주 예배 참석 여부
+              </h2>
+              <button onClick={() => setIsAttendanceModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold opacity-70 mb-1">이름 (또는 직분)</label>
+                <input
+                  type="text"
+                  value={myAttendanceName}
+                  onChange={(e) => setMyAttendanceName(e.target.value)}
+                  placeholder="예: 김지은 싱어"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
+                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold opacity-70 mb-1.5">참석 상태 선택</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMyAttendanceStatus('yes')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      myAttendanceStatus === 'yes'
+                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
+                        : subCardBg
+                    }`}
+                  >
+                    참석
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMyAttendanceStatus('no')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      myAttendanceStatus === 'no'
+                        ? 'bg-red-600 border-red-500 text-white shadow-md'
+                        : subCardBg
+                    }`}
+                  >
+                    불참
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMyAttendanceStatus('maybe')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      myAttendanceStatus === 'maybe'
+                        ? 'bg-amber-600 border-amber-500 text-white shadow-md'
+                        : subCardBg
+                    }`}
+                  >
+                    미정
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAttendanceModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSubmitAttendance(myAttendanceStatus)}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs text-white shadow-md shadow-blue-600/30"
+                >
+                  출석 제출
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 앱 설정 모달 */}
       {isSettingsModalOpen && (
@@ -2219,7 +2505,7 @@ export default function PraiseApp() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs text-white shadow-md shadow-blue-600/30"
                 >
                   인증하기
                 </button>
@@ -2270,7 +2556,7 @@ export default function PraiseApp() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs text-white shadow-md shadow-blue-600/30"
                 >
                   변경 완료
                 </button>
