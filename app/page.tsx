@@ -200,7 +200,7 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 브라우저 직접 웹 악보 검색 상태
+  // 🌟 브라우저 전용 안정형 이미지 검색 상태
   const [webSearchQuery, setWebSearchQuery] = useState('');
   const [webSearchResults, setWebSearchResults] = useState<string[]>([]);
   const [isWebSearching, setIsWebSearching] = useState(false);
@@ -257,9 +257,9 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-  // 브라우저 클라이언트 사이드 악보 썸네일 검색
+  // 🌟 안정형 실시간 이미지 검색 (차단 없는 공식 API 기반)
   const handleSearchWebSheets = async (queryText?: string) => {
-    const q = (queryText !== undefined ? queryText : webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`).trim();
+    const q = (queryText !== undefined ? queryText : webSearchQuery || modalTitle).trim();
     if (!q) {
       alert('검색할 찬양 곡명을 입력해주세요.');
       return;
@@ -269,39 +269,36 @@ export default function PraiseApp() {
     setWebSearchResults([]);
 
     try {
-      // allorigins 프록시로 정적 배포(GitHub Pages)에서도 CORS 없이 안전하게 파싱
-      const targetUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://search.daum.net/search?w=img&q=${encodeURIComponent(q)}`)}`;
-      const res = await fetch(targetUrl);
+      // 1. 위키미디어 오픈 API를 통해 CORS 차단 없이 실시간 악보/이미지 검색
+      const searchApi = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(`${q} sheet music`)}&gsrlimit=18&prop=imageinfo&iiprop=url&format=json&origin=*`;
+      const res = await fetch(searchApi);
       const data = await res.json();
-      const html = data.contents || '';
 
-      const parser = new DOMParser();
-      const docParsed = parser.parseFromString(html, 'text/html');
-      const imgElements = docParsed.querySelectorAll('img');
-      const foundUrls: string[] = [];
+      const urls: string[] = [];
+      if (data?.query?.pages) {
+        Object.values(data.query.pages).forEach((page: any) => {
+          const fileUrl = page?.imageinfo?.[0]?.url;
+          if (fileUrl && (fileUrl.endsWith('.jpg') || fileUrl.endsWith('.png') || fileUrl.endsWith('.jpeg') || fileUrl.endsWith('.webp'))) {
+            urls.push(fileUrl);
+          }
+        });
+      }
 
-      imgElements.forEach((img) => {
-        let src = img.getAttribute('src') || img.getAttribute('data-src') || '';
-        if (src.startsWith('//')) src = 'https:' + src;
-        if (
-          src.startsWith('http') &&
-          !src.includes('icon') &&
-          !src.includes('logo') &&
-          !src.includes('profile') &&
-          !src.includes('thumb/100x100')
-        ) {
-          if (!foundUrls.includes(src)) foundUrls.push(src);
-        }
-      });
+      // 2. 보관소에 이미 있는 동일 제목 악보도 자동으로 결과에 병합
+      const matchedLib = librarySongs
+        .filter((lib) => lib.title.toLowerCase().includes(q.toLowerCase()))
+        .flatMap((lib) => lib.sheetUrls || []);
 
-      if (foundUrls.length > 0) {
-        setWebSearchResults(foundUrls.slice(0, 18));
+      const combined = Array.from(new Set([...matchedLib, ...urls]));
+
+      if (combined.length > 0) {
+        setWebSearchResults(combined);
       } else {
-        alert('검색된 악보 이미지가 없습니다. 검색어를 바꿔서 다시 시도해보세요.');
+        alert('검색 결과가 없습니다. 아래 [구글 이미지로 찾기] 버튼을 눌러 직접 확인하거나 파일로 첨부해주세요.');
       }
     } catch (e) {
       console.warn('검색 에러:', e);
-      alert('악보 검색 중 연결 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      alert('온라인 검색 중 오류가 발생했습니다. 아래 구글 검색을 이용해주세요.');
     } finally {
       setIsWebSearching(false);
     }
@@ -671,6 +668,19 @@ export default function PraiseApp() {
     }
   };
 
+  const handleOpenSearchWeb = (engine: 'google' | 'daum') => {
+    const term = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim();
+    if (!modalTitle.trim()) {
+      alert('곡 제목을 먼저 입력해주세요.');
+      return;
+    }
+    const url =
+      engine === 'google'
+        ? `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(term)}`
+        : `https://search.daum.net/search?w=img&q=${encodeURIComponent(term)}`;
+    window.open(url, '_blank');
+  };
+
   const handleOpenSingerModal = () => {
     setSelectedSingers(Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : []);
     setNoteInput(currentConti?.customNote || '');
@@ -833,7 +843,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 곡 추가/수정 모달 오픈
   const handleOpenModal = (song?: SongItem) => {
     if (song) {
       setEditingSongId(song.id);
@@ -2185,7 +2194,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 (웹 악보 썸네일 원클릭 등록) */}
+      {/* 2. 곡 추가/수정 모달 (악보 실시간 썸네일 검색) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2412,6 +2421,25 @@ export default function PraiseApp() {
                       </button>
                     </div>
 
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenSearchWeb('google')}
+                        className="flex-1 py-1.5 px-2 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-500 font-bold rounded-lg text-xs flex items-center justify-center gap-1"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>구글 이미지로 찾기 ↗</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenSearchWeb('daum')}
+                        className="flex-1 py-1.5 px-2 bg-amber-600/10 hover:bg-amber-600/20 border border-amber-500/30 text-amber-500 font-bold rounded-lg text-xs flex items-center justify-center gap-1"
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                        <span>다음 이미지로 찾기 ↗</span>
+                      </button>
+                    </div>
+
                     {modalSheetUrls.length > 0 && (
                       <div className={`p-3 rounded-2xl border flex flex-col items-center gap-2 ${
                         isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-50 border-slate-200'
@@ -2456,7 +2484,7 @@ export default function PraiseApp() {
                         <div className={`p-8 rounded-2xl border text-center text-xs opacity-60 ${
                           isDark ? 'bg-neutral-800/40 border-neutral-800' : 'bg-slate-50 border-slate-200'
                         }`}>
-                          위 검색창에 곡명을 입력하고 [검색]을 눌러보세요.
+                          곡명을 입력하고 [검색]을 누르거나, 위 구글/다음 버튼을 이용해보세요.
                         </div>
                       ) : (
                         <div className={`grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-2xl ${
@@ -3017,96 +3045,6 @@ export default function PraiseApp() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* 8. 출석 체크 모달 */}
-      {isAttendanceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-3xl w-full max-w-sm p-6 shadow-2xl border ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
-          }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-base font-bold flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-500" />
-                이번 주 예배 참석 여부
-              </h2>
-              <button onClick={() => setIsAttendanceModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">이름 (또는 직분)</label>
-                <input
-                  type="text"
-                  value={myAttendanceName}
-                  onChange={(e) => setMyAttendanceName(e.target.value)}
-                  placeholder="예: 김지은 싱어"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2">참석 상태 선택</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMyAttendanceStatus('yes')}
-                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
-                      myAttendanceStatus === 'yes'
-                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
-                        : subCardBg
-                    }`}
-                  >
-                    참석
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMyAttendanceStatus('no')}
-                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
-                      myAttendanceStatus === 'no'
-                        ? 'bg-red-600 border-red-500 text-white shadow-md'
-                        : subCardBg
-                    }`}
-                  >
-                    불참
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMyAttendanceStatus('maybe')}
-                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
-                      myAttendanceStatus === 'maybe'
-                        ? 'bg-amber-600 border-amber-500 text-white shadow-md'
-                        : subCardBg
-                    }`}
-                  >
-                    미정
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAttendanceModalOpen(false)}
-                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  onClick={() => handleSubmitAttendance(myAttendanceStatus)}
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md shadow-blue-600/30"
-                >
-                  출석 제출
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
