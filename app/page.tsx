@@ -1061,7 +1061,6 @@ export default function PraiseApp() {
     };
   };
 
-  // 🌟 형광펜 투명도 개선 (알파값 25로 대폭 낮춤)
   const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawingMode || viewMode === 'lyrics') return;
     const ctx = canvasRef.current?.getContext('2d');
@@ -1078,7 +1077,7 @@ export default function PraiseApp() {
       ctx.lineCap = 'round';
     } else if (currentTool === 'highlighter') {
       ctx.globalCompositeOperation = 'multiply';
-      ctx.strokeStyle = `${penColor}19`; // 16진수 19 = 투명도 약 10%~15% (매우 투명함)
+      ctx.strokeStyle = `${penColor}15`; // 형광펜 투명도 대폭 낮춤 (15 hex = ~8%)
       ctx.lineWidth = 24;
       ctx.lineCap = 'square';
     } else {
@@ -1196,9 +1195,6 @@ export default function PraiseApp() {
   const cardBgClass = isDark ? 'bg-neutral-900/95 border-neutral-800 backdrop-blur-md' : 'bg-white border-slate-200 shadow-sm backdrop-blur-md';
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
-  // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (슬림 바 & 겹침 방지 적용 완료)
-  // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
     const currentSheetUrl = viewingSong.sheetUrls?.[currentPageIndex] || '';
@@ -1208,7 +1204,6 @@ export default function PraiseApp() {
         style={{ overscrollBehavior: 'none' }}
         className="fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none bg-slate-100 text-slate-900"
       >
-        {/* 상단 슬림 플로팅 캡슐 바 (제목 제거 및 여백 확보) */}
         <div
           className={`fixed top-3 sm:top-5 inset-x-3 sm:inset-x-6 z-50 transition-all duration-300 pointer-events-none ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
@@ -1299,10 +1294,9 @@ export default function PraiseApp() {
           </div>
         </div>
 
-        {/* 상단 바 아래에 위치한 필기 팔레트 (겹침 방지) */}
         {viewMode === 'sheet' && isDrawingMode && (
           <div
-            className={`fixed top-20 sm:top-24 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
+            className={`fixed top-20 sm:top-24 inset-x-3 sm:inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
               showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
             }`}
             style={{ paddingTop: 'env(safe-area-inset-top)' }}
@@ -1353,7 +1347,6 @@ export default function PraiseApp() {
           </div>
         )}
 
-        {/* 메인 뷰어 영역 (상하단 여백 pt-28 pb-28 확보) */}
         <main
           onClick={() => {
             if (!isDrawingMode) setShowViewerControls(!showViewerControls);
@@ -1484,9 +1477,6 @@ export default function PraiseApp() {
     );
   }
 
-  // ==========================================
-  // 2. 메인 화면
-  // ==========================================
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
   const currentNotice = currentConti?.notice || '';
