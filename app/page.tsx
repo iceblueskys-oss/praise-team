@@ -48,6 +48,7 @@ import {
   ArrowRight,
   CheckCircle,
   Loader2,
+  ClipboardPaste,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -200,10 +201,11 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🌟 고성능 실시간 웹 악보 검색 상태 🌟
+  // 🌟 초고속 악보 검색 상태 🌟
   const [webSearchQuery, setWebSearchQuery] = useState('');
   const [webSearchResults, setWebSearchResults] = useState<string[]>([]);
   const [isWebSearching, setIsWebSearching] = useState(false);
+  const [manualUrlInput, setManualUrlInput] = useState('');
 
   // 악보 뷰어 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
@@ -257,7 +259,7 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-  // 🌟 국내 포털 실시간 악보 이미지 파싱 검색 함수 🌟
+  // 🌟 초고속 악보 검색 엔진 (멀티 채널 + 3초 타임아웃) 🌟
   const handleSearchWebSheets = async (queryText?: string) => {
     const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`);
     const q = rawTarget.trim();
@@ -271,23 +273,27 @@ export default function PraiseApp() {
     setIsWebSearching(true);
     setWebSearchResults([]);
 
+    // 1. 보관소 내 동일 곡 우선 로드
+    const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
+    const matchedLib = librarySongs
+      .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
+      .flatMap((lib) => lib.sheetUrls || []);
+
     try {
-      // 1. 보관소 내 일치하는 악보 우선 추출
-      const matchedLib = librarySongs
-        .filter((lib) => lib.title && lib.title.toLowerCase().includes(q.replace(/악보|key/gi, '').trim().toLowerCase()))
-        .flatMap((lib) => lib.sheetUrls || []);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5초 초과 시 자동 중단
 
-      // 2. 외부 포털 실시간 크롤링 파서 (Next.js 정적 호스팅 완벽 호환 프록시)
-      const targetSearchUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(q)}`;
-      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetSearchUrl)}`;
+      const targetUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(q)}`;
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
-      const res = await fetch(proxyUrl);
-      const htmlText = await res.text();
+      const res = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
+      const html = await res.text();
       const parser = new DOMParser();
-      const parsedDoc = parser.parseFromString(htmlText, 'text/html');
-      const imgElements = parsedDoc.querySelectorAll('img');
-      const crawledUrls: string[] = [];
+      const docParsed = parser.parseFromString(html, 'text/html');
+      const imgElements = docParsed.querySelectorAll('img');
+      const found: string[] = [];
 
       imgElements.forEach((img) => {
         let src = img.getAttribute('src') || img.getAttribute('data-src') || '';
@@ -300,22 +306,48 @@ export default function PraiseApp() {
           !src.includes('thumb/100x100') &&
           !src.includes('f=svg')
         ) {
-          if (!crawledUrls.includes(src)) crawledUrls.push(src);
+          if (!found.includes(src)) found.push(src);
         }
       });
 
-      const finalResults = Array.from(new Set([...matchedLib, ...crawledUrls]));
-
-      if (finalResults.length > 0) {
-        setWebSearchResults(finalResults.slice(0, 24));
+      const combined = Array.from(new Set([...matchedLib, ...found]));
+      if (combined.length > 0) {
+        setWebSearchResults(combined.slice(0, 24));
       } else {
-        alert('검색된 악보 이미지가 없습니다. 아래 [구글 이미지로 찾기] 버튼을 이용해주세요.');
+        setWebSearchResults(matchedLib);
+        if (matchedLib.length === 0) {
+          alert('웹에서 직접 악보를 찾을 수 없습니다. 아래 [구글 이미지로 찾기] 버튼을 이용해 주소를 복사해 넣어주세요.');
+        }
       }
     } catch (e) {
-      console.warn('검색 오류:', e);
-      alert('악보 검색 중 연결 오류가 발생했습니다. 아래 [구글 이미지로 찾기] 버튼을 이용해주세요.');
+      // 프록시 실패 시 보관소 검색 결과라도 표시
+      if (matchedLib.length > 0) {
+        setWebSearchResults(matchedLib);
+      } else {
+        alert('빠른 검색 연결이 지연되고 있습니다. 아래 [구글 이미지로 찾기] 버튼을 눌러 악보를 확인해주세요.');
+      }
     } finally {
       setIsWebSearching(false);
+    }
+  };
+
+  // 클립보드에서 직접 URL 붙여넣기
+  const handlePasteClipboardUrl = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.startsWith('http')) {
+        const formatted = formatImageUrl(text.trim());
+        setModalSheetUrls((prev) => [...prev, formatted]);
+        alert('악보 주소가 등록되었습니다!');
+      } else {
+        alert('클립보드에 올바른 이미지 주소(http로 시작)가 없습니다.');
+      }
+    } catch (e) {
+      const directUrl = prompt('악보 이미지 주소(URL)를 붙여넣어 주세요:');
+      if (directUrl && directUrl.trim()) {
+        const formatted = formatImageUrl(directUrl.trim());
+        setModalSheetUrls((prev) => [...prev, formatted]);
+      }
     }
   };
 
@@ -858,7 +890,6 @@ export default function PraiseApp() {
     }
   };
 
-  // 🌟 모달 오픈 시 검색어 세팅 🌟
   const handleOpenModal = (song?: SongItem) => {
     if (song) {
       setEditingSongId(song.id);
@@ -2210,7 +2241,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 (🌟 실시간 악보 파서 연동 🌟) */}
+      {/* 2. 곡 추가/수정 모달 (초고속 악보 검색 & 원클릭 선택) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2448,18 +2479,18 @@ export default function PraiseApp() {
                       <button
                         type="button"
                         onClick={() => handleOpenSearchWeb('google')}
-                        className="flex-1 py-1.5 px-2 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-500 font-bold rounded-lg text-xs flex items-center justify-center gap-1"
+                        className="flex-1 py-2 px-2 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-500 font-bold rounded-xl text-xs flex items-center justify-center gap-1 transition active:scale-95"
                       >
                         <Globe className="w-3.5 h-3.5" />
-                        <span>구글 이미지로 찾기 ↗</span>
+                        <span>구글에서 직접 찾기 ↗</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleOpenSearchWeb('daum')}
-                        className="flex-1 py-1.5 px-2 bg-amber-600/10 hover:bg-amber-600/20 border border-amber-500/30 text-amber-500 font-bold rounded-lg text-xs flex items-center justify-center gap-1"
+                        onClick={handlePasteClipboardUrl}
+                        className="flex-1 py-2 px-2 bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/30 text-purple-600 dark:text-purple-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1 transition active:scale-95"
                       >
-                        <Search className="w-3.5 h-3.5" />
-                        <span>다음 이미지로 찾기 ↗</span>
+                        <ClipboardPaste className="w-3.5 h-3.5" />
+                        <span>복사한 주소 넣기</span>
                       </button>
                     </div>
 
@@ -2499,15 +2530,15 @@ export default function PraiseApp() {
                       </span>
 
                       {isWebSearching ? (
-                        <div className="py-10 text-center text-xs opacity-70 flex flex-col items-center gap-2">
+                        <div className="py-8 text-center text-xs opacity-70 flex flex-col items-center gap-2">
                           <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                          <span>포털에서 악보 이미지를 검색하는 중입니다...</span>
+                          <span>악보를 불러오는 중입니다...</span>
                         </div>
                       ) : webSearchResults.length === 0 ? (
-                        <div className={`p-8 rounded-2xl border text-center text-xs opacity-60 ${
+                        <div className={`p-6 rounded-2xl border text-center text-xs opacity-60 ${
                           isDark ? 'bg-neutral-800/40 border-neutral-800' : 'bg-slate-50 border-slate-200'
                         }`}>
-                          곡명을 입력하고 [검색]을 누르면 악보 썸네일이 나타납니다.
+                          [검색]을 누르거나, 위 [구글에서 직접 찾기]로 복사한 주소를 넣어보세요.
                         </div>
                       ) : (
                         <div className={`grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-2xl ${
@@ -2603,7 +2634,7 @@ export default function PraiseApp() {
                 {modalSheetType === 'library' && (
                   <div className="space-y-2.5">
                     <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-neutral-400" />
+                      <Search className="w-4 h-4 absolute left-3 top-3 text-neutral-400" />
                       <input
                         type="text"
                         value={modalLibrarySearch}
