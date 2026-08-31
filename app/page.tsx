@@ -46,7 +46,6 @@ import {
   HelpCircle,
   RotateCcw,
   ArrowRight,
-  Image as ImageIcon,
   CheckCircle,
   Loader2,
 } from 'lucide-react';
@@ -151,7 +150,6 @@ export default function PraiseApp() {
   const [viewLevel, setViewLevel] = useState<'home' | 'detail'>('home');
   const [activeTab, setActiveTab] = useState<'conti' | 'library'>('conti');
 
-  const [isHeaderCardExpanded, setIsHeaderCardExpanded] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
@@ -189,7 +187,6 @@ export default function PraiseApp() {
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
-  // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [modalHeaderTag, setModalHeaderTag] = useState('');
@@ -203,7 +200,7 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🌟 앱 내부 웹 악보 검색 상태 🌟
+  // 브라우저 직접 웹 악보 검색 상태
   const [webSearchQuery, setWebSearchQuery] = useState('');
   const [webSearchResults, setWebSearchResults] = useState<string[]>([]);
   const [isWebSearching, setIsWebSearching] = useState(false);
@@ -260,7 +257,7 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-  // 🌟 앱 내부에서 악보 검색 실행 🌟
+  // 브라우저 클라이언트 사이드 악보 썸네일 검색
   const handleSearchWebSheets = async (queryText?: string) => {
     const q = (queryText !== undefined ? queryText : webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`).trim();
     if (!q) {
@@ -272,10 +269,11 @@ export default function PraiseApp() {
     setWebSearchResults([]);
 
     try {
-      // 프록시를 통해 악보 이미지 크롤링 검색
-      const searchUrl = `https://corsproxy.io/?${encodeURIComponent(`https://search.daum.net/search?w=img&q=${encodeURIComponent(q)}`)}`;
-      const res = await fetch(searchUrl);
-      const html = await res.text();
+      // allorigins 프록시로 정적 배포(GitHub Pages)에서도 CORS 없이 안전하게 파싱
+      const targetUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://search.daum.net/search?w=img&q=${encodeURIComponent(q)}`)}`;
+      const res = await fetch(targetUrl);
+      const data = await res.json();
+      const html = data.contents || '';
 
       const parser = new DOMParser();
       const docParsed = parser.parseFromString(html, 'text/html');
@@ -289,21 +287,21 @@ export default function PraiseApp() {
           src.startsWith('http') &&
           !src.includes('icon') &&
           !src.includes('logo') &&
-          !src.includes('thumb/100x100') &&
-          !src.includes('profile')
+          !src.includes('profile') &&
+          !src.includes('thumb/100x100')
         ) {
           if (!foundUrls.includes(src)) foundUrls.push(src);
         }
       });
 
       if (foundUrls.length > 0) {
-        setWebSearchResults(foundUrls.slice(0, 16));
+        setWebSearchResults(foundUrls.slice(0, 18));
       } else {
-        alert('검색된 악보 이미지가 없습니다. 검색어를 변경해보세요.');
+        alert('검색된 악보 이미지가 없습니다. 검색어를 바꿔서 다시 시도해보세요.');
       }
     } catch (e) {
       console.warn('검색 에러:', e);
-      alert('악보 검색 중 연결 오류가 발생했습니다. 직접 검색 버튼을 이용해주세요.');
+      alert('악보 검색 중 연결 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsWebSearching(false);
     }
@@ -835,7 +833,7 @@ export default function PraiseApp() {
     }
   };
 
-  // 🌟 곡 추가/수정 모달 오픈 및 초기 검색어 세팅 🌟
+  // 곡 추가/수정 모달 오픈
   const handleOpenModal = (song?: SongItem) => {
     if (song) {
       setEditingSongId(song.id);
@@ -2105,7 +2103,7 @@ export default function PraiseApp() {
                 onClick={() => setIsNewContiModalOpen(false)}
                 className="p-1 opacity-70 hover:opacity-100 rounded-lg"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -2187,7 +2185,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 (🌟 웹 검색 썸네일 그리드 + 원클릭 즉시 적용 🌟) */}
+      {/* 2. 곡 추가/수정 모달 (웹 악보 썸네일 원클릭 등록) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2390,7 +2388,7 @@ export default function PraiseApp() {
                   </button>
                 </div>
 
-                {/* 🌟 1. 웹 악보 검색 & 썸네일 원클릭 적용 🌟 */}
+                {/* 1. 웹 악보 검색 탭 */}
                 {modalSheetType === 'search' && (
                   <div className="space-y-3">
                     <div className="flex gap-2">
@@ -2414,7 +2412,6 @@ export default function PraiseApp() {
                       </button>
                     </div>
 
-                    {/* 현재 선택된 악보가 있을 때 썸네일 미리보기 */}
                     {modalSheetUrls.length > 0 && (
                       <div className={`p-3 rounded-2xl border flex flex-col items-center gap-2 ${
                         isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-50 border-slate-200'
@@ -2445,7 +2442,6 @@ export default function PraiseApp() {
                       </div>
                     )}
 
-                    {/* 검색 결과 썸네일 그리드 */}
                     <div className="space-y-1.5">
                       <span className="text-[11px] font-bold opacity-75">
                         검색 결과 (터치하면 바로 악보로 등록됩니다)
@@ -2556,7 +2552,7 @@ export default function PraiseApp() {
                 {modalSheetType === 'library' && (
                   <div className="space-y-2.5">
                     <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-neutral-400" />
+                      <Search className="w-4 h-4 absolute left-3 top-3 text-neutral-400" />
                       <input
                         type="text"
                         value={modalLibrarySearch}
