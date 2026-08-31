@@ -268,7 +268,7 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-  // 🌟 Google Custom Search API 브라우저 직접 호출 함수 🌟
+// 🌟 구글 실시간 에러 및 결과 정확 검증 함수 🌟
   const handleSearchGoogleSheets = async (queryText?: string) => {
     const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
     const q = rawTarget.trim();
@@ -282,32 +282,36 @@ export default function PraiseApp() {
     setIsWebSearching(true);
     setGoogleSearchResults([]);
 
-    // 1. 내 보관소에 이미 있는 악보 우선 로드
+    // 1. 내 보관함 일치 결과
     const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
     const matchedLibResults: GoogleImageResult[] = librarySongs
       .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
       .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
 
-    // 2. Google Custom Search API 설정 확인 후 호출
     if (!GOOGLE_API_KEY || !GOOGLE_SEARCH_ENGINE_ID) {
       setIsWebSearching(false);
-      if (matchedLibResults.length > 0) {
-        setGoogleSearchResults(matchedLibResults);
-      } else {
-        alert('Google API Key 또는 Search Engine ID가 등록되지 않았습니다. 상단 [구글에서 직접 찾기] 버튼을 이용해 주소를 복사해 넣어주세요.');
-      }
+      alert('GOOGLE_API_KEY 또는 GOOGLE_SEARCH_ENGINE_ID가 비어있습니다. page.tsx 상단을 확인해주세요.');
       return;
     }
 
     try {
-      const googleApiUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_SEARCH_ENGINE_ID}&q=${encodeURIComponent(
+      // safe=off 또는 active, searchType=image
+      const googleApiUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY.trim()}&cx=${GOOGLE_SEARCH_ENGINE_ID.trim()}&q=${encodeURIComponent(
         `${q} 악보`
-      )}&searchType=image&num=10&safe=active`;
+      )}&searchType=image&num=10`;
 
       const res = await fetch(googleApiUrl);
       const data = await res.json();
 
-      if (data.items && Array.isArray(data.items)) {
+      // 구글 API 자체 에러가 있는 경우 (키 권한, cx 미일치 등)
+      if (data.error) {
+        console.error('Google API Error:', data.error);
+        alert(`[구글 API 오류 발생]\n코드: ${data.error.code}\n원인: ${data.error.message}`);
+        setIsWebSearching(false);
+        return;
+      }
+
+      if (data.items && Array.isArray(data.items) && data.items.length > 0) {
         const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
           url: item.link,
           thumbnail: item.image?.thumbnailLink || item.link,
@@ -317,20 +321,16 @@ export default function PraiseApp() {
       } else if (matchedLibResults.length > 0) {
         setGoogleSearchResults(matchedLibResults);
       } else {
-        alert('검색된 악보 이미지가 없습니다. 검색어를 바꿔서 다시 시도해보세요.');
+        alert(`'${q}'에 대한 검색 결과가 0건입니다.\nProgrammable Search Engine 설정에서 [이미지 검색(Image search)]이 ON으로 켜져 있는지 확인해주세요.`);
       }
-    } catch (e) {
-      console.error('검색 호출 실패:', e);
-      if (matchedLibResults.length > 0) {
-        setGoogleSearchResults(matchedLibResults);
-      } else {
-        alert('Google 검색 호출 중 오류가 발생했습니다. 아래 직접 찾기 버튼을 이용해주세요.');
-      }
+    } catch (e: any) {
+      console.error('호출 실패:', e);
+      alert(`네트워크 연결 오류: ${e.message}`);
     } finally {
       setIsWebSearching(false);
     }
   };
-
+  
   // 클립보드에서 직접 URL 붙여넣기
   const handlePasteClipboardUrl = async () => {
     try {
