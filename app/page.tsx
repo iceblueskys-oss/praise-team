@@ -63,6 +63,10 @@ import {
   getDoc,
 } from 'firebase/firestore';
 
+// 🌟 발급받으신 Google API 키와 검색엔진 ID를 여기에 입력하세요 🌟
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY || 'AIzaSyAhfLxbD-0m9sv934QT3uOYxzI6Epa_gls';
+const GOOGLE_SEARCH_ENGINE_ID = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_ENGINE_ID || '54cb7ca93116045aa';
+
 interface SongItem {
   id: string;
   contiId: string;
@@ -95,6 +99,12 @@ interface Conti {
   customNote?: string;
   notice?: string;
   attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
+}
+
+interface GoogleImageResult {
+  url: string;
+  thumbnail: string;
+  title: string;
 }
 
 function getUpcomingSunday(): Date {
@@ -201,11 +211,10 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🌟 초고속 악보 검색 상태 🌟
+  // 🌟 Google Custom Search API 프론트엔드 직접 연동 🌟
   const [webSearchQuery, setWebSearchQuery] = useState('');
-  const [webSearchResults, setWebSearchResults] = useState<string[]>([]);
+  const [googleSearchResults, setGoogleSearchResults] = useState<GoogleImageResult[]>([]);
   const [isWebSearching, setIsWebSearching] = useState(false);
-  const [manualUrlInput, setManualUrlInput] = useState('');
 
   // 악보 뷰어 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
@@ -259,9 +268,9 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-  // 🌟 초고속 악보 검색 엔진 (멀티 채널 + 3초 타임아웃) 🌟
-  const handleSearchWebSheets = async (queryText?: string) => {
-    const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`);
+  // 🌟 Google Custom Search API 브라우저 직접 호출 함수 🌟
+  const handleSearchGoogleSheets = async (queryText?: string) => {
+    const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
     const q = rawTarget.trim();
 
     if (!q) {
@@ -271,60 +280,51 @@ export default function PraiseApp() {
 
     setWebSearchQuery(q);
     setIsWebSearching(true);
-    setWebSearchResults([]);
+    setGoogleSearchResults([]);
 
-    // 1. 보관소 내 동일 곡 우선 로드
+    // 1. 내 보관소에 이미 있는 악보 우선 로드
     const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
-    const matchedLib = librarySongs
+    const matchedLibResults: GoogleImageResult[] = librarySongs
       .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
-      .flatMap((lib) => lib.sheetUrls || []);
+      .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
+
+    // 2. Google Custom Search API 설정 확인 후 호출
+    if (!GOOGLE_API_KEY || !GOOGLE_SEARCH_ENGINE_ID) {
+      setIsWebSearching(false);
+      if (matchedLibResults.length > 0) {
+        setGoogleSearchResults(matchedLibResults);
+      } else {
+        alert('Google API Key 또는 Search Engine ID가 등록되지 않았습니다. 상단 [구글에서 직접 찾기] 버튼을 이용해 주소를 복사해 넣어주세요.');
+      }
+      return;
+    }
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5초 초과 시 자동 중단
+      const googleApiUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_SEARCH_ENGINE_ID}&q=${encodeURIComponent(
+        `${q} 악보`
+      )}&searchType=image&num=10&safe=active`;
 
-      const targetUrl = `https://search.daum.net/search?w=img&q=${encodeURIComponent(q)}`;
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+      const res = await fetch(googleApiUrl);
+      const data = await res.json();
 
-      const res = await fetch(proxyUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      const html = await res.text();
-      const parser = new DOMParser();
-      const docParsed = parser.parseFromString(html, 'text/html');
-      const imgElements = docParsed.querySelectorAll('img');
-      const found: string[] = [];
-
-      imgElements.forEach((img) => {
-        let src = img.getAttribute('src') || img.getAttribute('data-src') || '';
-        if (src.startsWith('//')) src = 'https:' + src;
-        if (
-          src.startsWith('http') &&
-          !src.includes('icon') &&
-          !src.includes('logo') &&
-          !src.includes('profile') &&
-          !src.includes('thumb/100x100') &&
-          !src.includes('f=svg')
-        ) {
-          if (!found.includes(src)) found.push(src);
-        }
-      });
-
-      const combined = Array.from(new Set([...matchedLib, ...found]));
-      if (combined.length > 0) {
-        setWebSearchResults(combined.slice(0, 24));
+      if (data.items && Array.isArray(data.items)) {
+        const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
+          url: item.link,
+          thumbnail: item.image?.thumbnailLink || item.link,
+          title: item.title,
+        }));
+        setGoogleSearchResults([...matchedLibResults, ...fetchedImages]);
+      } else if (matchedLibResults.length > 0) {
+        setGoogleSearchResults(matchedLibResults);
       } else {
-        setWebSearchResults(matchedLib);
-        if (matchedLib.length === 0) {
-          alert('웹에서 직접 악보를 찾을 수 없습니다. 아래 [구글 이미지로 찾기] 버튼을 이용해 주소를 복사해 넣어주세요.');
-        }
+        alert('검색된 악보 이미지가 없습니다. 검색어를 바꿔서 다시 시도해보세요.');
       }
     } catch (e) {
-      // 프록시 실패 시 보관소 검색 결과라도 표시
-      if (matchedLib.length > 0) {
-        setWebSearchResults(matchedLib);
+      console.error('검색 호출 실패:', e);
+      if (matchedLibResults.length > 0) {
+        setGoogleSearchResults(matchedLibResults);
       } else {
-        alert('빠른 검색 연결이 지연되고 있습니다. 아래 [구글 이미지로 찾기] 버튼을 눌러 악보를 확인해주세요.');
+        alert('Google 검색 호출 중 오류가 발생했습니다. 아래 직접 찾기 버튼을 이용해주세요.');
       }
     } finally {
       setIsWebSearching(false);
@@ -901,7 +901,7 @@ export default function PraiseApp() {
       setModalLyrics(song.lyrics || '');
       setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
       setModalSheetType('search');
-      setWebSearchQuery(`${song.title} ${song.key ? `${song.key} Key` : ''} 악보`.trim());
+      setWebSearchQuery(`${song.title} ${song.key ? `${song.key} Key` : ''}`.trim());
     } else {
       setEditingSongId(null);
       setModalHeaderTag('');
@@ -914,7 +914,7 @@ export default function PraiseApp() {
       setModalSheetUrls([]);
       setWebSearchQuery('');
     }
-    setWebSearchResults([]);
+    setGoogleSearchResults([]);
     setModalLibrarySearch('');
     setIsProcessing(false);
     setIsModalOpen(true);
@@ -2241,7 +2241,7 @@ export default function PraiseApp() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 (초고속 악보 검색 & 원클릭 선택) */}
+      {/* 2. 곡 추가/수정 모달 (Google Custom Search API 브라우저 연동) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2311,7 +2311,7 @@ export default function PraiseApp() {
                   onChange={(e) => {
                     const val = e.target.value;
                     setModalTitle(val);
-                    setWebSearchQuery(`${val} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim());
+                    setWebSearchQuery(`${val} ${modalKey ? `${modalKey} Key` : ''}`.trim());
                   }}
                   placeholder="예: 꽃들도, 빛의 사자들이여"
                   className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
@@ -2328,7 +2328,7 @@ export default function PraiseApp() {
                     onChange={(e) => {
                       const val = e.target.value;
                       setModalKey(val);
-                      setWebSearchQuery(`${modalTitle} ${val ? `${val} Key` : ''} 악보`.trim());
+                      setWebSearchQuery(`${modalTitle} ${val ? `${val} Key` : ''}`.trim());
                     }}
                     className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
@@ -2402,10 +2402,10 @@ export default function PraiseApp() {
                     type="button"
                     onClick={() => {
                       setModalSheetType('search');
-                      const initialQ = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim();
+                      const initialQ = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`.trim();
                       setWebSearchQuery(initialQ);
-                      if (modalTitle && webSearchResults.length === 0) {
-                        handleSearchWebSheets(initialQ);
+                      if (modalTitle && googleSearchResults.length === 0) {
+                        handleSearchGoogleSheets(initialQ);
                       }
                     }}
                     className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
@@ -2417,7 +2417,7 @@ export default function PraiseApp() {
                     }`}
                   >
                     <Search className="w-4 h-4" />
-                    <span>웹 악보 검색</span>
+                    <span>구글 악보 검색</span>
                   </button>
 
                   <button
@@ -2451,7 +2451,7 @@ export default function PraiseApp() {
                   </button>
                 </div>
 
-                {/* 1. 웹 악보 검색 탭 */}
+                {/* 1. Google API 악보 검색 탭 */}
                 {modalSheetType === 'search' && (
                   <div className="space-y-3">
                     <div className="flex gap-2">
@@ -2459,14 +2459,14 @@ export default function PraiseApp() {
                         type="text"
                         value={webSearchQuery}
                         onChange={(e) => setWebSearchQuery(e.target.value)}
-                        placeholder="악보 검색어 (예: 꽃들도 악보)"
+                        placeholder="악보 검색어 (예: 꽃들도)"
                         className={`flex-1 border rounded-xl px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                           isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
                       />
                       <button
                         type="button"
-                        onClick={() => handleSearchWebSheets()}
+                        onClick={() => handleSearchGoogleSheets()}
                         disabled={isWebSearching}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shrink-0 disabled:opacity-50"
                       >
@@ -2530,31 +2530,31 @@ export default function PraiseApp() {
                       </span>
 
                       {isWebSearching ? (
-                        <div className="py-8 text-center text-xs opacity-70 flex flex-col items-center gap-2">
+                        <div className="py-10 text-center text-xs opacity-70 flex flex-col items-center gap-2">
                           <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                          <span>악보를 불러오는 중입니다...</span>
+                          <span>Google에서 고화질 악보를 검색하는 중입니다...</span>
                         </div>
-                      ) : webSearchResults.length === 0 ? (
-                        <div className={`p-6 rounded-2xl border text-center text-xs opacity-60 ${
+                      ) : googleSearchResults.length === 0 ? (
+                        <div className={`p-8 rounded-2xl border text-center text-xs opacity-60 ${
                           isDark ? 'bg-neutral-800/40 border-neutral-800' : 'bg-slate-50 border-slate-200'
                         }`}>
-                          [검색]을 누르거나, 위 [구글에서 직접 찾기]로 복사한 주소를 넣어보세요.
+                          곡명을 입력하고 [검색]을 누르면 악보 썸네일이 나타납니다.
                         </div>
                       ) : (
                         <div className={`grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-2xl ${
                           isDark ? 'bg-neutral-800/50 border-neutral-700' : 'bg-slate-50 border-slate-200'
                         }`}>
-                          {webSearchResults.map((imgUrl, i) => {
-                            const isSelected = modalSheetUrls.includes(imgUrl);
+                          {googleSearchResults.map((item, i) => {
+                            const isSelected = modalSheetUrls.includes(item.url);
 
                             return (
                               <div
                                 key={i}
                                 onClick={() => {
                                   if (isSelected) {
-                                    setModalSheetUrls(modalSheetUrls.filter((u) => u !== imgUrl));
+                                    setModalSheetUrls(modalSheetUrls.filter((u) => u !== item.url));
                                   } else {
-                                    setModalSheetUrls([imgUrl]);
+                                    setModalSheetUrls([item.url]);
                                   }
                                 }}
                                 className={`relative group border-2 rounded-xl p-1 bg-white cursor-pointer transition active:scale-95 flex flex-col items-center overflow-hidden ${
@@ -2563,8 +2563,8 @@ export default function PraiseApp() {
                               >
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                  src={imgUrl}
-                                  alt={`악보-${i + 1}`}
+                                  src={item.thumbnail}
+                                  alt={item.title}
                                   className="w-full h-24 object-contain rounded-lg bg-white"
                                   onError={(e) => {
                                     (e.target as HTMLElement).parentElement?.remove();
