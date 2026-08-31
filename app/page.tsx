@@ -151,41 +151,50 @@ export default function PraiseApp() {
   const [isHeaderCardExpanded, setIsHeaderCardExpanded] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
+  // 공지 및 참석 여부 모달 상태
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [noticeInput, setNoticeInput] = useState('');
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [myAttendanceName, setMyAttendanceName] = useState('');
   const [myAttendanceStatus, setMyAttendanceStatus] = useState<'yes' | 'no' | 'maybe'>('yes');
 
+  // 단일 아코디언 가사 열림 상태 & 폰트 크기
   const [expandedLyricsSongId, setExpandedLyricsSongId] = useState<string | null>(null);
   const [lyricsFontSize, setLyricsFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
+  // 관리자 모드 상태
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authPasswordInput, setAuthPasswordInput] = useState('');
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [isChangePwModalOpen, setIsChangePwModalOpen] = useState(false);
   const [newPwInput, setNewPwInput] = useState('');
 
+  // 보관소 상태
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
   const [previewLibSong, setPreviewLibSong] = useState<LibrarySong | null>(null);
 
+  // 새 콘티 모달 상태
   const [isNewContiModalOpen, setIsNewContiModalOpen] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>('');
   const [contiTitleInput, setContiTitleInput] = useState<string>('');
   const [currentCalMonth, setCurrentCalMonth] = useState<Date>(new Date());
 
+  // 싱어 풀 상태
   const [masterSingers, setMasterSingers] = useState<string[]>([]);
   const [newSingerName, setNewSingerName] = useState('');
   const [isSingerModalOpen, setIsSingerModalOpen] = useState(false);
   const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState('');
 
+  // 드래그 상태
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
+  // 곡 추가/수정 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [modalHeaderTag, setModalHeaderTag] = useState('');
@@ -200,6 +209,7 @@ export default function PraiseApp() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // 악보 뷰어 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -452,6 +462,16 @@ export default function PraiseApp() {
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
+  // 🌟 관리자 인증 확인 래퍼 함수 (미인증 시 비번 모달 자동 호출 후 대기)
+  const requireAdmin = (action: () => void) => {
+    if (isAdmin) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setIsAuthModalOpen(true);
+    }
+  };
+
   const handleUpdateViewingSongLyrics = async (newLyrics: string) => {
     if (!viewingSong) return;
     try {
@@ -509,7 +529,11 @@ export default function PraiseApp() {
         localStorage.setItem('praise_app_is_admin', 'true');
         setIsAuthModalOpen(false);
         setAuthPasswordInput('');
-        alert('관리자 모드가 활성화되었습니다.');
+        alert('관리자 인증이 완료되었습니다.');
+        if (pendingAction) {
+          pendingAction();
+          setPendingAction(null);
+        }
       } else {
         alert('비밀번호가 일치하지 않습니다.');
       }
@@ -519,6 +543,10 @@ export default function PraiseApp() {
         localStorage.setItem('praise_app_is_admin', 'true');
         setIsAuthModalOpen(false);
         setAuthPasswordInput('');
+        if (pendingAction) {
+          pendingAction();
+          setPendingAction(null);
+        }
       } else {
         alert('비밀번호가 일치하지 않습니다.');
       }
@@ -549,16 +577,14 @@ export default function PraiseApp() {
   };
 
   const handleOpenAddContiModal = () => {
-    if (!isAdmin) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    const defaultSunday = getUpcomingSunday();
-    const dateStr = formatDateToStr(defaultSunday);
-    setCalendarSelectedDate(dateStr);
-    setContiTitleInput(formatDateToTitle(defaultSunday, '950'));
-    setCurrentCalMonth(new Date(defaultSunday.getFullYear(), defaultSunday.getMonth(), 1));
-    setIsNewContiModalOpen(true);
+    requireAdmin(() => {
+      const defaultSunday = getUpcomingSunday();
+      const dateStr = formatDateToStr(defaultSunday);
+      setCalendarSelectedDate(dateStr);
+      setContiTitleInput(formatDateToTitle(defaultSunday, '950'));
+      setCurrentCalMonth(new Date(defaultSunday.getFullYear(), defaultSunday.getMonth(), 1));
+      setIsNewContiModalOpen(true);
+    });
   };
 
   const handleSelectCalendarDate = (dateObj: Date) => {
@@ -591,32 +617,29 @@ export default function PraiseApp() {
     setIsNewContiModalOpen(false);
   };
 
-  const handleDeleteConti = async () => {
-    if (!isAdmin) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    if (!currentConti) return;
+  const handleDeleteConti = () => {
+    requireAdmin(async () => {
+      if (!currentConti) return;
+      if (!confirm(`정말로 [${currentConti.title}] 콘티를 삭제하시겠습니까?`)) return;
 
-    if (!confirm(`정말로 [${currentConti.title}] 콘티를 삭제하시겠습니까?`)) return;
+      try {
+        const batch = writeBatch(db);
+        const contiRef = doc(db, 'contis_v2', currentConti.id);
+        batch.delete(contiRef);
 
-    try {
-      const batch = writeBatch(db);
-      const contiRef = doc(db, 'contis_v2', currentConti.id);
-      batch.delete(contiRef);
+        for (const song of currentSongs) {
+          const songRef = doc(db, 'songs_v2', song.id);
+          batch.delete(songRef);
+        }
 
-      for (const song of currentSongs) {
-        const songRef = doc(db, 'songs_v2', song.id);
-        batch.delete(songRef);
+        await batch.commit();
+        if (viewingSongId) setViewingSongId(null);
+        setViewLevel('home');
+        alert(`[${currentConti.title}] 콘티가 삭제되었습니다.`);
+      } catch (err: any) {
+        alert('콘티 삭제 중 오류가 발생했습니다.');
       }
-
-      await batch.commit();
-      if (viewingSongId) setViewingSongId(null);
-      setViewLevel('home');
-      alert(`[${currentConti.title}] 콘티가 삭제되었습니다.`);
-    } catch (err: any) {
-      alert('콘티 삭제 중 오류가 발생했습니다.');
-    }
+    });
   };
 
   const handleOpenSearchWeb = (engine: 'google' | 'daum') => {
@@ -633,13 +656,11 @@ export default function PraiseApp() {
   };
 
   const handleOpenSingerModal = () => {
-    if (!isAdmin) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    setSelectedSingers(Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : []);
-    setNoteInput(currentConti?.customNote || '');
-    setIsSingerModalOpen(true);
+    requireAdmin(() => {
+      setSelectedSingers(Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : []);
+      setNoteInput(currentConti?.customNote || '');
+      setIsSingerModalOpen(true);
+    });
   };
 
   const handleAddMasterSinger = async (e: React.FormEvent) => {
@@ -785,57 +806,53 @@ export default function PraiseApp() {
     }
   };
 
-  const handleEditContiTitle = async () => {
-    if (!isAdmin) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    if (!currentConti) return;
-    const newTitle = prompt('콘티 제목을 수정하세요:', currentConti.title);
-    if (!newTitle || newTitle.trim() === '' || newTitle === currentConti.title) return;
+  const handleEditContiTitle = () => {
+    requireAdmin(async () => {
+      if (!currentConti) return;
+      const newTitle = prompt('콘티 제목을 수정하세요:', currentConti.title);
+      if (!newTitle || newTitle.trim() === '' || newTitle === currentConti.title) return;
 
-    try {
-      await setDoc(
-        doc(db, 'contis_v2', currentConti.id),
-        { title: newTitle.trim() },
-        { merge: true }
-      );
-    } catch (e) {
-      alert('콘티 제목 수정 오류');
-    }
+      try {
+        await setDoc(
+          doc(db, 'contis_v2', currentConti.id),
+          { title: newTitle.trim() },
+          { merge: true }
+        );
+      } catch (e) {
+        alert('콘티 제목 수정 오류');
+      }
+    });
   };
 
   const handleOpenModal = (song?: SongItem) => {
-    if (!isAdmin) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    if (song) {
-      setEditingSongId(song.id);
-      setModalHeaderTag(song.headerTag || '');
-      setModalTitle(song.title);
-      setModalKey(song.key || '');
-      setModalBpm(song.bpm ? String(song.bpm) : '');
-      setModalComment(song.comment || '');
-      setModalLyrics(song.lyrics || '');
-      setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
-      setModalSheetType(song.sheetUrls?.[0]?.startsWith('http') ? 'url' : 'file');
-      setModalUrlInput(song.sheetUrls?.[0]?.startsWith('http') ? song.sheetUrls[0] : '');
-    } else {
-      setEditingSongId(null);
-      setModalHeaderTag('');
-      setModalTitle('');
-      setModalKey('');
-      setModalBpm('');
-      setModalComment('');
-      setModalLyrics('');
-      setModalSheetType('file');
-      setModalSheetUrls([]);
-      setModalUrlInput('');
-    }
-    setModalLibrarySearch('');
-    setIsProcessing(false);
-    setIsModalOpen(true);
+    requireAdmin(() => {
+      if (song) {
+        setEditingSongId(song.id);
+        setModalHeaderTag(song.headerTag || '');
+        setModalTitle(song.title);
+        setModalKey(song.key || '');
+        setModalBpm(song.bpm ? String(song.bpm) : '');
+        setModalComment(song.comment || '');
+        setModalLyrics(song.lyrics || '');
+        setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
+        setModalSheetType(song.sheetUrls?.[0]?.startsWith('http') ? 'url' : 'file');
+        setModalUrlInput(song.sheetUrls?.[0]?.startsWith('http') ? song.sheetUrls[0] : '');
+      } else {
+        setEditingSongId(null);
+        setModalHeaderTag('');
+        setModalTitle('');
+        setModalKey('');
+        setModalBpm('');
+        setModalComment('');
+        setModalLyrics('');
+        setModalSheetType('file');
+        setModalSheetUrls([]);
+        setModalUrlInput('');
+      }
+      setModalLibrarySearch('');
+      setIsProcessing(false);
+      setIsModalOpen(true);
+    });
   };
 
   const handleSelectFromLibrary = (libSong: LibrarySong) => {
@@ -855,17 +872,15 @@ export default function PraiseApp() {
     alert(`[${libSong.title}] 정보가 불러와졌습니다.`);
   };
 
-  const handleDeleteFromLibrary = async (libId: string, libTitle: string) => {
-    if (!isAdmin) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    if (!confirm(`찬양 보관소에서 [${libTitle}] 곡을 삭제하시겠습니까?`)) return;
-    try {
-      await deleteDoc(doc(db, 'song_library', libId));
-    } catch (e) {
-      alert('보관소 삭제 실패');
-    }
+  const handleDeleteFromLibrary = (libId: string, libTitle: string) => {
+    requireAdmin(async () => {
+      if (!confirm(`찬양 보관소에서 [${libTitle}] 곡을 삭제하시겠습니까?`)) return;
+      try {
+        await deleteDoc(doc(db, 'song_library', libId));
+      } catch (e) {
+        alert('보관소 삭제 실패');
+      }
+    });
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1025,19 +1040,17 @@ export default function PraiseApp() {
     }
   };
 
-  const handleDeleteSong = async (songId: string) => {
-    if (!isAdmin) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    if (!confirm('이 곡을 삭제하시겠습니까?')) return;
-    try {
-      await deleteDoc(doc(db, 'songs_v2', songId));
-      await deleteDoc(doc(db, 'drawings_v2', songId));
-      if (viewingSongId === songId) setViewingSongId(null);
-    } catch (e) {
-      alert('삭제 중 오류 발생');
-    }
+  const handleDeleteSong = (songId: string) => {
+    requireAdmin(async () => {
+      if (!confirm('이 곡을 삭제하시겠습니까?')) return;
+      try {
+        await deleteDoc(doc(db, 'songs_v2', songId));
+        await deleteDoc(doc(db, 'drawings_v2', songId));
+        if (viewingSongId === songId) setViewingSongId(null);
+      } catch (e) {
+        alert('삭제 중 오류 발생');
+      }
+    });
   };
 
   const initCanvas = () => {
@@ -1077,7 +1090,7 @@ export default function PraiseApp() {
       ctx.lineCap = 'round';
     } else if (currentTool === 'highlighter') {
       ctx.globalCompositeOperation = 'multiply';
-      ctx.strokeStyle = `${penColor}15`; // 형광펜 투명도 대폭 낮춤 (15 hex = ~8%)
+      ctx.strokeStyle = `${penColor}15`;
       ctx.lineWidth = 24;
       ctx.lineCap = 'square';
     } else {
@@ -1296,7 +1309,7 @@ export default function PraiseApp() {
 
         {viewMode === 'sheet' && isDrawingMode && (
           <div
-            className={`fixed top-20 sm:top-24 inset-x-3 sm:inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
+            className={`fixed top-20 sm:top-24 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
               showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
             }`}
             style={{ paddingTop: 'env(safe-area-inset-top)' }}
@@ -1477,6 +1490,9 @@ export default function PraiseApp() {
     );
   }
 
+  // ==========================================
+  // 2. 메인 화면
+  // ==========================================
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
   const currentNotice = currentConti?.notice || '';
@@ -1539,11 +1555,13 @@ export default function PraiseApp() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold opacity-75">찬양팀 공지사항</span>
-                    {isAdmin && currentConti && (
+                    {currentConti && (
                       <button
                         onClick={() => {
-                          setNoticeInput(currentNotice);
-                          setIsNoticeModalOpen(true);
+                          requireAdmin(() => {
+                            setNoticeInput(currentNotice);
+                            setIsNoticeModalOpen(true);
+                          });
                         }}
                         className="text-xs font-bold text-blue-500 hover:underline"
                       >
@@ -1670,26 +1688,24 @@ export default function PraiseApp() {
                   <Calendar className="w-5 h-5 text-blue-500 shrink-0" />
                   <h2 className="text-base sm:text-lg font-black truncate">{currentConti.title}</h2>
                   
-                  {isAdmin && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={handleEditContiTitle}
-                        className={`p-1 border rounded-lg transition ${subCardBg}`}
-                        title="콘티 제목 수정"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-blue-500" />
-                      </button>
-                      <button
-                        onClick={handleDeleteConti}
-                        className={`p-1 border rounded-lg transition ${
-                          isDark ? 'bg-neutral-800 hover:bg-red-950/70 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
-                        }`}
-                        title="이 콘티 전체 삭제"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={handleEditContiTitle}
+                      className={`p-1 border rounded-lg transition ${subCardBg}`}
+                      title="콘티 제목 수정"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-blue-500" />
+                    </button>
+                    <button
+                      onClick={handleDeleteConti}
+                      className={`p-1 border rounded-lg transition ${
+                        isDark ? 'bg-neutral-800 hover:bg-red-950/70 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                      }`}
+                      title="이 콘티 전체 삭제"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -1747,6 +1763,7 @@ export default function PraiseApp() {
                         }`}
                       >
                         <div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
+                          {/* 터치 시 악보 열림 */}
                           <div
                             onClick={() => {
                               setViewingSongId(song.id);
@@ -1756,20 +1773,23 @@ export default function PraiseApp() {
                             }}
                             className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
                           >
-                            {isAdmin ? (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                onTouchStart={(e) => handleTouchStart(idx, e)}
-                                onTouchMove={handleTouchMove}
-                                onTouchEnd={endDragAction}
-                                onMouseDown={(e) => handleMouseDown(idx, e)}
-                                style={{ touchAction: 'none' }}
-                                className="p-1.5 -m-1.5 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
-                                title="길게 눌러 드래그"
-                              >
-                                <GripVertical className="w-5 h-5" />
-                              </div>
-                            ) : null}
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isAdmin) {
+                                  requireAdmin(() => {});
+                                }
+                              }}
+                              onTouchStart={(e) => handleTouchStart(idx, e)}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={endDragAction}
+                              onMouseDown={(e) => handleMouseDown(idx, e)}
+                              style={{ touchAction: 'none' }}
+                              className="p-1.5 -m-1.5 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
+                              title="길게 눌러 드래그"
+                            >
+                              <GripVertical className="w-5 h-5" />
+                            </div>
 
                             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-500 flex items-center justify-center font-black text-xs sm:text-sm shrink-0 group-hover:scale-105 transition">
                               {idx + 1}
@@ -1813,17 +1833,17 @@ export default function PraiseApp() {
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {isReordering && isAdmin ? (
+                            {isReordering ? (
                               <div className="flex items-center gap-1">
                                 <button
-                                  onClick={() => executeReorder(idx, idx - 1)}
+                                  onClick={() => requireAdmin(() => executeReorder(idx, idx - 1))}
                                   disabled={idx === 0}
                                   className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
                                 >
                                   위로
                                 </button>
                                 <button
-                                  onClick={() => executeReorder(idx, idx + 1)}
+                                  onClick={() => requireAdmin(() => executeReorder(idx, idx + 1))}
                                   disabled={idx === currentSongs.length - 1}
                                   className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
                                 >
@@ -1847,26 +1867,22 @@ export default function PraiseApp() {
                                   <span>{isLyricsExpanded ? '닫기' : '가사'}</span>
                                 </button>
 
-                                {isAdmin && (
-                                  <>
-                                    <button
-                                      onClick={() => handleOpenModal(song)}
-                                      className={`p-2 border rounded-xl transition active:scale-95 flex items-center justify-center ${subCardBg}`}
-                                      title="곡 수정"
-                                    >
-                                      <Edit3 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteSong(song.id)}
-                                      className={`p-2 border rounded-xl transition active:scale-95 flex items-center justify-center ${
-                                        isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
-                                      }`}
-                                      title="곡 삭제"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </>
-                                )}
+                                <button
+                                  onClick={() => handleOpenModal(song)}
+                                  className={`p-2 border rounded-xl transition active:scale-95 flex items-center justify-center ${subCardBg}`}
+                                  title="곡 수정"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSong(song.id)}
+                                  className={`p-2 border rounded-xl transition active:scale-95 flex items-center justify-center ${
+                                    isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                                  }`}
+                                  title="곡 삭제"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </>
                             )}
                           </div>
@@ -1944,18 +1960,16 @@ export default function PraiseApp() {
                                 <div className="flex justify-center gap-2">
                                   <button
                                     onClick={() => handleSearchLyricsWeb(song.title)}
-                                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-sm"
+                                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-sm"
                                   >
                                     구글에서 가사 찾기 ↗
                                   </button>
-                                  {isAdmin && (
-                                    <button
-                                      onClick={() => handleOpenModal(song)}
-                                      className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-sm"
-                                    >
-                                      + 가사 직접 등록
-                                    </button>
-                                  )}
+                                  <button
+                                    onClick={() => handleOpenModal(song)}
+                                    className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-sm"
+                                  >
+                                    + 가사 직접 등록
+                                  </button>
                                 </div>
                               </div>
                             )}
@@ -2208,7 +2222,7 @@ export default function PraiseApp() {
                   취소
                 </button>
                 <button
-                  type="button"
+                  type="submit"
                   onClick={() => handleSubmitAttendance(myAttendanceStatus)}
                   className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md shadow-blue-600/30"
                 >
@@ -2231,7 +2245,7 @@ export default function PraiseApp() {
                 <SlidersHorizontal className="w-5 h-5 text-blue-500" />
                 앱 설정 및 관리
               </h2>
-              <button onClick={() => setIsSettingsModalOpen(false)} className="p-1.5 opacity-70 hover:opacity-100 rounded-lg">
+              <button onClick={() => setIsSettingsModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2363,17 +2377,15 @@ export default function PraiseApp() {
             </div>
 
             <div className="pt-3.5 border-t border-neutral-800 flex justify-between items-center shrink-0">
-              {isAdmin && (
-                <button
-                  onClick={() => {
-                    handleDeleteFromLibrary(previewLibSong.id, previewLibSong.title);
-                    setPreviewLibSong(null);
-                  }}
-                  className="px-3.5 py-2 text-xs sm:text-sm text-red-500 hover:bg-red-500/10 rounded-xl font-bold"
-                >
-                  보관소에서 삭제
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  handleDeleteFromLibrary(previewLibSong.id, previewLibSong.title);
+                  setPreviewLibSong(null);
+                }}
+                className="px-3.5 py-2 text-xs sm:text-sm text-red-500 hover:bg-red-500/10 rounded-xl font-bold"
+              >
+                보관소에서 삭제
+              </button>
               <button
                 onClick={() => setPreviewLibSong(null)}
                 className={`ml-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold ${subCardBg}`}
@@ -2396,7 +2408,13 @@ export default function PraiseApp() {
                 <Lock className="w-4 h-4 text-blue-500" />
                 관리자 수정 권한 인증
               </h2>
-              <button onClick={() => setIsAuthModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+              <button 
+                onClick={() => {
+                  setIsAuthModalOpen(false);
+                  setPendingAction(null);
+                }} 
+                className="p-1 opacity-70 hover:opacity-100 rounded-lg"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2420,7 +2438,10 @@ export default function PraiseApp() {
               <div className="flex gap-2.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => setIsAuthModalOpen(false)}
+                  onClick={() => {
+                    setIsAuthModalOpen(false);
+                    setPendingAction(null);
+                  }}
                   className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
                 >
                   취소
