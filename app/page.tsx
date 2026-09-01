@@ -14,32 +14,32 @@ import {
   PenTool,
   Layers,
   FileText,
-  Sun,
+  일요일,
   Moon,
   MessageSquare,
   SkipBack,
   SkipForward,
   GripVertical,
   Check,
-  Users,
+  사용자,
   Mic,
   PlusCircle,
-  Link as LinkIcon,
+  링크 as LinkIcon,
   Globe,
-  Search,
+  검색하기,
   Lock,
   Unlock,
   KeyRound,
   Library,
   ArrowDownToLine,
   RefreshCw,
-  Tag,
-  Copy,
+  꼬리표,
+  복사하기,
   BookOpen,
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
-  Home,
+  홈,
   Bell,
   CheckCircle2,
   XCircle,
@@ -64,7 +64,7 @@ import {
 } from 'firebase/firestore';
 
 // 🌟 발급받으신 Google API 키와 검색엔진 ID를 여기에 입력하세요 🌟
-const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY || 'AIzaSyAhfLxbD-0m9sv934QT3uOYxzI6Epa_gls';
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY || 'AIzaSyDJxBkhlJXxEvNJ-C_yr2iFS59GnMlVmkk';
 const GOOGLE_SEARCH_ENGINE_ID = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_ENGINE_ID || '54cb7ca93116045aa';
 
 interface SongItem {
@@ -269,68 +269,59 @@ export default function PraiseApp() {
   };
 
 // 🌟 구글 Custom Search API 정식 연동 함수 🌟
-  const handleSearchGoogleSheets = async (queryText?: string) => {
-    const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
-    const q = rawTarget.trim();
+const handleSearchGoogleSheets = async (queryText?: string) => {
+  const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
+  const q = rawTarget.trim();
 
-    if (!q) {
-      alert('검색할 찬양 곡명을 입력해주세요.');
+  if (!q) {
+    alert('검색할 찬양 곡명을 입력해주세요.');
+    return;
+  }
+
+  setWebSearchQuery(q);
+  setIsWebSearching(true);
+  setGoogleSearchResults([]);
+
+  // 보관함 일치 우선 검색
+  const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
+  const matchedLibResults: GoogleImageResult[] = librarySongs
+    .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
+    .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
+
+  const searchKeyword = q.includes('악보') ? q : `${q} 악보`;
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY.trim()}&cx=${GOOGLE_SEARCH_ENGINE_ID.trim()}&q=${encodeURIComponent(searchKeyword)}&searchType=image&num=10`
+    );
+    const data = await res.json();
+
+    if (data.error) {
+      console.error('Google API Error:', data.error);
+      alert(`[구글 검색 오류]\n${data.error.message}`);
+      setIsWebSearching(false);
       return;
     }
 
-    setWebSearchQuery(q);
-    setIsWebSearching(true);
-    setGoogleSearchResults([]);
-
-    // 1. 내 보관함 일치 결과 우선 추출
-    const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
-    const matchedLibResults: GoogleImageResult[] = librarySongs
-      .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
-      .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
-
-    // 검색어에 이미 '악보'가 포함되어 있는지 확인 후 쿼리 생성
-    const searchKeyword = q.includes('악보') ? q : `${q} 악보`;
-
-    try {
-      const apiKey = GOOGLE_API_KEY.trim();
-      const cxId = GOOGLE_SEARCH_ENGINE_ID.trim();
-
-      // 구글 Custom Search API 직접 호출
-      const res = await fetch(
-        `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cxId}&q=${encodeURIComponent(searchKeyword)}&searchType=image&num=10`
-      );
-      const data = await res.json();
-
-      if (data.error) {
-        console.error('Google API Error:', data.error);
-        alert(`[구글 검색 오류]\n${data.error.message || 'API 키 또는 검색엔진 설정을 확인해주세요.'}`);
-        setIsWebSearching(false);
-        return;
-      }
-
-      if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-        const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
-          url: item.link,
-          thumbnail: item.image?.thumbnailLink || item.link,
-          title: item.title,
-        }));
-        setGoogleSearchResults([...matchedLibResults, ...fetchedImages]);
-      } else if (matchedLibResults.length > 0) {
-        setGoogleSearchResults(matchedLibResults);
-      } else {
-        alert(`'${searchKeyword}'에 대한 악보 검색 결과가 없습니다.\nProgrammable Search Engine 설정에서 [이미지 검색]이 켜져 있는지 확인해주세요.`);
-      }
-    } catch (e: any) {
-      console.error('네트워크 에러:', e);
-      if (matchedLibResults.length > 0) {
-        setGoogleSearchResults(matchedLibResults);
-      } else {
-        alert(`네트워크 연결 오류가 발생했습니다: ${e.message}`);
-      }
-    } finally {
-      setIsWebSearching(false);
+    if (data.items && Array.isArray(data.items)) {
+      const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
+        url: item.link,
+        thumbnail: item.image?.thumbnailLink || item.link,
+        title: item.title,
+      }));
+      setGoogleSearchResults([...matchedLibResults, ...fetchedImages]);
+    } else if (matchedLibResults.length > 0) {
+      setGoogleSearchResults(matchedLibResults);
+    } else {
+      alert(`'${searchKeyword}'에 대한 악보 검색 결과가 없습니다.`);
     }
-  };
+  } catch (e: any) {
+    console.error('네트워크 에러:', e);
+    alert(`네트워크 연결 오류: ${e.message}`);
+  } finally {
+    setIsWebSearching(false);
+  }
+};
   
   // 클립보드에서 직접 URL 붙여넣기
   const handlePasteClipboardUrl = async () => {
