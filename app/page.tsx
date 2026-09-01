@@ -14,26 +14,26 @@ import {
   PenTool,
   Layers,
   FileText,
-  Sun,
+  일요일,
   Moon,
   MessageSquare,
   SkipBack,
   SkipForward,
   GripVertical,
   Check,
-  Users,
+  사용자,
   Mic,
   PlusCircle,
   Globe,
-  Search,
+  검색하기,
   Lock,
   Unlock,
   KeyRound,
   Library,
   ArrowDownToLine,
   RefreshCw,
-  Tag,
-  Copy,
+  꼬리표,
+  복사하기,
   BookOpen,
   SlidersHorizontal,
   Home as HomeIcon,
@@ -1493,15 +1493,15 @@ export default function Home() {
                         }`}
                       >
                         <div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
-                          <div
-                            onClick={() => {
-                              setViewingSongId(song.id);
-                              setCurrentPageIndex(0);
-                              setViewMode('sheet');
-                              setShowViewerControls(true);
-                            }}
-                            className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
-                          >
+                           <div
+                              onClick={() => {
+                                setViewingSongId(song.id);
+                                setCurrentPageIndex(0);
+                                setViewMode('sheet');
+                                setShowViewerControls(true);
+                              }}
+                              className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
+                            >
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
