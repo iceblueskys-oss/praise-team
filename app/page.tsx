@@ -137,7 +137,7 @@ function getSafeDocId(title: string, key?: string | null): string {
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [contis, setContis] = useState<Conti[]>([]);
   const [allSongs, setAllSongs] = useState<SongItem[]>([]);
   const [librarySongs, setLibrarySongs] = useState<LibrarySong[]>([]);
@@ -203,7 +203,7 @@ export default function Home() {
   const [scale, setScale] = useState(1.0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser'>('pen');
-  const [penColor, setPenColor] = useState('#ef4444');
+  const [penColor, setPenColor] = useState('#FF3B30');
   const [showViewerControls, setShowViewerControls] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1038,13 +1038,13 @@ export default function Home() {
       ctx.lineCap = 'round';
     } else if (currentTool === 'highlighter') {
       ctx.globalCompositeOperation = 'multiply';
-      ctx.strokeStyle = `${penColor}15`;
+      ctx.strokeStyle = `${penColor}22`;
       ctx.lineWidth = 24;
       ctx.lineCap = 'square';
     } else {
       ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = penColor;
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 5;
       ctx.lineCap = 'round';
     }
   };
@@ -1121,21 +1121,21 @@ export default function Home() {
           key={d}
           type="button"
           onClick={() => handleSelectCalendarDate(dateObj)}
-          className={`h-10 w-full rounded-xl flex flex-col items-center justify-center font-bold text-sm transition ${
+          className={`h-10 w-full rounded-2xl flex flex-col items-center justify-center font-semibold text-sm transition-all ${
             isSelected
-              ? 'bg-blue-600 text-white shadow-md scale-105'
+              ? 'bg-[#007AFF] text-white font-bold shadow-md shadow-blue-500/20 scale-105'
               : isSunday
               ? isDark
-                ? 'text-red-400 hover:bg-neutral-800 font-black'
-                : 'text-red-600 hover:bg-slate-100 font-black'
+                ? 'text-[#FF453A] hover:bg-neutral-800 font-bold'
+                : 'text-[#FF3B30] hover:bg-slate-100 font-bold'
               : isDark
-              ? 'text-neutral-300 hover:bg-neutral-800'
-              : 'text-slate-700 hover:bg-slate-100'
+              ? 'text-neutral-200 hover:bg-neutral-800'
+              : 'text-slate-800 hover:bg-slate-100'
           }`}
         >
           <span>{d}</span>
           {isSunday && !isSelected && (
-            <span className="w-1.5 h-1.5 bg-red-500 rounded-full mt-0.5"></span>
+            <span className="w-1 h-1 bg-[#FF3B30] rounded-full mt-0.5"></span>
           )}
         </button>
       );
@@ -1145,16 +1145,17 @@ export default function Home() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-300 text-sm font-bold">
-        앱 불러오는 중...
+      <div className="min-h-screen flex items-center justify-center bg-[#F2F2F7] dark:bg-black text-slate-600 dark:text-neutral-400 text-sm font-medium">
+        찬양팀 Hub 로딩 중...
       </div>
     );
   }
 
   const isDark = theme === 'dark';
-  const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-100 text-slate-900';
-  const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
-  const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
+  const bgClass = isDark ? 'bg-black text-neutral-100' : 'bg-[#F2F2F7] text-[#1C1C1E]';
+  const cardBgClass = isDark ? 'bg-[#1C1C1E] border-neutral-800/80 shadow-sm' : 'bg-white border-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]';
+  const subCardBg = isDark ? 'bg-[#2C2C2E] border-neutral-700/60 text-neutral-200 hover:bg-[#3A3A3C]' : 'bg-[#F2F2F7] border-black/5 text-slate-800 hover:bg-[#E5E5EA]';
+  const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F2F2F7] border-black/5 text-[#1C1C1E] placeholder-slate-400';
 
   // ==========================================
   // 1. 악보 & 가사 뷰어 화면
@@ -1166,7 +1167,7 @@ export default function Home() {
     return (
       <div
         style={{ overscrollBehavior: 'none' }}
-        className="fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none bg-slate-100 text-slate-900"
+        className="fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none bg-black text-white"
       >
         <div
           className={`fixed top-3 sm:top-5 inset-x-3 sm:inset-x-6 z-50 transition-all duration-300 pointer-events-none ${
@@ -1174,72 +1175,71 @@ export default function Home() {
           }`}
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <div className="max-w-3xl mx-auto w-full flex flex-col gap-2">
-            <div className="pointer-events-auto flex items-center justify-between p-2 rounded-2xl bg-white/95 border border-slate-300 shadow-2xl backdrop-blur-xl text-slate-900">
-              
-              <div className="flex items-center gap-2.5">
+          <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">
+            <div className="pointer-events-auto flex items-center justify-between p-2 rounded-2xl bg-black/80 dark:bg-[#1C1C1E]/90 border border-white/10 shadow-2xl backdrop-blur-2xl text-white">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
                     setViewingSongId(null);
                     setCurrentPageIndex(0);
                     setViewMode('sheet');
                   }}
-                  className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center border border-slate-300 active:scale-90 transition shrink-0"
+                  className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center active:scale-95 transition"
                   title="목록으로 나가기"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
 
                 {viewingSong.key && (
-                  <span className="px-2.5 py-1 text-xs font-bold bg-blue-600 rounded-lg text-white shadow-sm">
+                  <span className="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] rounded-lg text-white">
                     {viewingSong.key} Key
                   </span>
                 )}
                 {viewingSong.bpm && (
-                  <span className="text-xs font-bold text-slate-500 hidden xs:inline">
-                    BPM {viewingSong.bpm}
+                  <span className="text-xs font-medium text-neutral-400 hidden xs:inline">
+                    ♩ {viewingSong.bpm}
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border transition active:scale-95 ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 ${
                     viewMode === 'lyrics'
-                      ? 'bg-purple-600 border-purple-500 text-white shadow-md'
-                      : 'bg-slate-100 border-slate-300 text-purple-700 hover:bg-purple-50'
+                      ? 'bg-[#5856D6] text-white shadow-sm'
+                      : 'bg-white/10 hover:bg-white/20 text-neutral-200'
                   }`}
                 >
-                  {viewMode === 'sheet' ? <BookOpen className="w-4 h-4 text-purple-600" /> : <FileText className="w-4 h-4 text-white" />}
+                  {viewMode === 'sheet' ? <BookOpen className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
                   <span>{viewMode === 'sheet' ? '가사' : '악보'}</span>
                 </button>
 
                 {viewMode === 'sheet' && currentSheetUrl && (
                   <button
                     onClick={() => setIsDrawingMode(!isDrawingMode)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border transition active:scale-95 ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 ${
                       isDrawingMode
-                        ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-md'
-                        : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                        ? 'bg-[#FF9F0A] text-black font-bold'
+                        : 'bg-white/10 hover:bg-white/20 text-neutral-200'
                     }`}
                   >
-                    <PenTool className="w-4 h-4" />
+                    <PenTool className="w-3.5 h-3.5" />
                     <span>{isDrawingMode ? '완료' : '필기'}</span>
                   </button>
                 )}
 
                 {viewMode === 'sheet' && (
-                  <div className="flex items-center rounded-xl bg-slate-100 border border-slate-300 p-0.5">
+                  <div className="flex items-center rounded-xl bg-white/10 p-0.5">
                     <button
                       onClick={() => setScale((s) => Math.max(s - 0.2, 0.6))}
-                      className="w-8 h-8 flex items-center justify-center text-sm font-bold text-slate-700 hover:text-black"
+                      className="w-7 h-7 flex items-center justify-center text-xs font-bold text-neutral-200 hover:text-white"
                     >
                       -
                     </button>
                     <button
                       onClick={() => setScale((s) => Math.min(s + 0.2, 2.0))}
-                      className="w-8 h-8 flex items-center justify-center text-sm font-bold text-slate-700 hover:text-black"
+                      className="w-7 h-7 flex items-center justify-center text-xs font-bold text-neutral-200 hover:text-white"
                     >
                       +
                     </button>
@@ -1249,9 +1249,9 @@ export default function Home() {
             </div>
 
             {viewingSong.comment && (
-              <div className="pointer-events-auto self-center px-4 py-1.5 rounded-full bg-blue-50 border border-blue-200 shadow-md text-xs font-semibold text-blue-900 flex items-center gap-1.5 max-w-sm sm:max-w-md truncate">
-                <MessageSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span className="font-bold shrink-0">진행:</span>
+              <div className="pointer-events-auto self-center px-3.5 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-xl shadow-lg text-xs font-medium text-neutral-200 flex items-center gap-1.5 max-w-sm truncate">
+                <MessageSquare className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
+                <span className="font-semibold text-white shrink-0">진행:</span>
                 <span className="truncate">{viewingSong.comment}</span>
               </div>
             )}
@@ -1260,41 +1260,41 @@ export default function Home() {
 
         {viewMode === 'sheet' && isDrawingMode && (
           <div
-            className={`fixed top-20 sm:top-24 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
+            className={`fixed top-20 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
               showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
             }`}
             style={{ paddingTop: 'env(safe-area-inset-top)' }}
           >
-            <div className="pointer-events-auto flex items-center gap-2 p-2 rounded-2xl bg-white/95 border border-slate-300 shadow-2xl backdrop-blur-xl">
-              <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-300 gap-1">
+            <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-2xl bg-black/80 border border-white/10 shadow-2xl backdrop-blur-2xl">
+              <div className="flex items-center p-0.5 rounded-xl bg-white/10 gap-0.5">
                 <button
                   onClick={() => setCurrentTool('pen')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${currentTool === 'pen' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600'}`}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${currentTool === 'pen' ? 'bg-[#007AFF] text-white shadow-sm' : 'text-neutral-400'}`}
                 >
                   펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('highlighter')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${currentTool === 'highlighter' ? 'bg-yellow-400 text-black shadow-sm' : 'text-slate-600'}`}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${currentTool === 'highlighter' ? 'bg-[#FFD60A] text-black shadow-sm' : 'text-neutral-400'}`}
                 >
                   형광펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('eraser')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${currentTool === 'eraser' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600'}`}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${currentTool === 'eraser' ? 'bg-neutral-600 text-white shadow-sm' : 'text-neutral-400'}`}
                 >
                   지우개
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-300">
-                {['#ef4444', '#3b82f6', '#10b981', '#000000', '#eab308'].map((color) => (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white/10">
+                {['#FF3B30', '#007AFF', '#34C759', '#FFFFFF', '#FFD60A'].map((color) => (
                   <button
                     key={color}
                     onClick={() => setPenColor(color)}
                     style={{ backgroundColor: color }}
-                    className={`w-5 h-5 rounded-full border-2 transition ${
-                      penColor === color ? 'border-slate-800 scale-125 shadow-md' : 'border-transparent opacity-80'
+                    className={`w-4 h-4 rounded-full transition-transform ${
+                      penColor === color ? 'scale-125 ring-2 ring-white' : 'opacity-70'
                     }`}
                   />
                 ))}
@@ -1302,7 +1302,7 @@ export default function Home() {
 
               <button
                 onClick={handleClearDrawing}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-red-50 text-red-600 border border-slate-300 transition"
+                className="p-1.5 rounded-xl bg-white/10 hover:bg-red-500/20 text-[#FF453A] transition"
                 title="현재 페이지 필기 지우기"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -1316,28 +1316,25 @@ export default function Home() {
             if (!isDrawingMode) setShowViewerControls(!showViewerControls);
           }}
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
-          className="flex-1 overflow-auto flex items-center justify-center p-3 sm:p-6 pt-28 sm:pt-32 pb-28 sm:pb-32 relative bg-white"
+          className="flex-1 overflow-auto flex items-center justify-center p-3 pt-24 pb-24 relative bg-black"
         >
           {viewMode === 'lyrics' ? (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xl h-full flex flex-col justify-center"
-            >
-              <div className="w-full h-full rounded-3xl p-6 border border-slate-200 bg-white shadow-xl flex flex-col">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
-                  <span className="text-sm font-bold text-purple-700 flex items-center gap-1.5">
+            <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl h-full flex flex-col justify-center p-2">
+              <div className="w-full h-full rounded-3xl p-5 border border-white/10 bg-[#1C1C1E] shadow-2xl flex flex-col">
+                <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                  <span className="text-sm font-semibold text-[#AF52DE] flex items-center gap-1.5">
                     <BookOpen className="w-4 h-4" /> 찬양 가사
                   </span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleSearchLyricsWeb(viewingSong.title)}
-                      className="text-xs font-bold px-2.5 py-1 rounded-lg border border-blue-500/40 bg-blue-50 text-blue-700"
+                      className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/10 text-neutral-200 hover:bg-white/20 transition"
                     >
                       구글 검색 ↗
                     </button>
                     <button
                       onClick={() => handleCopyLyrics(viewingSong.lyrics || '')}
-                      className="text-xs font-bold px-2.5 py-1 rounded-lg border border-purple-500/40 bg-purple-50 text-purple-700 flex items-center gap-1"
+                      className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#5856D6] text-white flex items-center gap-1 active:scale-95 transition"
                     >
                       <Copy className="w-3.5 h-3.5" /> 복사
                     </button>
@@ -1347,15 +1344,15 @@ export default function Home() {
                 <textarea
                   value={viewingSong.lyrics || ''}
                   onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
-                  placeholder="등록된 가사가 없습니다. 가사를 입력하거나 복사해 붙여넣으세요."
-                  className="w-full flex-1 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-base sm:text-lg font-medium leading-relaxed focus:outline-none focus:border-purple-500 resize-none text-slate-900"
+                  placeholder="등록된 가사가 없습니다. 가사를 입력하거나 붙여넣으세요."
+                  className="w-full flex-1 p-3 rounded-2xl bg-[#2C2C2E] border border-white/5 text-base font-normal leading-relaxed focus:outline-none focus:ring-1 focus:ring-[#5856D6] resize-none text-white placeholder-neutral-500"
                 />
               </div>
             </div>
           ) : !currentSheetUrl ? (
-            <div className="text-center p-8 rounded-3xl border border-slate-200 bg-white shadow-xl max-w-xs">
-              <p className="font-bold text-base mb-1 text-slate-800">등록된 악보가 없습니다.</p>
-              <p className="text-xs text-slate-500">곡 수정 메뉴에서 악보 이미지를 첨부해주세요.</p>
+            <div className="text-center p-8 rounded-3xl border border-white/10 bg-[#1C1C1E] shadow-2xl max-w-xs text-white">
+              <p className="font-semibold text-base mb-1">등록된 악보가 없습니다.</p>
+              <p className="text-xs text-neutral-400">곡 수정 메뉴에서 악보 이미지를 첨부해주세요.</p>
             </div>
           ) : (
             <div
@@ -1369,7 +1366,7 @@ export default function Home() {
                 src={currentSheetUrl}
                 alt={`${viewingSong.title} - ${currentPageIndex + 1}p`}
                 onLoad={initCanvas}
-                className="max-h-[78vh] sm:max-h-[82vh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none rounded shadow-md"
+                className="max-h-[80vh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none rounded-xl shadow-2xl"
               />
               <canvas
                 ref={canvasRef}
@@ -1381,7 +1378,7 @@ export default function Home() {
                 onTouchMove={onDraw}
                 onTouchEnd={stopDraw}
                 style={{ mixBlendMode: 'multiply' }}
-                className={`absolute inset-0 w-full h-full ${
+                className={`absolute inset-0 w-full h-full rounded-xl ${
                   isDrawingMode ? 'cursor-crosshair touch-none' : 'pointer-events-none'
                 }`}
               />
@@ -1395,34 +1392,34 @@ export default function Home() {
           }`}
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
         >
-          <div className="pointer-events-auto flex items-center gap-2 p-2 rounded-full bg-white/95 border border-slate-300 shadow-2xl backdrop-blur-xl">
+          <div className="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full bg-black/80 dark:bg-[#1C1C1E]/90 border border-white/10 shadow-2xl backdrop-blur-2xl">
             <button
               onClick={handlePrevSong}
               disabled={currentSongIndex <= 0}
-              className="px-4 py-2 rounded-full text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-30 active:scale-95 transition flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-30 active:scale-95 transition flex items-center gap-1"
             >
-              <SkipBack className="w-4 h-4 text-blue-600" />
+              <SkipBack className="w-3.5 h-3.5 text-[#007AFF]" />
               <span>이전 곡</span>
             </button>
 
             {viewMode === 'sheet' && totalPages > 1 && (
-              <div className="flex items-center gap-1.5 px-2 border-x border-slate-300">
+              <div className="flex items-center gap-1 px-1.5 border-x border-white/10">
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
                   disabled={currentPageIndex === 0}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-slate-700 hover:text-black hover:bg-slate-100 disabled:opacity-30 transition"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white hover:bg-white/10 disabled:opacity-20 transition"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-sm font-black text-blue-600 px-1 min-w-[36px] text-center">
+                <span className="text-xs font-bold text-[#007AFF] px-1 min-w-[32px] text-center">
                   {currentPageIndex + 1}/{totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
                   disabled={currentPageIndex === totalPages - 1}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-slate-700 hover:text-black hover:bg-slate-100 disabled:opacity-30 transition"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white hover:bg-white/10 disabled:opacity-20 transition"
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -1430,10 +1427,10 @@ export default function Home() {
             <button
               onClick={handleNextSong}
               disabled={currentSongIndex >= currentSongs.length - 1}
-              className="px-4 py-2 rounded-full text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-30 active:scale-95 transition flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-30 active:scale-95 transition flex items-center gap-1"
             >
               <span>다음 곡</span>
-              <SkipForward className="w-4 h-4 text-blue-600" />
+              <SkipForward className="w-3.5 h-3.5 text-[#007AFF]" />
             </button>
           </div>
         </footer>
@@ -1468,31 +1465,32 @@ export default function Home() {
   )}`;
 
   return (
-    <div className={`min-h-[100dvh] transition-colors duration-200 pb-32 p-3.5 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),18px)] ${bgClass}`}>
-      <div className="max-w-2xl mx-auto space-y-4 w-full">
+    <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
+      <div className="max-w-xl mx-auto space-y-4 w-full">
         
+        {/* Apple 스타일 네비게이션 헤더 */}
         <header className="flex items-center justify-between gap-2 px-1 pt-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#007AFF] to-[#5856D6] flex items-center justify-center text-white shadow-md shadow-blue-500/20">
               <Music className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-base sm:text-lg font-black tracking-tight leading-none">찬양팀 Hub</h1>
-              <p className="text-xs font-semibold opacity-60 mt-0.5">Worship Dashboard</p>
+              <h1 className="text-lg font-bold tracking-tight leading-none">찬양팀 Hub</h1>
+              <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 font-medium">Worship Dashboard</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleOpenAddContiModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-600/30 transition active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#007AFF] hover:bg-[#0071E3] text-white rounded-2xl text-xs font-semibold shadow-sm transition active:scale-95"
             >
               <FolderPlus className="w-4 h-4" />
               <span>새 콘티</span>
             </button>
             <button
               onClick={() => setIsSettingsModalOpen(true)}
-              className={`p-2.5 border rounded-xl transition active:scale-95 ${subCardBg}`}
+              className={`p-2 rounded-2xl border transition active:scale-95 ${subCardBg}`}
               title="설정 및 관리"
             >
               <SlidersHorizontal className="w-4 h-4" />
@@ -1502,49 +1500,50 @@ export default function Home() {
 
         {activeTab === 'conti' && viewLevel === 'home' && (
           <div className="space-y-4">
-            <div className={`rounded-2xl border p-4 space-y-3 ${cardBgClass}`}>
+            {/* 공지사항 카드 */}
+            <div className={`rounded-3xl border p-4 space-y-3 ${cardBgClass}`}>
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bell className="w-4 h-4 text-amber-500" />
+                <div className="w-8 h-8 rounded-2xl bg-[#FF9500]/15 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bell className="w-4 h-4 text-[#FF9500]" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold opacity-75">찬양팀 공지사항</span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-neutral-400">공지사항</span>
                     {currentConti && (
                       <button
                         onClick={() => {
                           setNoticeInput(currentNotice);
                           setIsNoticeModalOpen(true);
                         }}
-                        className="text-xs font-bold text-blue-500 hover:underline"
+                        className="text-xs font-semibold text-[#007AFF] hover:underline"
                       >
                         공지 작성 ↗
                       </button>
                     )}
                   </div>
-                  <p className="text-sm sm:text-base font-semibold mt-1 whitespace-pre-wrap leading-relaxed opacity-90">
+                  <p className="text-sm font-medium mt-1 whitespace-pre-wrap leading-relaxed text-slate-800 dark:text-neutral-200">
                     {currentNotice || '등록된 예배 공지사항이 없습니다.'}
                   </p>
                 </div>
               </div>
 
               {currentConti && (
-                <div className="border-t border-neutral-800/40 pt-3 flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 text-xs font-bold">
-                    <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center gap-1">
+                <div className="border-t border-black/5 dark:border-white/5 pt-3 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <span className="px-2.5 py-1 rounded-xl bg-[#34C759]/15 text-[#34C759] flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" /> 참석 {yesCount}
                     </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-red-500/15 text-red-500 flex items-center gap-1">
+                    <span className="px-2.5 py-1 rounded-xl bg-[#FF3B30]/15 text-[#FF3B30] flex items-center gap-1">
                       <XCircle className="w-3.5 h-3.5" /> 불참 {noCount}
                     </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-500 flex items-center gap-1">
+                    <span className="px-2.5 py-1 rounded-xl bg-[#FF9500]/15 text-[#FF9500] flex items-center gap-1">
                       <HelpCircle className="w-3.5 h-3.5" /> 미정 {maybeCount}
                     </span>
                   </div>
 
                   <button
                     onClick={() => setIsAttendanceModalOpen(true)}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95"
+                    className="px-3 py-1.5 bg-[#007AFF] hover:bg-[#0071E3] text-white rounded-xl text-xs font-semibold shadow-sm transition active:scale-95"
                   >
                     출석 체크
                   </button>
@@ -1552,18 +1551,19 @@ export default function Home() {
               )}
             </div>
 
+            {/* 콘티 목록 */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
-                <h2 className="text-sm sm:text-base font-bold flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-blue-500" />
+                <h2 className="text-sm font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-[#007AFF]" />
                   예배 콘티 일정
                 </h2>
-                <span className="text-xs opacity-60">총 {contis.length}개</span>
+                <span className="text-xs text-slate-500 dark:text-neutral-500 font-medium">총 {contis.length}개</span>
               </div>
 
               {contis.length === 0 ? (
-                <div className={`text-center py-16 border rounded-2xl text-sm px-4 opacity-70 ${cardBgClass}`}>
-                  등록된 예배 일정이 없습니다. 상단 <span className="text-blue-500 font-bold">[+ 새 콘티]</span>를 눌러 일정을 추가해보세요.
+                <div className={`text-center py-12 border rounded-3xl text-sm px-4 text-slate-500 dark:text-neutral-400 ${cardBgClass}`}>
+                  등록된 예배 일정이 없습니다. 상단 <span className="text-[#007AFF] font-semibold">[+ 새 콘티]</span>를 눌러 일정을 추가해보세요.
                 </div>
               ) : (
                 contis.map((c) => {
@@ -1577,32 +1577,32 @@ export default function Home() {
                         setSelectedContiId(c.id);
                         setViewLevel('detail');
                       }}
-                      className={`p-4 rounded-2xl border transition active:scale-[0.99] cursor-pointer hover:border-blue-500/50 shadow-sm flex items-center justify-between gap-3 ${cardBgClass}`}
+                      className={`p-4 rounded-3xl border transition active:scale-[0.99] cursor-pointer hover:border-[#007AFF]/40 flex items-center justify-between gap-3 ${cardBgClass}`}
                     >
-                      <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2.5 py-0.5 text-xs font-bold bg-blue-600/20 text-blue-500 rounded-lg">
+                          <span className="px-2 py-0.5 text-xs font-semibold bg-[#007AFF]/10 text-[#007AFF] rounded-lg">
                             {c.date}
                           </span>
-                          <span className="text-xs font-semibold opacity-60">
+                          <span className="text-xs font-medium text-slate-500 dark:text-neutral-400">
                             {songCount}곡 수록
                           </span>
                         </div>
 
-                        <h3 className="text-base sm:text-lg font-bold truncate text-blue-600 dark:text-blue-400">
+                        <h3 className="text-base font-bold truncate text-[#007AFF]">
                           {c.title}
                         </h3>
 
                         {singers.length > 0 && (
-                          <div className="flex items-center gap-1.5 text-xs opacity-80 truncate">
-                            <Mic className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-neutral-400 truncate">
+                            <Mic className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
                             <span className="truncate">싱어: {singers.join(', ')}</span>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 text-blue-500 font-bold text-xs shrink-0 pl-2">
-                        <span>콘티 보기</span>
+                      <div className="flex items-center gap-1 text-[#007AFF] font-semibold text-xs shrink-0 pl-2">
+                        <span>보기</span>
                         <ArrowRight className="w-4 h-4" />
                       </div>
                     </div>
@@ -1613,33 +1613,32 @@ export default function Home() {
           </div>
         )}
 
+        {/* 콘티 상세 곡 목록 */}
         {activeTab === 'conti' && viewLevel === 'detail' && currentConti && (
           <div className="space-y-3.5">
             <div className="flex items-center justify-between px-1">
               <button
                 onClick={() => setViewLevel('home')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs sm:text-sm font-bold transition active:scale-95 ${subCardBg}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-2xl text-xs font-semibold transition active:scale-95 ${subCardBg}`}
               >
                 <ChevronLeft className="w-4 h-4" />
-                <span>전체 일정 목록</span>
+                <span>목록으로</span>
               </button>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => handleOpenModal()}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/30 transition active:scale-95"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>곡 추가</span>
-                </button>
-              </div>
+              <button
+                onClick={() => handleOpenModal()}
+                className="flex items-center gap-1 px-3.5 py-1.5 bg-[#007AFF] hover:bg-[#0071E3] text-white rounded-2xl text-xs font-semibold shadow-sm transition active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>곡 추가</span>
+              </button>
             </div>
 
-            <div className={`p-4 rounded-2xl border space-y-2.5 ${cardBgClass}`}>
+            <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="w-5 h-5 text-blue-500 shrink-0" />
-                  <h2 className="text-base sm:text-lg font-black truncate">{currentConti.title}</h2>
+                  <Calendar className="w-4 h-4 text-[#007AFF] shrink-0" />
+                  <h2 className="text-base font-bold truncate text-slate-900 dark:text-white">{currentConti.title}</h2>
                   
                   <div className="flex items-center gap-1 shrink-0">
                     <button
@@ -1647,12 +1646,12 @@ export default function Home() {
                       className={`p-1 border rounded-lg transition ${subCardBg}`}
                       title="콘티 제목 수정"
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-blue-500" />
+                      <Edit3 className="w-3.5 h-3.5 text-[#007AFF]" />
                     </button>
                     <button
                       onClick={handleDeleteConti}
                       className={`p-1 border rounded-lg transition ${
-                        isDark ? 'bg-neutral-800 hover:bg-red-950/70 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                        isDark ? 'bg-[#2C2C2E] text-neutral-400 hover:text-[#FF453A]' : 'bg-slate-100 text-slate-500 hover:text-[#FF3B30]'
                       }`}
                       title="이 콘티 전체 삭제"
                     >
@@ -1663,7 +1662,7 @@ export default function Home() {
 
                 <button
                   onClick={handleOpenSingerModal}
-                  className="text-xs font-bold text-blue-500 hover:underline shrink-0"
+                  className="text-xs font-semibold text-[#007AFF] hover:underline shrink-0"
                 >
                   + 싱어 관리
                 </button>
@@ -1674,16 +1673,16 @@ export default function Home() {
                   {assignedSingers.map((singer) => (
                     <span
                       key={singer}
-                      className="px-2.5 py-0.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-500 font-bold text-xs flex items-center gap-1"
+                      className="px-2.5 py-0.5 rounded-lg bg-[#007AFF]/10 text-[#007AFF] font-semibold text-xs flex items-center gap-1"
                     >
-                      <Mic className="w-3.5 h-3.5" /> {singer}
+                      <Mic className="w-3 h-3" /> {singer}
                     </span>
                   ))}
                 </div>
               )}
 
               {customNote && (
-                <p className="text-xs text-slate-500 pt-1 border-t border-slate-200 dark:border-neutral-800">
+                <p className="text-xs text-slate-500 dark:text-neutral-400 pt-1 border-t border-black/5 dark:border-white/5">
                   📝 {customNote}
                 </p>
               )}
@@ -1691,8 +1690,8 @@ export default function Home() {
 
             <div className="space-y-2.5 relative select-none w-full">
               {currentSongs.length === 0 ? (
-                <div className={`text-center py-16 border rounded-2xl text-sm sm:text-base px-4 opacity-70 ${cardBgClass}`}>
-                  등록된 찬양 곡이 없습니다. 상단 <span className="text-blue-500 font-bold">[+ 곡 추가]</span>를 눌러보세요.
+                <div className={`text-center py-12 border rounded-3xl text-sm px-4 text-slate-500 dark:text-neutral-400 ${cardBgClass}`}>
+                  등록된 찬양 곡이 없습니다. 상단 <span className="text-[#007AFF] font-semibold">[+ 곡 추가]</span>를 눌러보세요.
                 </div>
               ) : (
                 currentSongs.map((song, idx) => {
@@ -1703,15 +1702,15 @@ export default function Home() {
                   return (
                     <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
                       {isDropTarget && !isBeingDragged && (
-                        <div className="absolute -top-1 inset-x-0 h-1 bg-blue-500 rounded-full z-10 animate-pulse" />
+                        <div className="absolute -top-1 inset-x-0 h-1 bg-[#007AFF] rounded-full z-10 animate-pulse" />
                       )}
 
                       <div
                         className={`flex flex-col border transition-all duration-150 overflow-hidden w-full ${
-                          isLyricsExpanded ? 'rounded-2xl shadow-md ring-2 ring-purple-500/40' : 'rounded-2xl'
+                          isLyricsExpanded ? 'rounded-3xl ring-2 ring-[#AF52DE]/40' : 'rounded-3xl'
                         } ${
                           isBeingDragged
-                            ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
+                            ? 'opacity-20 border-dashed border-neutral-400 scale-[0.98]'
                             : cardBgClass
                         }`}
                       >
@@ -1734,46 +1733,42 @@ export default function Home() {
                               onTouchEnd={endDragAction}
                               onMouseDown={(e) => handleMouseDown(idx, e)}
                               style={{ touchAction: 'none' }}
-                              className="p-1.5 -m-1.5 text-neutral-400 hover:text-blue-500 active:text-blue-500 cursor-grab active:cursor-grabbing shrink-0"
-                              title="길게 눌러 드래그"
+                              className="p-1 -m-1 text-slate-400 hover:text-[#007AFF] cursor-grab active:cursor-grabbing shrink-0"
+                              title="길게 눌러 순서 변경"
                             >
                               <GripVertical className="w-5 h-5" />
                             </div>
 
-                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-500 flex items-center justify-center font-black text-xs sm:text-sm shrink-0 group-hover:scale-105 transition">
+                            <div className="w-7 h-7 rounded-xl bg-[#007AFF]/10 text-[#007AFF] flex items-center justify-center font-bold text-xs shrink-0">
                               {idx + 1}
                             </div>
 
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
+                            <div className="min-w-0 flex-1 space-y-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 {song.headerTag && (
-                                  <span className="px-2 py-0.5 text-xs font-black bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 rounded-lg shrink-0">
+                                  <span className="px-2 py-0.5 text-xs font-bold bg-[#FF9500]/15 text-[#FF9500] rounded-lg shrink-0">
                                     {song.headerTag}
                                   </span>
                                 )}
 
-                                <h3 className="text-sm sm:text-base font-bold truncate max-w-[170px] xs:max-w-[220px] sm:max-w-sm group-hover:text-blue-500 transition">
+                                <h3 className="text-sm sm:text-base font-bold truncate text-slate-900 dark:text-white group-hover:text-[#007AFF] transition">
                                   {song.title}
                                 </h3>
 
                                 {song.key && (
-                                  <span className={`px-2 py-0.5 text-xs font-bold border rounded-lg shrink-0 ${
-                                    isDark ? 'bg-blue-600/30 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'
-                                  }`}>
+                                  <span className="px-2 py-0.5 text-xs font-semibold bg-[#007AFF]/10 text-[#007AFF] rounded-lg shrink-0">
                                     {song.key} Key
                                   </span>
                                 )}
                                 {song.sheetUrls && song.sheetUrls.length > 1 && (
-                                  <span className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-bold border rounded-lg opacity-80 shrink-0 ${
-                                    isDark ? 'border-neutral-700' : 'border-slate-200'
-                                  }`}>
+                                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-neutral-800 rounded-lg shrink-0">
                                     <Layers className="w-3 h-3" /> {song.sheetUrls.length}p
                                   </span>
                                 )}
                               </div>
 
                               {song.comment && (
-                                <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                <div className="flex items-center gap-1 text-xs text-[#007AFF] font-medium">
                                   <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                                   <span className="truncate">{song.comment}</span>
                                 </div>
@@ -1787,14 +1782,14 @@ export default function Home() {
                                 <button
                                   onClick={() => executeReorder(idx, idx - 1)}
                                   disabled={idx === 0}
-                                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                                  className={`px-2.5 py-1 rounded-xl border text-xs font-semibold disabled:opacity-20 ${subCardBg}`}
                                 >
                                   위로
                                 </button>
                                 <button
                                   onClick={() => executeReorder(idx, idx + 1)}
                                   disabled={idx === currentSongs.length - 1}
-                                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                                  className={`px-2.5 py-1 rounded-xl border text-xs font-semibold disabled:opacity-20 ${subCardBg}`}
                                 >
                                   아래로
                                 </button>
@@ -1803,30 +1798,28 @@ export default function Home() {
                               <>
                                 <button
                                   onClick={() => handleToggleLyricsExpand(song.id)}
-                                  className={`flex items-center justify-center gap-1 px-3 py-2 border rounded-xl text-xs sm:text-sm font-bold transition active:scale-95 ${
+                                  className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-semibold transition active:scale-95 ${
                                     isLyricsExpanded
-                                      ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
-                                      : isDark
-                                      ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-purple-300'
-                                      : 'bg-slate-100 hover:bg-purple-50 border-slate-300 text-purple-700'
+                                      ? 'bg-[#5856D6] border-[#5856D6] text-white'
+                                      : 'bg-[#5856D6]/10 border-[#5856D6]/20 text-[#5856D6] hover:bg-[#5856D6]/20'
                                   }`}
                                   title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
                                 >
-                                  <BookOpen className="w-4 h-4" />
+                                  <BookOpen className="w-3.5 h-3.5" />
                                   <span>{isLyricsExpanded ? '닫기' : '가사'}</span>
                                 </button>
 
                                 <button
                                   onClick={() => handleOpenModal(song)}
-                                  className={`p-2 border rounded-xl transition active:scale-95 flex items-center justify-center ${subCardBg}`}
+                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${subCardBg}`}
                                   title="곡 수정"
                                 >
-                                  <Edit3 className="w-4 h-4" />
+                                  <Edit3 className="w-4 h-4 text-slate-700 dark:text-neutral-300" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteSong(song.id)}
-                                  className={`p-2 border rounded-xl transition active:scale-95 flex items-center justify-center ${
-                                    isDark ? 'bg-neutral-800 hover:bg-red-950/60 border-neutral-700 text-neutral-400 hover:text-red-400' : 'bg-slate-100 hover:bg-red-50 border-slate-200 text-slate-500 hover:text-red-600'
+                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${
+                                    isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-400 hover:text-[#FF453A]' : 'bg-slate-100 border-black/5 text-slate-500 hover:text-[#FF3B30]'
                                   }`}
                                   title="곡 삭제"
                                 >
@@ -1839,32 +1832,30 @@ export default function Home() {
 
                         {isLyricsExpanded && (
                           <div className={`border-t px-4 py-3.5 space-y-3 ${
-                            isDark ? 'bg-neutral-950/60 border-neutral-800' : 'bg-slate-50 border-slate-200'
+                            isDark ? 'bg-black/40 border-white/5' : 'bg-slate-50 border-black/5'
                           }`}>
                             <div className="flex items-center justify-between flex-wrap gap-2">
-                              <div className="flex items-center gap-2.5">
-                                <span className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-[#5856D6] flex items-center gap-1">
                                   <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
                                 </span>
 
-                                <div className={`flex items-center rounded-xl border p-0.5 text-xs font-bold ${
-                                  isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-slate-200 border-slate-300'
-                                }`}>
+                                <div className="flex items-center rounded-xl bg-black/5 dark:bg-white/10 p-0.5 text-xs font-semibold">
                                   <button
                                     onClick={() => handleChangeFontSize('sm')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'sm' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'sm' ? 'bg-[#5856D6] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
                                   >
                                     소
                                   </button>
                                   <button
                                     onClick={() => handleChangeFontSize('base')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'base' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'base' ? 'bg-[#5856D6] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
                                   >
                                     중
                                   </button>
                                   <button
                                     onClick={() => handleChangeFontSize('lg')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'lg' ? 'bg-purple-600 text-white' : 'opacity-60'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'lg' ? 'bg-[#5856D6] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
                                   >
                                     대
                                   </button>
@@ -1875,19 +1866,15 @@ export default function Home() {
                                 {song.lyrics && (
                                   <button
                                     onClick={() => handleCopyLyrics(song.lyrics || '')}
-                                    className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition ${
-                                      isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-white border-slate-300 text-slate-800'
-                                    }`}
+                                    className={`text-xs font-semibold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition ${subCardBg}`}
                                   >
-                                    <Copy className="w-3.5 h-3.5 text-purple-500" />
+                                    <Copy className="w-3.5 h-3.5 text-[#5856D6]" />
                                     <span>복사</span>
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleSearchLyricsWeb(song.title)}
-                                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition ${
-                                    isDark ? 'bg-neutral-800 border-neutral-700 text-blue-400' : 'bg-white border-slate-300 text-blue-600'
-                                  }`}
+                                  className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-[#007AFF]/10 text-[#007AFF] hover:bg-[#007AFF]/20 flex items-center gap-1 transition"
                                 >
                                   <Globe className="w-3.5 h-3.5" />
                                   <span>구글 검색 ↗</span>
@@ -1896,28 +1883,26 @@ export default function Home() {
                             </div>
 
                             {song.lyrics ? (
-                              <div className={`font-medium leading-relaxed whitespace-pre-wrap p-3.5 rounded-2xl border max-h-80 overflow-y-auto ${
-                                lyricsFontSize === 'sm' ? 'text-xs sm:text-sm' : lyricsFontSize === 'lg' ? 'text-base sm:text-lg font-semibold' : 'text-sm sm:text-base'
-                              } ${isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'}`}>
+                              <div className={`font-normal leading-relaxed whitespace-pre-wrap p-3.5 rounded-2xl border max-h-80 overflow-y-auto ${
+                                lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-medium' : 'text-sm'
+                              } ${isDark ? 'bg-[#1C1C1E] border-neutral-800 text-neutral-100' : 'bg-white border-black/5 text-[#1C1C1E]'}`}>
                                 {song.lyrics}
                               </div>
                             ) : (
-                              <div className={`py-6 text-center rounded-2xl border border-dashed space-y-2.5 ${
-                                isDark ? 'border-neutral-800 bg-neutral-900/40 text-neutral-400' : 'border-slate-300 bg-white/60 text-slate-600'
-                              }`}>
-                                <p className="text-xs sm:text-sm font-semibold">등록된 가사가 없습니다.</p>
+                              <div className="py-6 text-center rounded-2xl border border-dashed border-black/10 dark:border-white/10 space-y-2">
+                                <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">등록된 가사가 없습니다.</p>
                                 <div className="flex justify-center gap-2">
                                   <button
                                     onClick={() => handleSearchLyricsWeb(song.title)}
-                                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-sm"
+                                    className="px-3 py-1 bg-[#007AFF] text-white rounded-xl text-xs font-semibold shadow-sm"
                                   >
-                                    구글에서 가사 찾기 ↗
+                                    구글 검색 ↗
                                   </button>
                                   <button
                                     onClick={() => handleOpenModal(song)}
-                                    className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-sm"
+                                    className="px-3 py-1 bg-[#5856D6] text-white rounded-xl text-xs font-semibold shadow-sm"
                                   >
-                                    + 가사 직접 등록
+                                    + 가사 등록
                                   </button>
                                 </div>
                               </div>
@@ -1938,71 +1923,67 @@ export default function Home() {
           <div className="space-y-3.5">
             <div className="flex items-center justify-between px-1">
               <div>
-                <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                  <Library className="w-5 h-5 text-purple-400" />
+                <h2 className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                  <Library className="w-5 h-5 text-[#5856D6]" />
                   찬양 보관소 ({librarySongs.length}곡)
                 </h2>
-                <p className="text-xs opacity-60 mt-0.5">등록된 찬양을 검색하고 미리보세요</p>
+                <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5 font-medium">콘티에 자주 사용하는 곡들을 검색해 보세요</p>
               </div>
 
               <button
                 onClick={() => syncAllSongsToLibrary(true)}
                 disabled={isSyncingLib}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition active:scale-95 ${subCardBg}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-semibold border transition active:scale-95 ${subCardBg}`}
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-purple-400 ${isSyncingLib ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-[#5856D6] ${isSyncingLib ? 'animate-spin' : ''}`} />
                 <span>동기화</span>
               </button>
             </div>
 
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-neutral-400" />
+              <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400 dark:text-neutral-500" />
               <input
                 type="text"
                 value={librarySearchTerm}
                 onChange={(e) => setLibrarySearchTerm(e.target.value)}
                 placeholder="찬양 제목, Key, 가사 본문 검색"
-                className={`w-full border rounded-2xl pl-10 pr-4 py-3 text-sm sm:text-base focus:outline-none focus:border-purple-500 shadow-sm ${
-                  isDark ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-900'
-                }`}
+                className={`w-full border rounded-2xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5856D6] ${inputBgClass}`}
               />
             </div>
 
             <div className="space-y-2.5">
               {filteredLibrary.length === 0 ? (
-                <div className={`p-12 rounded-2xl border text-center space-y-2 ${cardBgClass}`}>
-                  <p className="text-sm opacity-60">검색된 찬양이 없습니다.</p>
+                <div className={`p-12 rounded-3xl border text-center text-slate-500 dark:text-neutral-400 text-sm ${cardBgClass}`}>
+                  검색된 찬양이 없습니다.
                 </div>
               ) : (
                 filteredLibrary.map((libSong) => (
                   <div
                     key={libSong.id}
                     onClick={() => setPreviewLibSong(libSong)}
-                    className={`flex items-center justify-between p-4 rounded-2xl border gap-2.5 cursor-pointer transition active:scale-[0.99] hover:border-purple-500/50 ${cardBgClass}`}
+                    className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cursor-pointer transition active:scale-[0.99] hover:border-[#5856D6]/40 ${cardBgClass}`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm sm:text-base truncate">{libSong.title}</span>
+                        <span className="font-bold text-sm sm:text-base truncate text-slate-900 dark:text-white">{libSong.title}</span>
                         {libSong.key && (
-                          <span className="px-2 py-0.5 text-xs font-bold bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-lg">
+                          <span className="px-2 py-0.5 text-xs font-semibold bg-[#007AFF]/10 text-[#007AFF] rounded-lg">
                             {libSong.key} Key
                           </span>
                         )}
                         {libSong.bpm && (
-                          <span className="text-xs opacity-70 font-medium">BPM {libSong.bpm}</span>
+                          <span className="text-xs text-slate-500 dark:text-neutral-400 font-medium">♩ {libSong.bpm}</span>
                         )}
-                        <span className="text-xs opacity-50">{libSong.sheetUrls?.length || 0}장 악보</span>
+                        <span className="text-xs text-slate-400 dark:text-neutral-500 font-medium">악보 {libSong.sheetUrls?.length || 0}장</span>
                       </div>
                       {libSong.lyrics && (
-                        <p className="text-xs sm:text-sm opacity-60 truncate mt-1">{libSong.lyrics}</p>
+                        <p className="text-xs text-slate-500 dark:text-neutral-400 truncate mt-1">{libSong.lyrics}</p>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-xs sm:text-sm font-bold text-purple-400 px-3 py-1.5 rounded-xl bg-purple-500/10">
-                        보기
-                      </span>
-                    </div>
+                    <span className="text-xs font-bold text-[#5856D6] px-3 py-1.5 rounded-xl bg-[#5856D6]/10 shrink-0">
+                      보기
+                    </span>
                   </div>
                 ))
               )}
@@ -2012,20 +1993,20 @@ export default function Home() {
 
       </div>
 
-      {/* 하단 고정 플로팅 탭바 */}
+      {/* 하단 고정 Apple 스타일 플로팅 탭바 */}
       <nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
-        <div className={`pointer-events-auto flex items-center gap-1.5 p-2 rounded-3xl border shadow-2xl backdrop-blur-xl ${
-          isDark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-white/95 border-slate-300'
+        <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
+          isDark ? 'bg-[#1C1C1E]/90 border-white/10' : 'bg-white/90 border-black/5'
         }`}>
           <button
             onClick={() => {
               setActiveTab('conti');
               setViewLevel('home');
             }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition active:scale-95 ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition active:scale-95 ${
               activeTab === 'conti'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'opacity-60 hover:opacity-100'
+                ? 'bg-[#007AFF] text-white shadow-sm'
+                : 'text-slate-600 dark:text-neutral-400 hover:text-black dark:hover:text-white'
             }`}
           >
             <HomeIcon className="w-4 h-4" />
@@ -2034,10 +2015,10 @@ export default function Home() {
 
           <button
             onClick={() => setActiveTab('library')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition active:scale-95 ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition active:scale-95 ${
               activeTab === 'library'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                : 'opacity-60 hover:opacity-100'
+                ? 'bg-[#5856D6] text-white shadow-sm'
+                : 'text-slate-600 dark:text-neutral-400 hover:text-black dark:hover:text-white'
             }`}
           >
             <Library className="w-4 h-4" />
@@ -2046,33 +2027,30 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 🌟 전역 모달들 🌟 */}
+      {/* 🌟 전역 모달들 (Apple Action Sheet & Dialog Style) 🌟 */}
 
       {/* 1. 새 콘티 추가 달력 모달 */}
       {isNewContiModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-6 shadow-2xl border ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
           }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-500" />
+                <Calendar className="w-4 h-4 text-[#007AFF]" />
                 950 콘티 날짜 선택
               </h2>
-              <button
-                onClick={() => setIsNewContiModalOpen(false)}
-                className="p-1 opacity-70 hover:opacity-100 rounded-lg"
-              >
+              <button onClick={() => setIsNewContiModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmCreateConti} className="mt-4 space-y-4">
+            <form onSubmit={handleConfirmCreateConti} className="mt-3 space-y-3.5">
               <div className="flex items-center justify-between px-1">
-                <span className="font-black text-sm sm:text-base">
+                <span className="font-bold text-sm">
                   {currentCalMonth.getFullYear()}년 {currentCalMonth.getMonth() + 1}월
                 </span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() =>
@@ -2080,7 +2058,7 @@ export default function Home() {
                         new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() - 1, 1)
                       )
                     }
-                    className={`p-2 rounded-xl border ${subCardBg}`}
+                    className={`p-1.5 rounded-xl border ${subCardBg}`}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -2091,15 +2069,15 @@ export default function Home() {
                         new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() + 1, 1)
                       )
                     }
-                    className={`p-2 rounded-xl border ${subCardBg}`}
+                    className={`p-1.5 rounded-xl border ${subCardBg}`}
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold opacity-60">
-                <span className="text-red-500">일</span>
+              <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 dark:text-neutral-500">
+                <span className="text-[#FF3B30]">일</span>
                 <span>월</span>
                 <span>화</span>
                 <span>수</span>
@@ -2111,7 +2089,7 @@ export default function Home() {
               <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
 
               <div className="pt-1">
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-neutral-400 mb-1">
                   생성될 콘티 제목
                 </label>
                 <input
@@ -2119,23 +2097,21 @@ export default function Home() {
                   required
                   value={contiTitleInput}
                   onChange={(e) => setContiTitleInput(e.target.value)}
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base font-bold focus:outline-none focus:border-blue-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                 />
               </div>
 
-              <div className="flex gap-2.5 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsNewContiModalOpen(false)}
-                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm transition ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-xs sm:text-sm text-white shadow-lg shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
                 >
                   콘티 생성
                 </button>
@@ -2145,30 +2121,27 @@ export default function Home() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 (모바일 최적화 파일 업로드 & 구글 바로가기) */}
+      {/* 2. 곡 추가/수정 모달 (글씨 시인성 완벽 개선) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
           }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <Music className="w-5 h-5 text-blue-500" />
+            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Music className="w-4 h-4 text-[#007AFF]" />
                 {editingSongId ? '찬양 곡 수정' : '찬양 곡 추가'}
               </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 opacity-70 hover:opacity-100 rounded-lg"
-              >
+              <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="mt-4 space-y-4 text-xs sm:text-sm">
+            <form onSubmit={handleSaveModal} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5 flex items-center gap-1.5">
-                  <Tag className="w-4 h-4 text-amber-500" />
-                  예배 순서 헤더 (선택 - 예: 입례, 파송, 헌금)
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1.5 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-[#FF9500]" />
+                  예배 순서 태그 (선택)
                 </label>
                 <div className="flex gap-1.5 mb-2 flex-wrap">
                   {['<입례>', '<송영>', '<경배와찬양>', '<기도송>', '<헌금>', '<파송>', '<특송>'].map((tag) => (
@@ -2176,9 +2149,9 @@ export default function Home() {
                       key={tag}
                       type="button"
                       onClick={() => setModalHeaderTag(tag)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
+                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition ${
                         modalHeaderTag === tag
-                          ? 'bg-amber-500 border-amber-400 text-neutral-950 font-black'
+                          ? 'bg-[#FF9500] border-[#FF9500] text-black font-bold'
                           : subCardBg
                       }`}
                     >
@@ -2189,7 +2162,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setModalHeaderTag('')}
-                      className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-red-500/40 text-red-400"
+                      className="px-2.5 py-1 rounded-xl text-xs font-semibold border border-red-500/40 text-red-500"
                     >
                       초기화
                     </button>
@@ -2200,35 +2173,29 @@ export default function Home() {
                   value={modalHeaderTag}
                   onChange={(e) => setModalHeaderTag(e.target.value)}
                   placeholder="직접 입력하거나 위 태그를 누르세요"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-amber-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF9500] ${inputBgClass}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">순수 곡 제목 *</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">순수 곡 제목 *</label>
                 <input
                   type="text"
                   required
                   value={modalTitle}
                   onChange={(e) => setModalTitle(e.target.value)}
-                  placeholder="예: 꽃들도, 빛의 사자들이여"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  placeholder="예: 꽃들도, 은혜"
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                 />  
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">Key (선택)</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">Key (선택)</label>
                   <select
                     value={modalKey}
                     onChange={(e) => setModalKey(e.target.value)}
-                    className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] font-medium ${inputBgClass}`}
                   >
                     <option value="">- 선택 안 함 -</option>
                     {['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'].map((k) => (
@@ -2239,70 +2206,61 @@ export default function Home() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">BPM (템포, 선택)</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">BPM (템포, 선택)</label>
                   <input
                     type="number"
                     value={modalBpm}
                     onChange={(e) => setModalBpm(e.target.value)}
                     placeholder="예: 72"
-                    className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                      isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                    }`}
+                    className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">
                   진행 순서 / 연주 메모 (선택)
                 </label>
                 <input
                   type="text"
                   value={modalComment}
                   onChange={(e) => setModalComment(e.target.value)}
-                  placeholder="예: Intro 4마디 후 시작 · 2절 후렴 반복"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-base sm:text-sm focus:outline-none focus:border-blue-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  placeholder="예: Intro 4마디 후 시작 · 후렴 반복"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                 />
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-sm font-semibold opacity-75">찬양 가사 (선택)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300">찬양 가사 (선택)</label>
                   <button
                     type="button"
                     onClick={() => handleSearchLyricsWeb(modalTitle)}
-                    className="text-xs font-bold text-blue-500 hover:underline flex items-center gap-1"
-                    title="구글에서 찬양 가사 검색 후 복사해 오기"
+                    className="text-xs font-semibold text-[#007AFF] hover:underline flex items-center gap-1"
                   >
                     <Globe className="w-3.5 h-3.5" />
                     <span>구글 가사 검색 ↗</span>
                   </button>
                 </div>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
                   placeholder="가사를 입력하거나 구글에서 복사해 붙여넣으세요"
-                  className={`w-full border rounded-xl p-3.5 text-xs sm:text-sm focus:outline-none focus:border-purple-500 resize-none ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  className={`w-full border rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#5856D6] resize-none ${inputBgClass}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2">악보 등록</label>
-                <div className="grid grid-cols-2 gap-2 mb-3.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-2">악보 등록</label>
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
                     type="button"
                     onClick={() => setModalSheetType('file')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold border transition ${
                       modalSheetType === 'file'
-                        ? 'bg-blue-600 border-blue-500 text-white'
-                        : isDark
-                        ? 'bg-neutral-800 border-neutral-700 text-neutral-400'
-                        : 'bg-slate-100 border-slate-300 text-slate-600'
+                        ? 'bg-[#007AFF] border-[#007AFF] text-white shadow-sm'
+                        : subCardBg
                     }`}
                   >
                     <ImageIcon className="w-4 h-4" />
@@ -2312,12 +2270,10 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setModalSheetType('library')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold border transition ${
                       modalSheetType === 'library'
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : isDark
-                        ? 'bg-neutral-800 border-neutral-700 text-neutral-400'
-                        : 'bg-slate-100 border-slate-300 text-slate-600'
+                        ? 'bg-[#5856D6] border-[#5856D6] text-white shadow-sm'
+                        : subCardBg
                     }`}
                   >
                     <Library className="w-4 h-4" />
@@ -2326,30 +2282,30 @@ export default function Home() {
                 </div>
 
                 {modalSheetType === 'file' && (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     <div className="flex gap-2">
                       <a
                         href={googleSearchSheetUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 py-2.5 px-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-blue-100 transition"
+                        className="flex-1 py-2 px-3 bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#007AFF]/20 transition"
                       >
-                        <Globe className="w-4 h-4" />
+                        <Globe className="w-3.5 h-3.5" />
                         <span>구글 악보 찾기 ↗</span>
                       </a>
                       <button
                         type="button"
                         onClick={handlePasteClipboardUrl}
-                        className="flex-1 py-2.5 px-3 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-purple-100 transition"
+                        className="flex-1 py-2 px-3 bg-[#5856D6]/10 text-[#5856D6] border border-[#5856D6]/20 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#5856D6]/20 transition"
                       >
-                        <ClipboardPaste className="w-4 h-4" />
+                        <ClipboardPaste className="w-3.5 h-3.5" />
                         <span>복사한 주소 넣기</span>
                       </button>
                     </div>
 
-                    <label className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md transition active:scale-98">
+                    <label className="w-full py-2.5 px-4 bg-[#34C759] hover:bg-[#30B753] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition active:scale-98">
                       <ImageIcon className="w-4 h-4" />
-                      <span>모바일 갤러리 / 악보 파일 선택 (다중 선택 가능)</span>
+                      <span>모바일 갤러리 / 악보 파일 선택</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -2360,35 +2316,33 @@ export default function Home() {
                     </label>
 
                     {isProcessing && (
-                      <span className="text-xs sm:text-sm text-blue-500 block animate-pulse font-bold text-center">
-                        악보 이미지 최적화 중...
+                      <span className="text-xs text-[#007AFF] block animate-pulse font-semibold text-center">
+                        악보 최적화 중...
                       </span>
                     )}
 
                     {modalSheetUrls.length > 0 && (
-                      <div className={`grid grid-cols-3 gap-2.5 p-3 border rounded-2xl max-h-52 overflow-y-auto ${
-                        isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-200'
+                      <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-2xl max-h-48 overflow-y-auto ${
+                        isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-slate-100 border-black/5'
                       }`}>
                         {modalSheetUrls.map((url, index) => (
-                          <div key={index} className={`relative group border rounded-xl p-1.5 flex flex-col items-center ${
-                            isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-slate-300'
-                          }`}>
+                          <div key={index} className="relative group border rounded-xl p-1 flex flex-col items-center bg-white shadow-xs">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={url}
                               alt={`${index + 1}p`}
-                              className="w-full h-20 object-contain rounded-lg bg-white"
+                              className="w-full h-16 object-contain rounded-lg bg-white"
                             />
-                            <span className="text-xs font-bold opacity-80 mt-1">
+                            <span className="text-[11px] font-bold text-slate-700 mt-1">
                               {index + 1} 페이지
                             </span>
                             <button
                               type="button"
                               onClick={() => handleRemoveSheetPage(index)}
-                              className="absolute -top-1.5 -right-1.5 p-1 bg-red-600 hover:bg-red-500 text-white rounded-full shadow"
-                              title="이 페이지 삭제"
+                              className="absolute -top-1.5 -right-1.5 p-1 bg-[#FF3B30] text-white rounded-full shadow"
+                              title="삭제"
                             >
-                              <X className="w-3.5 h-3.5" />
+                              <X className="w-3 h-3" />
                             </button>
                           </div>
                         ))}
@@ -2398,42 +2352,40 @@ export default function Home() {
                 )}
 
                 {modalSheetType === 'library' && (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3 top-3 text-neutral-400" />
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400 dark:text-neutral-500" />
                       <input
                         type="text"
                         value={modalLibrarySearch}
                         onChange={(e) => setModalLibrarySearch(e.target.value)}
-                        placeholder="보관된 곡명 검색 (클릭 시 자동 입력)"
-                        className={`w-full border rounded-xl pl-9 pr-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                          isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                        }`}
+                        placeholder="보관된 곡명 검색"
+                        className={`w-full border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#5856D6] ${inputBgClass}`}
                       />
                     </div>
 
-                    <div className={`max-h-52 overflow-y-auto space-y-1.5 p-2 border rounded-2xl ${
-                      isDark ? 'bg-neutral-800/50 border-neutral-700' : 'bg-slate-50 border-slate-200'
+                    <div className={`max-h-48 overflow-y-auto space-y-1.5 p-1.5 border rounded-2xl ${
+                      isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-slate-50 border-black/5'
                     }`}>
                       {filteredLibrary.length === 0 ? (
-                        <p className="text-center py-5 text-xs opacity-60">검색된 보관 곡이 없습니다.</p>
+                        <p className="text-center py-4 text-xs text-slate-400">보관된 곡이 없습니다.</p>
                       ) : (
                         filteredLibrary.map((libSong) => (
                           <div
                             key={libSong.id}
                             onClick={() => handleSelectFromLibrary(libSong)}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer hover:border-purple-500 hover:scale-[1.01] transition ${cardBgClass}`}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition active:scale-[0.99] ${cardBgClass}`}
                           >
                             <div className="min-w-0 flex-1">
-                              <span className="font-bold text-xs sm:text-sm truncate block">{libSong.title}</span>
-                              <div className="flex items-center gap-2 text-xs opacity-70 mt-0.5">
-                                {libSong.key && <span className="font-semibold text-blue-500">{libSong.key} Key</span>}
-                                {libSong.bpm && <span>BPM {libSong.bpm}</span>}
+                              <span className="font-bold text-xs truncate block text-slate-900 dark:text-white">{libSong.title}</span>
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5">
+                                {libSong.key && <span className="font-semibold text-[#007AFF]">{libSong.key} Key</span>}
+                                {libSong.bpm && <span>♩ {libSong.bpm}</span>}
                                 <span>악보 {libSong.sheetUrls?.length || 0}장</span>
                               </div>
                             </div>
-                            <span className="px-2.5 py-1 rounded-lg bg-purple-600/30 text-purple-300 font-bold text-xs flex items-center gap-1 shrink-0">
-                              <ArrowDownToLine className="w-3.5 h-3.5" /> 가져오기
+                            <span className="px-2.5 py-1 rounded-lg bg-[#5856D6] text-white font-bold text-xs flex items-center gap-1 shrink-0 shadow-xs">
+                              <ArrowDownToLine className="w-3 h-3 text-white" /> 가져오기
                             </span>
                           </div>
                         ))
@@ -2443,18 +2395,18 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="flex gap-2.5 pt-3">
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm transition ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-xl font-semibold text-xs sm:text-sm text-white shadow-lg shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] disabled:opacity-50 rounded-xl font-semibold text-xs text-white shadow-sm"
                 >
                   {isProcessing ? '처리 중...' : editingSongId ? '수정 완료' : '콘티에 추가'}
                 </button>
@@ -2466,34 +2418,31 @@ export default function Home() {
 
       {/* 3. 싱어 관리 모달 */}
       {isSingerModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
           }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
-              <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <Mic className="w-5 h-5 text-blue-500" />
-                이번 주 싱어 배정 & 싱어 명단
+            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Mic className="w-4 h-4 text-[#007AFF]" />
+                싱어 배정 & 관리
               </h2>
-              <button
-                onClick={() => setIsSingerModalOpen(false)}
-                className="p-1 opacity-70 hover:opacity-100 rounded-lg"
-              >
+              <button onClick={() => setIsSingerModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-4 text-xs sm:text-sm">
+            <div className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2.5">
-                  이번 주 찬양 싱어 선택 (클릭하여 토글)
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-2">
+                  이번 주 찬양 싱어 선택
                 </label>
                 {masterSingers.length === 0 ? (
-                  <div className={`p-5 rounded-2xl border text-center text-xs opacity-60 ${subCardBg}`}>
-                    등록된 전체 싱어가 없습니다. 아래에서 싱어를 먼저 추가해주세요.
+                  <div className={`p-4 rounded-2xl border text-center text-xs text-slate-500 ${subCardBg}`}>
+                    등록된 싱어가 없습니다. 아래에서 싱어를 먼저 추가해주세요.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-52 overflow-y-auto p-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
                     {masterSingers.map((singer) => {
                       const isChecked = selectedSingers.includes(singer);
                       return (
@@ -2501,16 +2450,14 @@ export default function Home() {
                           key={singer}
                           type="button"
                           onClick={() => handleToggleSinger(singer)}
-                          className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
+                          className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition ${
                             isChecked
-                              ? 'bg-blue-600 border-blue-500 text-white shadow-md'
-                              : isDark
-                              ? 'bg-neutral-800 border-neutral-700 text-neutral-300'
-                              : 'bg-slate-100 border-slate-300 text-slate-700'
+                              ? 'bg-[#007AFF] border-[#007AFF] text-white shadow-xs'
+                              : subCardBg
                           }`}
                         >
                           <span className="truncate">{singer}</span>
-                          {isChecked && <Check className="w-4 h-4 shrink-0" />}
+                          {isChecked && <Check className="w-3.5 h-3.5 shrink-0" />}
                         </button>
                       );
                     })}
@@ -2518,45 +2465,40 @@ export default function Home() {
                 )}
               </div>
 
-              <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? 'bg-neutral-800/50 border-neutral-800' : 'bg-slate-50 border-slate-200'}`}>
-                <span className="text-xs sm:text-sm font-bold block opacity-90">찬양팀 싱어 전체 명단 관리</span>
-                
+              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-slate-50 border-black/5'}`}>
+                <span className="text-xs font-bold block text-slate-700 dark:text-neutral-300">찬양팀 싱어 명단 추가</span>
                 <form onSubmit={handleAddMasterSinger} className="flex gap-2">
                   <input
                     type="text"
                     value={newSingerName}
                     onChange={(e) => setNewSingerName(e.target.value)}
-                    placeholder="새 싱어 이름 입력"
-                    className={`flex-1 border rounded-xl px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                      isDark ? 'bg-neutral-900 border-neutral-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                    }`}
+                    placeholder="새 싱어 이름"
+                    className={`flex-1 border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                   />
                   <button
                     type="submit"
-                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shrink-0"
+                    className="px-3 py-1.5 bg-[#007AFF] hover:bg-[#0071E3] text-white rounded-xl text-xs font-semibold shrink-0"
                   >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>추가</span>
+                    추가
                   </button>
                 </form>
 
                 {masterSingers.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  <div className="flex flex-wrap gap-1.5 pt-1">
                     {masterSingers.map((singer) => (
                       <span
                         key={singer}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border ${
-                          isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-300' : 'bg-white border-slate-300 text-slate-700'
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium ${
+                          isDark ? 'bg-[#1C1C1E] border-neutral-700 text-neutral-200' : 'bg-white border-black/5 text-slate-700'
                         }`}
                       >
                         <span>{singer}</span>
                         <button
                           type="button"
                           onClick={() => handleDeleteMasterSinger(singer)}
-                          className="text-neutral-500 hover:text-red-500 ml-0.5"
-                          title="명단에서 삭제"
+                          className="text-slate-400 hover:text-[#FF3B30]"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-3 h-3" />
                         </button>
                       </span>
                     ))}
@@ -2565,32 +2507,30 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">
                   이번 주 콘티 특이사항 메모
                 </label>
                 <input
                   type="text"
                   value={noteInput}
                   onChange={(e) => setNoteInput(e.target.value)}
-                  placeholder="예: 13:00 찬양팀 모임 / 단체복: 흰색 상의"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  placeholder="예: 13:00 찬양팀 모임 / 단체복: 흰색"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                 />
               </div>
 
-              <div className="flex gap-2.5 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsSingerModalOpen(false)}
-                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm transition ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   onClick={handleSaveContiSingers}
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-xs sm:text-sm text-white shadow-lg shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
                 >
                   배정 저장
                 </button>
@@ -2602,50 +2542,45 @@ export default function Home() {
 
       {/* 4. 관리자 인증 모달 */}
       {isAuthModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-3xl w-full max-w-xs p-6 shadow-2xl border ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
           }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Lock className="w-4 h-4 text-blue-500" />
-                관리자 수정 권한 인증
+                <Lock className="w-4 h-4 text-[#007AFF]" />
+                관리자 인증
               </h2>
-              <button 
-                onClick={() => setIsAuthModalOpen(false)} 
-                className="p-1 opacity-70 hover:opacity-100 rounded-lg"
-              >
+              <button onClick={() => setIsAuthModalOpen(false)} className="p-1 text-slate-400">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleLoginAdmin} className="mt-4 space-y-3.5">
+            <form onSubmit={handleLoginAdmin} className="mt-3.5 space-y-3">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">관리자 비밀번호</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">비밀번호</label>
                 <input
                   type="password"
                   required
                   autoFocus
                   value={authPasswordInput}
                   onChange={(e) => setAuthPasswordInput(e.target.value)}
-                  placeholder="비밀번호 입력 (기본: 1234)"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  placeholder="기본 비밀번호: 1234"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                 />
               </div>
 
-              <div className="flex gap-2.5 pt-1">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsAuthModalOpen(false)}
-                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
                 >
                   인증하기
                 </button>
@@ -2657,34 +2592,34 @@ export default function Home() {
 
       {/* 5. 앱 설정 모달 */}
       {isSettingsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-6 shadow-2xl border ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
           }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <SlidersHorizontal className="w-5 h-5 text-blue-500" />
-                앱 설정 및 관리
+                <SlidersHorizontal className="w-4 h-4 text-[#007AFF]" />
+                설정 및 모드
               </h2>
-              <button onClick={() => setIsSettingsModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+              <button onClick={() => setIsSettingsModalOpen(false)} className="p-1 text-slate-400">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-3.5 text-xs sm:text-sm">
+            <div className="mt-3.5 space-y-2.5 text-xs sm:text-sm">
               <button
                 onClick={() => {
                   setIsSettingsModalOpen(false);
                   if (isAdmin) handleLogoutAdmin();
                   else setIsAuthModalOpen(true);
                 }}
-                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
+                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
               >
-                <div className="flex items-center gap-3">
-                  {isAdmin ? <Unlock className="w-4 h-4 text-emerald-400" /> : <Lock className="w-4 h-4 opacity-60" />}
-                  <span>{isAdmin ? '관리자 모드 (활성화됨)' : '관리자 수정 권한 얻기'}</span>
+                <div className="flex items-center gap-2.5">
+                  {isAdmin ? <Unlock className="w-4 h-4 text-[#34C759]" /> : <Lock className="w-4 h-4 text-slate-400" />}
+                  <span>{isAdmin ? '관리자 모드 (활성화)' : '관리자 인증'}</span>
                 </div>
-                <span className="text-xs opacity-60">{isAdmin ? '잠금' : '인증'}</span>
+                <span className="text-xs text-slate-400">{isAdmin ? '잠금' : '인증'}</span>
               </button>
 
               {isAdmin && (
@@ -2694,10 +2629,10 @@ export default function Home() {
                       setIsSettingsModalOpen(false);
                       setIsChangePwModalOpen(true);
                     }}
-                    className={`w-full p-3.5 rounded-2xl border flex items-center gap-3 font-bold transition ${cardBgClass}`}
+                    className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${cardBgClass}`}
                   >
-                    <KeyRound className="w-4 h-4 text-blue-500" />
-                    <span>관리자 비밀번호 변경</span>
+                    <KeyRound className="w-4 h-4 text-[#007AFF]" />
+                    <span>비밀번호 변경</span>
                   </button>
 
                   <button
@@ -2705,8 +2640,8 @@ export default function Home() {
                       setIsSettingsModalOpen(false);
                       setIsReordering(!isReordering);
                     }}
-                    className={`w-full p-3.5 rounded-2xl border flex items-center gap-3 font-bold transition ${
-                      isReordering ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' : cardBgClass
+                    className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${
+                      isReordering ? 'bg-[#FF9500]/15 border-[#FF9500]/40 text-[#FF9500]' : cardBgClass
                     }`}
                   >
                     <GripVertical className="w-4 h-4" />
@@ -2717,13 +2652,13 @@ export default function Home() {
 
               <button
                 onClick={toggleTheme}
-                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
+                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
               >
-                <div className="flex items-center gap-3">
-                  {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-600" />}
-                  <span>테마 모드</span>
+                <div className="flex items-center gap-2.5">
+                  {isDark ? <Sun className="w-4 h-4 text-[#FFD60A]" /> : <Moon className="w-4 h-4 text-[#5856D6]" />}
+                  <span>화면 테마</span>
                 </div>
-                <span className="text-xs opacity-60">{isDark ? '어두운 모드' : '밝은 모드'}</span>
+                <span className="text-xs text-slate-400">{isDark ? '어두운 모드' : '밝은 모드'}</span>
               </button>
             </div>
           </div>
@@ -2732,84 +2667,82 @@ export default function Home() {
 
       {/* 6. 보관소 미리보기 모달 */}
       {previewLibSong && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-3.5 sm:p-6">
-          <div className={`rounded-3xl w-full max-w-2xl p-5 sm:p-6 shadow-2xl border flex flex-col max-h-[90vh] ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-3.5 sm:p-6">
+          <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
           }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b shrink-0 ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
-                <Music className="w-5 h-5 text-purple-400 shrink-0" />
-                <h2 className="text-base sm:text-lg font-bold truncate">{previewLibSong.title}</h2>
+                <Music className="w-4 h-4 text-[#5856D6] shrink-0" />
+                <h2 className="text-base font-bold truncate">{previewLibSong.title}</h2>
                 {previewLibSong.key && (
-                  <span className="px-2.5 py-0.5 text-xs font-bold bg-blue-600 text-white rounded-lg">
+                  <span className="px-2 py-0.5 text-xs font-semibold bg-[#007AFF] text-white rounded-lg">
                     {previewLibSong.key} Key
                   </span>
                 )}
               </div>
-              <button onClick={() => setPreviewLibSong(null)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+              <button onClick={() => setPreviewLibSong(null)} className="p-1 text-slate-400">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 flex-1 overflow-y-auto space-y-4 pr-1">
+            <div className="mt-3 flex-1 overflow-y-auto space-y-3.5 pr-1">
               {previewLibSong.sheetUrls && previewLibSong.sheetUrls.length > 0 ? (
                 <div className="space-y-2">
-                  <span className="text-xs font-bold opacity-75 block">등록된 악보 ({previewLibSong.sheetUrls.length}장)</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <span className="text-xs font-bold text-slate-500 dark:text-neutral-400 block">등록된 악보 ({previewLibSong.sheetUrls.length}장)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {previewLibSong.sheetUrls.map((url, idx) => (
-                      <div key={idx} className="border rounded-2xl p-1.5 bg-white flex flex-col items-center shadow-sm">
+                      <div key={idx} className="border border-black/5 rounded-2xl p-1 bg-white flex flex-col items-center shadow-xs">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={`${idx + 1}p`} className="w-full h-auto max-h-64 object-contain rounded-xl" />
-                        <span className="text-xs font-bold text-slate-600 mt-1.5">{idx + 1} 페이지</span>
+                        <img src={url} alt={`${idx + 1}p`} className="w-full h-auto max-h-56 object-contain rounded-xl" />
+                        <span className="text-xs font-semibold text-slate-700 mt-1">{idx + 1} 페이지</span>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <p className="text-xs opacity-60">등록된 악보 이미지가 없습니다.</p>
+                <p className="text-xs text-slate-400">등록된 악보 이미지가 없습니다.</p>
               )}
 
-              <div className="space-y-2 pt-3 border-t border-neutral-800">
+              <div className="space-y-1.5 pt-2 border-t border-black/5 dark:border-white/5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-bold text-purple-400 flex items-center gap-1.5">
-                    <BookOpen className="w-4 h-4" /> 찬양 가사
+                  <span className="text-xs font-bold text-[#5856D6] flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
                   </span>
                   {previewLibSong.lyrics && (
                     <button
                       onClick={() => handleCopyLyrics(previewLibSong.lyrics || '')}
-                      className={`text-xs font-bold px-3 py-1 rounded-xl border flex items-center gap-1 ${
-                        isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-300 text-slate-800'
-                      }`}
+                      className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-[#5856D6] text-white flex items-center gap-1"
                     >
-                      <Copy className="w-3.5 h-3.5" /> 복사
+                      <Copy className="w-3 h-3 text-white" /> 복사
                     </button>
                   )}
                 </div>
                 {previewLibSong.lyrics ? (
-                  <div className={`p-4 rounded-2xl border text-sm sm:text-base font-medium leading-relaxed whitespace-pre-wrap ${
-                    isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-slate-50 border-slate-200'
+                  <div className={`p-3.5 rounded-2xl border text-sm font-normal leading-relaxed whitespace-pre-wrap ${
+                    isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white' : 'bg-slate-50 border-black/5 text-[#1C1C1E]'
                   }`}>
                     {previewLibSong.lyrics}
                   </div>
                 ) : (
-                  <p className="text-xs opacity-60">등록된 가사가 없습니다.</p>
+                  <p className="text-xs text-slate-400">등록된 가사가 없습니다.</p>
                 )}
               </div>
             </div>
 
-            <div className="pt-3.5 border-t border-neutral-800 flex justify-between items-center shrink-0">
+            <div className="pt-3 border-t border-black/5 dark:border-white/5 flex justify-between items-center shrink-0">
               <button
                 onClick={() => {
                   handleDeleteFromLibrary(previewLibSong.id, previewLibSong.title);
                   setPreviewLibSong(null);
                 }}
-                className="px-3.5 py-2 text-xs sm:text-sm text-red-500 hover:bg-red-500/10 rounded-xl font-bold"
+                className="px-3 py-1.5 text-xs text-[#FF3B30] hover:bg-red-500/10 rounded-xl font-semibold"
               >
                 보관소에서 삭제
               </button>
               <button
                 onClick={() => setPreviewLibSong(null)}
-                className={`ml-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold ${subCardBg}`}
+                className={`px-4 py-1.5 rounded-xl text-xs font-semibold ${subCardBg}`}
               >
                 닫기
               </button>
@@ -2820,46 +2753,44 @@ export default function Home() {
 
       {/* 7. 비밀번호 변경 모달 */}
       {isChangePwModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-3xl w-full max-w-xs p-6 shadow-2xl border ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
           }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-blue-500" />
-                관리자 비밀번호 변경
+                <KeyRound className="w-4 h-4 text-[#007AFF]" />
+                비밀번호 변경
               </h2>
-              <button onClick={() => setIsChangePwModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+              <button onClick={() => setIsChangePwModalOpen(false)} className="p-1 text-slate-400">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleChangeAdminPassword} className="mt-4 space-y-3.5">
+            <form onSubmit={handleChangeAdminPassword} className="mt-3.5 space-y-3">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">새 비밀번호</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">새 비밀번호</label>
                 <input
                   type="password"
                   required
                   value={newPwInput}
                   onChange={(e) => setNewPwInput(e.target.value)}
-                  placeholder="변경할 새 비밀번호 입력"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  placeholder="새 비밀번호 입력"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                 />
               </div>
 
-              <div className="flex gap-2.5 pt-1">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsChangePwModalOpen(false)}
-                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
                 >
                   변경 완료
                 </button>
@@ -2871,43 +2802,41 @@ export default function Home() {
 
       {/* 8. 출석 체크 모달 */}
       {isAttendanceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className={`rounded-3xl w-full max-w-sm p-6 shadow-2xl border ${
-            isDark ? 'bg-neutral-900 border-neutral-800 text-neutral-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
           }`}>
-            <div className={`flex items-center justify-between pb-3.5 border-b ${isDark ? 'border-neutral-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-500" />
-                이번 주 예배 참석 여부
+                <Users className="w-4 h-4 text-[#007AFF]" />
+                예배 참석 여부
               </h2>
-              <button onClick={() => setIsAttendanceModalOpen(false)} className="p-1 opacity-70 hover:opacity-100 rounded-lg">
+              <button onClick={() => setIsAttendanceModalOpen(false)} className="p-1 text-slate-400">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-4">
+            <div className="mt-3.5 space-y-3.5">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">이름 (또는 직분)</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">이름 (또는 직분)</label>
                 <input
                   type="text"
                   value={myAttendanceName}
                   onChange={(e) => setMyAttendanceName(e.target.value)}
                   placeholder="예: 김지은 싱어"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
-                    isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2">참석 상태 선택</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1.5">참석 상태 선택</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setMyAttendanceStatus('yes')}
-                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'yes'
-                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
+                        ? 'bg-[#34C759] border-[#34C759] text-white shadow-xs'
                         : subCardBg
                     }`}
                   >
@@ -2916,9 +2845,9 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setMyAttendanceStatus('no')}
-                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'no'
-                        ? 'bg-red-600 border-red-500 text-white shadow-md'
+                        ? 'bg-[#FF3B30] border-[#FF3B30] text-white shadow-xs'
                         : subCardBg
                     }`}
                   >
@@ -2927,9 +2856,9 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setMyAttendanceStatus('maybe')}
-                    className={`py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'maybe'
-                        ? 'bg-amber-600 border-amber-500 text-white shadow-md'
+                        ? 'bg-[#FF9500] border-[#FF9500] text-white shadow-xs'
                         : subCardBg
                     }`}
                   >
@@ -2938,18 +2867,18 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="flex gap-2.5 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsAttendanceModalOpen(false)}
-                  className={`flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   onClick={() => handleSubmitAttendance(myAttendanceStatus)}
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xs sm:text-sm text-white shadow-md shadow-blue-600/30"
+                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
                 >
                   출석 제출
                 </button>
