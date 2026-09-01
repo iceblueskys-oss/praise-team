@@ -472,6 +472,16 @@ export default function Home() {
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
+// 🌟 콘티 세부 정보 변수 정의 추가
+  const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
+  const customNote = currentConti?.customNote || '';
+  const currentNotice = currentConti?.notice || '';
+  const currentAttendance = currentConti?.attendance || {};
+
+  const yesCount = Object.values(currentAttendance).filter((v) => v === 'yes').length;
+  const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
+  const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
+
   // 날짜 기준 콘티 분리 (오늘 이후 = 다가올 일정, 오늘 이전 = 지난 콘티)
   const todayStr = formatDateToStr(new Date());
   const upcomingContis = contis.filter((c) => (c.date || '') >= todayStr);
