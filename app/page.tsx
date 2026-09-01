@@ -50,6 +50,7 @@ import {
   ChevronUp,
   AlertCircle,
   Settings,
+  Palette,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -63,6 +64,11 @@ import {
   writeBatch,
   getDoc,
 } from 'firebase/firestore';
+
+interface CustomTag {
+  name: string;
+  color: string; // 예: 'amber', 'blue', 'purple', 'emerald', 'rose', 'indigo'
+}
 
 interface SongItem {
   id: string;
@@ -97,6 +103,26 @@ interface Conti {
   notice?: string;
   attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
 }
+
+// 🌟 파스텔 태그 색상 테마 프리셋
+const TAG_COLOR_THEMES: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  amber: { bg: 'bg-[#FEF3E2] dark:bg-amber-950/40', text: 'text-[#D97706] dark:text-amber-400', border: 'border-[#F39C12]/30', label: '살구 앰버' },
+  blue: { bg: 'bg-[#EBF3FB] dark:bg-blue-950/40', text: 'text-[#2B6CB0] dark:text-blue-400', border: 'border-[#4A90E2]/30', label: '스카이 블루' },
+  purple: { bg: 'bg-[#F3E8FF] dark:bg-purple-950/40', text: 'text-[#6B46C1] dark:text-purple-400', border: 'border-[#8E74AE]/30', label: '라벤더 퍼플' },
+  emerald: { bg: 'bg-[#E8F7EE] dark:bg-emerald-950/40', text: 'text-[#2E7D32] dark:text-emerald-400', border: 'border-[#52B788]/30', label: '세이지 그린' },
+  rose: { bg: 'bg-[#FEECEC] dark:bg-rose-950/40', text: 'text-[#C53030] dark:text-rose-400', border: 'border-[#EF4444]/30', label: '파스텔 로즈' },
+  indigo: { bg: 'bg-[#EEF2FF] dark:bg-indigo-950/40', text: 'text-[#4F46E5] dark:text-indigo-400', border: 'border-[#6366F1]/30', label: '인디고 블루' },
+};
+
+const DEFAULT_CUSTOM_TAGS: CustomTag[] = [
+  { name: '입례', color: 'blue' },
+  { name: '송영', color: 'indigo' },
+  { name: '경배와찬양', color: 'amber' },
+  { name: '기도송', color: 'purple' },
+  { name: '헌금', color: 'emerald' },
+  { name: '파송', color: 'rose' },
+  { name: '특송', color: 'amber' },
+];
 
 function getUpcomingSunday(): Date {
   const today = new Date();
@@ -139,8 +165,6 @@ function getSafeDocId(title: string, key?: string | null): string {
   const rawId = `lib_${cleanTitle}_${cleanKey}`;
   return rawId.replace(/[\/\s#?\[\]]/g, '_');
 }
-
-const DEFAULT_TAGS = ['<입례>', '<송영>', '<경배와찬양>', '<기도송>', '<헌금>', '<파송>', '<특송>'];
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -186,9 +210,10 @@ export default function Home() {
   const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState('');
 
-  // 🌟 태그 풀 상태 및 태그 관리 모달 상태 🌟
-  const [masterTags, setMasterTags] = useState<string[]>(DEFAULT_TAGS);
+  // 🌟 커스텀 컬러 태그 상태 🌟
+  const [masterTags, setMasterTags] = useState<CustomTag[]>(DEFAULT_CUSTOM_TAGS);
   const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState<string>('amber');
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
 
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
@@ -228,7 +253,6 @@ export default function Home() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 제스처 추적용 Ref
   const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
   const isPanning = useRef(false);
   const startPanPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -449,12 +473,16 @@ export default function Home() {
         }
       });
 
-      // 🌟 태그 목록 실시간 동기화 🌟
-      unsubTags = onSnapshot(doc(db, 'settings', 'tags_pool'), (snap) => {
+      // 🌟 태그 풀 v2 (이름 + 색상) 동기화 (기존 문자열 배열 호환)
+      unsubTags = onSnapshot(doc(db, 'settings', 'tags_pool_v2'), (snap) => {
         if (snap.exists()) {
           const rawList = snap.data()?.list;
           if (Array.isArray(rawList) && rawList.length > 0) {
-            setMasterTags(rawList);
+            const parsed: CustomTag[] = rawList.map((item: any) => {
+              if (typeof item === 'string') return { name: item.replace(/[<>]/g, ''), color: 'amber' };
+              return { name: item.name || '', color: item.color || 'amber' };
+            });
+            setMasterTags(parsed);
           }
         }
       });
@@ -502,18 +530,15 @@ export default function Home() {
     return () => unsubDraw();
   }, [viewingSongId, currentPageIndex, viewMode]);
 
-  // 활성 콘티 및 안전한 viewingSong 식별
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const viewingSong = allSongs.find((s) => s.id === viewingSongId) || null;
 
-  // 뷰어 네비게이션용 곡 리스트 (현재 곡이 속한 콘티 기준)
   const activeViewerContiId = viewingSong?.contiId || currentConti?.id;
   const currentSongs = allSongs
     .filter((s) => s.contiId === activeViewerContiId)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
-  // 콘티 세부 정보
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
   const currentNotice = currentConti?.notice || '';
@@ -523,7 +548,6 @@ export default function Home() {
   const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
   const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
 
-  // 날짜 기준 콘티 분리
   const todayStr = formatDateToStr(new Date());
   const upcomingContis = contis.filter((c) => (c.date || '') >= todayStr);
   const pastContis = contis.filter((c) => (c.date || '') < todayStr);
@@ -542,7 +566,6 @@ export default function Home() {
     }
   };
 
-  // 스와이프 제스처 및 드래그 팬(Pan) 핸들러
   const handleTouchStartViewer = (e: React.TouchEvent) => {
     if (isDrawingMode || viewMode === 'lyrics') return;
 
@@ -816,41 +839,48 @@ export default function Home() {
     }
   };
 
-  // 🌟 태그 추가 및 삭제 핸들러 🌟
+  // 🌟 순수 텍스트 태그 추가 & 색상 지정 핸들러 🌟
   const handleAddTag = async (e: React.FormEvent) => {
     e.preventDefault();
-    let raw = newTagName.trim();
-    if (!raw) return;
-    if (!raw.startsWith('<')) raw = `<${raw}`;
-    if (!raw.endsWith('>')) raw = `${raw}>`;
+    const clean = newTagName.trim();
+    if (!clean) return;
 
-    if (masterTags.includes(raw)) {
-      alert('이미 존재하는 태그입니다.');
+    if (masterTags.some((t) => t.name === clean)) {
+      alert('이미 존재하는 태그 이름입니다.');
       return;
     }
 
-    const updated = [...masterTags, raw];
+    const updated: CustomTag[] = [...masterTags, { name: clean, color: newTagColor }];
     setMasterTags(updated);
     setNewTagName('');
 
     try {
-      await setDoc(doc(db, 'settings', 'tags_pool'), { list: updated }, { merge: true });
+      await setDoc(doc(db, 'settings', 'tags_pool_v2'), { list: updated }, { merge: true });
     } catch (e) {
       console.error('태그 저장 오류:', e);
     }
   };
 
-  const handleDeleteTag = async (tagToDelete: string) => {
-    if (!confirm(`'${tagToDelete}' 태그를 목록에서 삭제하시겠습니까?`)) return;
-    const updated = masterTags.filter((t) => t !== tagToDelete);
+  const handleDeleteTag = async (tagNameToDelete: string) => {
+    if (!confirm(`'${tagNameToDelete}' 태그를 목록에서 삭제하시겠습니까?`)) return;
+    const updated = masterTags.filter((t) => t.name !== tagNameToDelete);
     setMasterTags(updated);
-    if (modalHeaderTag === tagToDelete) setModalHeaderTag('');
+    if (modalHeaderTag === tagNameToDelete) setModalHeaderTag('');
 
     try {
-      await setDoc(doc(db, 'settings', 'tags_pool'), { list: updated }, { merge: true });
+      await setDoc(doc(db, 'settings', 'tags_pool_v2'), { list: updated }, { merge: true });
     } catch (e) {
       console.error('태그 삭제 오류:', e);
     }
+  };
+
+  // 태그 이름으로 스타일 매핑 반환 헬퍼 함수
+  const getTagStyle = (tagStr?: string) => {
+    if (!tagStr) return null;
+    const clean = tagStr.replace(/[<>]/g, '').trim();
+    const matched = masterTags.find((t) => t.name === clean || `<${t.name}>` === tagStr || t.name === tagStr);
+    const colorKey = matched?.color || 'amber';
+    return TAG_COLOR_THEMES[colorKey] || TAG_COLOR_THEMES.amber;
   };
 
   const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
@@ -1308,7 +1338,6 @@ export default function Home() {
     );
   }
 
-  // 파스텔 톤 팔레트 설정
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-[#F4F6F9] text-slate-800';
   const cardBgClass = isDark ? 'bg-[#1C1C1E] border-neutral-800/80 shadow-sm' : 'bg-white border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]';
@@ -1967,6 +1996,7 @@ export default function Home() {
                   const isBeingDragged = draggedIdx === idx;
                   const isDropTarget = dropTargetIdx === idx && draggedIdx !== null;
                   const isLyricsExpanded = expandedLyricsSongId === song.id;
+                  const tagStyle = getTagStyle(song.headerTag);
 
                   return (
                     <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
@@ -2017,8 +2047,8 @@ export default function Home() {
 
                             <div className="min-w-0 flex-1 space-y-0.5">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                {song.headerTag && (
-                                  <span className="px-2 py-0.5 text-xs font-bold bg-[#FEF3E2] text-[#D97706] rounded-lg shrink-0">
+                                {song.headerTag && tagStyle && (
+                                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 ${tagStyle.bg} ${tagStyle.text} ${tagStyle.border}`}>
                                     {song.headerTag}
                                   </span>
                                 )}
@@ -2423,32 +2453,37 @@ export default function Home() {
                     className="text-xs font-bold text-[#4A90E2] hover:underline flex items-center gap-1"
                   >
                     <Settings className="w-3 h-3" />
-                    <span>태그 관리/수정</span>
+                    <span>태그 색상/목록 관리</span>
                   </button>
                 </div>
 
                 <div className="flex gap-1.5 mb-2 flex-wrap">
-                  {masterTags.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setModalHeaderTag(tag)}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition ${
-                        modalHeaderTag === tag
-                          ? 'bg-[#FEF3E2] border-[#F39C12] text-[#D97706]'
-                          : subCardBg
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+                  {masterTags.map((t) => {
+                    const style = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    const isSelected = modalHeaderTag === t.name;
+
+                    return (
+                      <button
+                        key={t.name}
+                        type="button"
+                        onClick={() => setModalHeaderTag(t.name)}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition ${
+                          isSelected
+                            ? 'ring-2 ring-blue-500 scale-105 shadow-sm ' + style.bg + ' ' + style.text + ' ' + style.border
+                            : style.bg + ' ' + style.text + ' ' + style.border + ' opacity-80 hover:opacity-100'
+                        }`}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
                   {modalHeaderTag && (
                     <button
                       type="button"
                       onClick={() => setModalHeaderTag('')}
                       className="px-2.5 py-1 rounded-xl text-xs font-bold border border-red-500/40 text-red-500 hover:bg-red-50"
                     >
-                      초기화
+                      선택 해제
                     </button>
                   )}
                 </div>
@@ -2456,7 +2491,7 @@ export default function Home() {
                   type="text"
                   value={modalHeaderTag}
                   onChange={(e) => setModalHeaderTag(e.target.value)}
-                  placeholder="직접 입력하거나 위 태그를 누르세요"
+                  placeholder="직접 입력하거나 위 태그를 터치하세요"
                   className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#F39C12] ${inputBgClass}`}
                 />
               </div>
@@ -2700,7 +2735,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🌟 3. 태그 목록 관리 모달 🌟 */}
+      {/* 🌟 3. 태그 목록 & 색상 관리 전용 모달 🌟 */}
       {isTagModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2708,8 +2743,8 @@ export default function Home() {
           }`}>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Tag className="w-4 h-4 text-[#F39C12]" />
-                예배 순서 태그 수정 및 관리
+                <Palette className="w-4 h-4 text-[#4A90E2]" />
+                예배 순서 태그 & 색상 관리
               </h2>
               <button onClick={() => setIsTagModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -2717,48 +2752,70 @@ export default function Home() {
             </div>
 
             <div className="mt-3.5 space-y-4 text-xs sm:text-sm">
-              <form onSubmit={handleAddTag} className="space-y-2">
+              <form onSubmit={handleAddTag} className="space-y-3 p-3.5 rounded-2xl border bg-[#F8FAFC] dark:bg-[#2C2C2E] border-slate-200 dark:border-neutral-700">
                 <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300">
-                  새 태그 추가 (예: 묵도, 결단찬양, 헌금송)
+                  새 태그 추가 (괄호 없이 자유롭게 입력)
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newTagName}
-                    onChange={(e) => setNewTagName(e.target.value)}
-                    placeholder="태그 이름 입력"
-                    className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#F39C12] ${inputBgClass}`}
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-[#F39C12] hover:bg-[#D97706] text-white rounded-xl text-xs font-bold shrink-0 shadow-xs"
-                  >
-                    추가
-                  </button>
+                
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="예: 묵도, 결단찬양, 헌금송, 앙코르"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
+                />
+
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 block">태그 색상 선택:</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {Object.entries(TAG_COLOR_THEMES).map(([colorKey, themeObj]) => (
+                      <button
+                        key={colorKey}
+                        type="button"
+                        onClick={() => setNewTagColor(colorKey)}
+                        className={`px-2 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition ${themeObj.bg} ${themeObj.text} ${themeObj.border} ${
+                          newTagColor === colorKey ? 'ring-2 ring-blue-500 scale-102 shadow-xs' : 'opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        {newTagColor === colorKey && <Check className="w-3 h-3" />}
+                        <span>{themeObj.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-[#4A90E2] hover:bg-[#3B82F6] text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-98"
+                >
+                  + 태그 추가하기
+                </button>
               </form>
 
               <div className="space-y-2">
                 <span className="text-xs font-bold text-slate-600 dark:text-neutral-400 block">
                   등록된 전체 태그 목록 ({masterTags.length}개)
                 </span>
-                <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto p-1.5 border rounded-2xl bg-slate-50 dark:bg-[#2C2C2E] border-slate-200 dark:border-neutral-700">
-                  {masterTags.map((t) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FEF3E2] text-[#D97706] border border-[#F39C12]/30 shadow-xs"
-                    >
-                      <span>{t}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTag(t)}
-                        className="text-amber-700 hover:text-red-500 ml-0.5"
-                        title="태그 삭제"
+                <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto p-2 border rounded-2xl bg-white dark:bg-[#1C1C1E] border-slate-200 dark:border-neutral-700">
+                  {masterTags.map((t) => {
+                    const style = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    return (
+                      <span
+                        key={t.name}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border shadow-xs ${style.bg} ${style.text} ${style.border}`}
                       >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </span>
-                  ))}
+                        <span>{t.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTag(t.name)}
+                          className="hover:opacity-75 ml-0.5"
+                          title="태그 삭제"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2766,9 +2823,9 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsTagModalOpen(false)}
-                  className="w-full py-2.5 bg-[#4A90E2] text-white rounded-xl font-bold text-xs shadow-xs"
+                  className={`w-full py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
                 >
-                  완료 및 닫기
+                  닫기
                 </button>
               </div>
             </div>
