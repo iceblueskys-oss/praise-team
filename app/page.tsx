@@ -203,7 +203,7 @@ export default function Home() {
   const [scale, setScale] = useState(1.0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser'>('pen');
-  const [penColor, setPenColor] = useState('#FF3B30');
+  const [penColor, setPenColor] = useState('#EF4444');
   const [showViewerControls, setShowViewerControls] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1107,7 +1107,7 @@ export default function Home() {
 
     const days = [];
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-10" />);
+      days.push(<div key={`empty-${i}`} className="h-9" />);
     }
 
     for (let d = 1; d <= lastDate; d++) {
@@ -1121,21 +1121,21 @@ export default function Home() {
           key={d}
           type="button"
           onClick={() => handleSelectCalendarDate(dateObj)}
-          className={`h-10 w-full rounded-2xl flex flex-col items-center justify-center font-semibold text-sm transition-all ${
+          className={`h-9 w-full rounded-xl flex flex-col items-center justify-center font-semibold text-xs transition-all ${
             isSelected
-              ? 'bg-[#007AFF] text-white font-bold shadow-md shadow-blue-500/20 scale-105'
+              ? 'bg-[#4A90E2] text-white font-bold shadow-md shadow-blue-500/20 scale-105'
               : isSunday
               ? isDark
-                ? 'text-[#FF453A] hover:bg-neutral-800 font-bold'
-                : 'text-[#FF3B30] hover:bg-slate-100 font-bold'
+                ? 'text-[#FF7675] hover:bg-neutral-800 font-bold'
+                : 'text-[#E74C3C] hover:bg-rose-50 font-bold'
               : isDark
               ? 'text-neutral-200 hover:bg-neutral-800'
-              : 'text-slate-800 hover:bg-slate-100'
+              : 'text-slate-700 hover:bg-slate-100'
           }`}
         >
           <span>{d}</span>
           {isSunday && !isSelected && (
-            <span className="w-1 h-1 bg-[#FF3B30] rounded-full mt-0.5"></span>
+            <span className="w-1 h-1 bg-[#E74C3C] rounded-full mt-0.5"></span>
           )}
         </button>
       );
@@ -1145,20 +1145,21 @@ export default function Home() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F2F2F7] dark:bg-black text-slate-600 dark:text-neutral-400 text-sm font-medium">
-        찬양팀 Hub 로딩 중...
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] dark:bg-neutral-950 text-slate-500 dark:text-neutral-400 text-sm font-medium">
+        찬양팀 Hub 불러오는 중...
       </div>
     );
   }
 
+  // 🌟 파스텔 톤 팔레트 설정 🌟
   const isDark = theme === 'dark';
-  const bgClass = isDark ? 'bg-black text-neutral-100' : 'bg-[#F2F2F7] text-[#1C1C1E]';
-  const cardBgClass = isDark ? 'bg-[#1C1C1E] border-neutral-800/80 shadow-sm' : 'bg-white border-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]';
-  const subCardBg = isDark ? 'bg-[#2C2C2E] border-neutral-700/60 text-neutral-200 hover:bg-[#3A3A3C]' : 'bg-[#F2F2F7] border-black/5 text-slate-800 hover:bg-[#E5E5EA]';
-  const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F2F2F7] border-black/5 text-[#1C1C1E] placeholder-slate-400';
+  const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-[#F4F6F9] text-slate-800';
+  const cardBgClass = isDark ? 'bg-[#1C1C1E] border-neutral-800/80 shadow-sm' : 'bg-white border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]';
+  const subCardBg = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-200 hover:bg-[#38383A]' : 'bg-[#EDF2F7] border-slate-200/60 text-slate-700 hover:bg-[#E2E8F0]';
+  const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder-slate-400';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면
+  // 1. 악보 & 가사 뷰어 화면 (화이트 캔버스 고정)
   // ==========================================
   if (viewingSong) {
     const totalPages = viewingSong.sheetUrls?.length || 0;
@@ -1167,8 +1168,9 @@ export default function Home() {
     return (
       <div
         style={{ overscrollBehavior: 'none' }}
-        className="fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none bg-black text-white"
+        className="fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none bg-[#F5F7FA] text-slate-900"
       >
+        {/* 뷰어 상단 툴바 */}
         <div
           className={`fixed top-3 sm:top-5 inset-x-3 sm:inset-x-6 z-50 transition-all duration-300 pointer-events-none ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
@@ -1176,7 +1178,7 @@ export default function Home() {
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">
-            <div className="pointer-events-auto flex items-center justify-between p-2 rounded-2xl bg-black/80 dark:bg-[#1C1C1E]/90 border border-white/10 shadow-2xl backdrop-blur-2xl text-white">
+            <div className="pointer-events-auto flex items-center justify-between p-2 rounded-2xl bg-white/95 border border-slate-200 shadow-xl backdrop-blur-xl text-slate-800">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -1184,19 +1186,19 @@ export default function Home() {
                     setCurrentPageIndex(0);
                     setViewMode('sheet');
                   }}
-                  className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center active:scale-95 transition"
+                  className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
                   title="목록으로 나가기"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
 
                 {viewingSong.key && (
-                  <span className="px-2.5 py-1 text-xs font-semibold bg-[#007AFF] rounded-lg text-white">
+                  <span className="px-2.5 py-1 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] border border-[#CBD5E0] rounded-lg">
                     {viewingSong.key} Key
                   </span>
                 )}
                 {viewingSong.bpm && (
-                  <span className="text-xs font-medium text-neutral-400 hidden xs:inline">
+                  <span className="text-xs font-semibold text-slate-500 hidden xs:inline">
                     ♩ {viewingSong.bpm}
                   </span>
                 )}
@@ -1205,10 +1207,10 @@ export default function Home() {
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
                     viewMode === 'lyrics'
-                      ? 'bg-[#5856D6] text-white shadow-sm'
-                      : 'bg-white/10 hover:bg-white/20 text-neutral-200'
+                      ? 'bg-[#8E74AE] text-white shadow-sm'
+                      : 'bg-[#F3E8FF] text-[#6B46C1] hover:bg-[#E9D8FD]'
                   }`}
                 >
                   {viewMode === 'sheet' ? <BookOpen className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
@@ -1218,10 +1220,10 @@ export default function Home() {
                 {viewMode === 'sheet' && currentSheetUrl && (
                   <button
                     onClick={() => setIsDrawingMode(!isDrawingMode)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
                       isDrawingMode
-                        ? 'bg-[#FF9F0A] text-black font-bold'
-                        : 'bg-white/10 hover:bg-white/20 text-neutral-200'
+                        ? 'bg-[#FEF3E2] border border-[#F39C12] text-[#D97706]'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
                     <PenTool className="w-3.5 h-3.5" />
@@ -1230,16 +1232,16 @@ export default function Home() {
                 )}
 
                 {viewMode === 'sheet' && (
-                  <div className="flex items-center rounded-xl bg-white/10 p-0.5">
+                  <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200">
                     <button
                       onClick={() => setScale((s) => Math.max(s - 0.2, 0.6))}
-                      className="w-7 h-7 flex items-center justify-center text-xs font-bold text-neutral-200 hover:text-white"
+                      className="w-7 h-7 flex items-center justify-center text-xs font-bold text-slate-700 hover:text-black"
                     >
                       -
                     </button>
                     <button
                       onClick={() => setScale((s) => Math.min(s + 0.2, 2.0))}
-                      className="w-7 h-7 flex items-center justify-center text-xs font-bold text-neutral-200 hover:text-white"
+                      className="w-7 h-7 flex items-center justify-center text-xs font-bold text-slate-700 hover:text-black"
                     >
                       +
                     </button>
@@ -1249,9 +1251,9 @@ export default function Home() {
             </div>
 
             {viewingSong.comment && (
-              <div className="pointer-events-auto self-center px-3.5 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-xl shadow-lg text-xs font-medium text-neutral-200 flex items-center gap-1.5 max-w-sm truncate">
-                <MessageSquare className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
-                <span className="font-semibold text-white shrink-0">진행:</span>
+              <div className="pointer-events-auto self-center px-3.5 py-1.5 rounded-full bg-[#EBF3FB] border border-[#BEE3F8] shadow-md text-xs font-semibold text-[#2B6CB0] flex items-center gap-1.5 max-w-sm truncate">
+                <MessageSquare className="w-3.5 h-3.5 text-[#3182CE] shrink-0" />
+                <span className="font-bold shrink-0">진행:</span>
                 <span className="truncate">{viewingSong.comment}</span>
               </div>
             )}
@@ -1265,36 +1267,36 @@ export default function Home() {
             }`}
             style={{ paddingTop: 'env(safe-area-inset-top)' }}
           >
-            <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-2xl bg-black/80 border border-white/10 shadow-2xl backdrop-blur-2xl">
-              <div className="flex items-center p-0.5 rounded-xl bg-white/10 gap-0.5">
+            <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-2xl bg-white/95 border border-slate-200 shadow-xl backdrop-blur-xl">
+              <div className="flex items-center p-0.5 rounded-xl bg-slate-100 gap-0.5">
                 <button
                   onClick={() => setCurrentTool('pen')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${currentTool === 'pen' ? 'bg-[#007AFF] text-white shadow-sm' : 'text-neutral-400'}`}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'pen' ? 'bg-[#4A90E2] text-white shadow-xs' : 'text-slate-600'}`}
                 >
                   펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('highlighter')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${currentTool === 'highlighter' ? 'bg-[#FFD60A] text-black shadow-sm' : 'text-neutral-400'}`}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'highlighter' ? 'bg-[#FEEBC8] text-[#C05621] shadow-xs' : 'text-slate-600'}`}
                 >
                   형광펜
                 </button>
                 <button
                   onClick={() => setCurrentTool('eraser')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${currentTool === 'eraser' ? 'bg-neutral-600 text-white shadow-sm' : 'text-neutral-400'}`}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'eraser' ? 'bg-slate-700 text-white shadow-xs' : 'text-slate-600'}`}
                 >
                   지우개
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white/10">
-                {['#FF3B30', '#007AFF', '#34C759', '#FFFFFF', '#FFD60A'].map((color) => (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-100">
+                {['#EF4444', '#3B82F6', '#10B981', '#1E293B', '#F59E0B'].map((color) => (
                   <button
                     key={color}
                     onClick={() => setPenColor(color)}
                     style={{ backgroundColor: color }}
                     className={`w-4 h-4 rounded-full transition-transform ${
-                      penColor === color ? 'scale-125 ring-2 ring-white' : 'opacity-70'
+                      penColor === color ? 'scale-125 ring-2 ring-slate-400' : 'opacity-70'
                     }`}
                   />
                 ))}
@@ -1302,7 +1304,7 @@ export default function Home() {
 
               <button
                 onClick={handleClearDrawing}
-                className="p-1.5 rounded-xl bg-white/10 hover:bg-red-500/20 text-[#FF453A] transition"
+                className="p-1.5 rounded-xl bg-slate-100 hover:bg-red-50 text-[#EF4444] transition"
                 title="현재 페이지 필기 지우기"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -1311,30 +1313,31 @@ export default function Home() {
           </div>
         )}
 
+        {/* 🌟 악보 캔버스 (화이트 배경 고정) 🌟 */}
         <main
           onClick={() => {
             if (!isDrawingMode) setShowViewerControls(!showViewerControls);
           }}
           style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
-          className="flex-1 overflow-auto flex items-center justify-center p-3 pt-24 pb-24 relative bg-black"
+          className="flex-1 overflow-auto flex items-center justify-center p-3 pt-24 pb-24 relative bg-[#F8F9FA]"
         >
           {viewMode === 'lyrics' ? (
             <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl h-full flex flex-col justify-center p-2">
-              <div className="w-full h-full rounded-3xl p-5 border border-white/10 bg-[#1C1C1E] shadow-2xl flex flex-col">
-                <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-                  <span className="text-sm font-semibold text-[#AF52DE] flex items-center gap-1.5">
+              <div className="w-full h-full rounded-3xl p-5 border border-slate-200 bg-white shadow-xl flex flex-col">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                  <span className="text-sm font-bold text-[#8E74AE] flex items-center gap-1.5">
                     <BookOpen className="w-4 h-4" /> 찬양 가사
                   </span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleSearchLyricsWeb(viewingSong.title)}
-                      className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/10 text-neutral-200 hover:bg-white/20 transition"
+                      className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#EBF3FB] text-[#2B6CB0] hover:bg-[#DCEBF9] transition"
                     >
                       구글 검색 ↗
                     </button>
                     <button
                       onClick={() => handleCopyLyrics(viewingSong.lyrics || '')}
-                      className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#5856D6] text-white flex items-center gap-1 active:scale-95 transition"
+                      className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#8E74AE] text-white flex items-center gap-1 active:scale-95 transition"
                     >
                       <Copy className="w-3.5 h-3.5" /> 복사
                     </button>
@@ -1345,14 +1348,14 @@ export default function Home() {
                   value={viewingSong.lyrics || ''}
                   onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
                   placeholder="등록된 가사가 없습니다. 가사를 입력하거나 붙여넣으세요."
-                  className="w-full flex-1 p-3 rounded-2xl bg-[#2C2C2E] border border-white/5 text-base font-normal leading-relaxed focus:outline-none focus:ring-1 focus:ring-[#5856D6] resize-none text-white placeholder-neutral-500"
+                  className="w-full flex-1 p-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-base font-normal leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none text-slate-800 placeholder-slate-400"
                 />
               </div>
             </div>
           ) : !currentSheetUrl ? (
-            <div className="text-center p-8 rounded-3xl border border-white/10 bg-[#1C1C1E] shadow-2xl max-w-xs text-white">
-              <p className="font-semibold text-base mb-1">등록된 악보가 없습니다.</p>
-              <p className="text-xs text-neutral-400">곡 수정 메뉴에서 악보 이미지를 첨부해주세요.</p>
+            <div className="text-center p-8 rounded-3xl border border-slate-200 bg-white shadow-xl max-w-xs text-slate-800">
+              <p className="font-bold text-base mb-1">등록된 악보가 없습니다.</p>
+              <p className="text-xs text-slate-500">곡 수정 메뉴에서 악보 이미지를 첨부해주세요.</p>
             </div>
           ) : (
             <div
@@ -1366,7 +1369,7 @@ export default function Home() {
                 src={currentSheetUrl}
                 alt={`${viewingSong.title} - ${currentPageIndex + 1}p`}
                 onLoad={initCanvas}
-                className="max-h-[80vh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none rounded-xl shadow-2xl"
+                className="max-h-[80vh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none rounded-xl shadow-lg border border-slate-200"
               />
               <canvas
                 ref={canvasRef}
@@ -1386,38 +1389,39 @@ export default function Home() {
           )}
         </main>
 
+        {/* 뷰어 하단 툴바 */}
         <footer
           className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
         >
-          <div className="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full bg-black/80 dark:bg-[#1C1C1E]/90 border border-white/10 shadow-2xl backdrop-blur-2xl">
+          <div className="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full bg-white/95 border border-slate-200 shadow-xl backdrop-blur-xl">
             <button
               onClick={handlePrevSong}
               disabled={currentSongIndex <= 0}
-              className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-30 active:scale-95 transition flex items-center gap-1"
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-30 active:scale-95 transition flex items-center gap-1"
             >
-              <SkipBack className="w-3.5 h-3.5 text-[#007AFF]" />
+              <SkipBack className="w-3.5 h-3.5 text-[#4A90E2]" />
               <span>이전 곡</span>
             </button>
 
             {viewMode === 'sheet' && totalPages > 1 && (
-              <div className="flex items-center gap-1 px-1.5 border-x border-white/10">
+              <div className="flex items-center gap-1 px-1.5 border-x border-slate-200">
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
                   disabled={currentPageIndex === 0}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white hover:bg-white/10 disabled:opacity-20 transition"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 hover:text-black hover:bg-slate-100 disabled:opacity-20 transition"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-xs font-bold text-[#007AFF] px-1 min-w-[32px] text-center">
+                <span className="text-xs font-bold text-[#4A90E2] px-1 min-w-[32px] text-center">
                   {currentPageIndex + 1}/{totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
                   disabled={currentPageIndex === totalPages - 1}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-neutral-300 hover:text-white hover:bg-white/10 disabled:opacity-20 transition"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 hover:text-black hover:bg-slate-100 disabled:opacity-20 transition"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1427,10 +1431,10 @@ export default function Home() {
             <button
               onClick={handleNextSong}
               disabled={currentSongIndex >= currentSongs.length - 1}
-              className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-30 active:scale-95 transition flex items-center gap-1"
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-30 active:scale-95 transition flex items-center gap-1"
             >
               <span>다음 곡</span>
-              <SkipForward className="w-3.5 h-3.5 text-[#007AFF]" />
+              <SkipForward className="w-3.5 h-3.5 text-[#4A90E2]" />
             </button>
           </div>
         </footer>
@@ -1468,22 +1472,22 @@ export default function Home() {
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
       <div className="max-w-xl mx-auto space-y-4 w-full">
         
-        {/* Apple 스타일 네비게이션 헤더 */}
+        {/* 파스텔 헤더 */}
         <header className="flex items-center justify-between gap-2 px-1 pt-1">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#007AFF] to-[#5856D6] flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#68A5E8] to-[#9B83C5] flex items-center justify-center text-white shadow-md shadow-blue-500/15">
               <Music className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight leading-none">찬양팀 Hub</h1>
-              <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 font-medium">Worship Dashboard</p>
+              <h1 className="text-lg font-bold tracking-tight leading-none text-slate-800 dark:text-white">찬양팀 Hub</h1>
+              <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 font-semibold">Worship Dashboard</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleOpenAddContiModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#007AFF] hover:bg-[#0071E3] text-white rounded-2xl text-xs font-semibold shadow-sm transition active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#4A90E2] hover:bg-[#3B82F6] text-white rounded-2xl text-xs font-bold shadow-sm transition active:scale-95"
             >
               <FolderPlus className="w-4 h-4" />
               <span>새 콘티</span>
@@ -1500,50 +1504,50 @@ export default function Home() {
 
         {activeTab === 'conti' && viewLevel === 'home' && (
           <div className="space-y-4">
-            {/* 공지사항 카드 */}
+            {/* 공지사항 카드 (파스텔 앰버 악센트) */}
             <div className={`rounded-3xl border p-4 space-y-3 ${cardBgClass}`}>
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-2xl bg-[#FF9500]/15 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bell className="w-4 h-4 text-[#FF9500]" />
+                <div className="w-8 h-8 rounded-2xl bg-[#FEF3E2] flex items-center justify-center shrink-0 mt-0.5">
+                  <Bell className="w-4 h-4 text-[#F39C12]" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600 dark:text-neutral-400">공지사항</span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-neutral-400">찬양팀 공지사항</span>
                     {currentConti && (
                       <button
                         onClick={() => {
                           setNoticeInput(currentNotice);
                           setIsNoticeModalOpen(true);
                         }}
-                        className="text-xs font-semibold text-[#007AFF] hover:underline"
+                        className="text-xs font-bold text-[#4A90E2] hover:underline"
                       >
                         공지 작성 ↗
                       </button>
                     )}
                   </div>
-                  <p className="text-sm font-medium mt-1 whitespace-pre-wrap leading-relaxed text-slate-800 dark:text-neutral-200">
+                  <p className="text-sm font-medium mt-1 whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-neutral-200">
                     {currentNotice || '등록된 예배 공지사항이 없습니다.'}
                   </p>
                 </div>
               </div>
 
               {currentConti && (
-                <div className="border-t border-black/5 dark:border-white/5 pt-3 flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    <span className="px-2.5 py-1 rounded-xl bg-[#34C759]/15 text-[#34C759] flex items-center gap-1">
+                <div className="border-t border-slate-100 dark:border-neutral-800 pt-3 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs font-bold">
+                    <span className="px-2.5 py-1 rounded-xl bg-[#E8F7EE] text-[#2E7D32] flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" /> 참석 {yesCount}
                     </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-[#FF3B30]/15 text-[#FF3B30] flex items-center gap-1">
+                    <span className="px-2.5 py-1 rounded-xl bg-[#FEECEC] text-[#C53030] flex items-center gap-1">
                       <XCircle className="w-3.5 h-3.5" /> 불참 {noCount}
                     </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-[#FF9500]/15 text-[#FF9500] flex items-center gap-1">
+                    <span className="px-2.5 py-1 rounded-xl bg-[#FEF3E2] text-[#D97706] flex items-center gap-1">
                       <HelpCircle className="w-3.5 h-3.5" /> 미정 {maybeCount}
                     </span>
                   </div>
 
                   <button
                     onClick={() => setIsAttendanceModalOpen(true)}
-                    className="px-3 py-1.5 bg-[#007AFF] hover:bg-[#0071E3] text-white rounded-xl text-xs font-semibold shadow-sm transition active:scale-95"
+                    className="px-3 py-1.5 bg-[#4A90E2] hover:bg-[#3B82F6] text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95"
                   >
                     출석 체크
                   </button>
@@ -1555,15 +1559,15 @@ export default function Home() {
             <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-sm font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-[#007AFF]" />
+                  <Calendar className="w-4 h-4 text-[#4A90E2]" />
                   예배 콘티 일정
                 </h2>
-                <span className="text-xs text-slate-500 dark:text-neutral-500 font-medium">총 {contis.length}개</span>
+                <span className="text-xs text-slate-500 dark:text-neutral-500 font-semibold">총 {contis.length}개</span>
               </div>
 
               {contis.length === 0 ? (
                 <div className={`text-center py-12 border rounded-3xl text-sm px-4 text-slate-500 dark:text-neutral-400 ${cardBgClass}`}>
-                  등록된 예배 일정이 없습니다. 상단 <span className="text-[#007AFF] font-semibold">[+ 새 콘티]</span>를 눌러 일정을 추가해보세요.
+                  등록된 예배 일정이 없습니다. 상단 <span className="text-[#4A90E2] font-bold">[+ 새 콘티]</span>를 눌러 일정을 추가해보세요.
                 </div>
               ) : (
                 contis.map((c) => {
@@ -1577,31 +1581,31 @@ export default function Home() {
                         setSelectedContiId(c.id);
                         setViewLevel('detail');
                       }}
-                      className={`p-4 rounded-3xl border transition active:scale-[0.99] cursor-pointer hover:border-[#007AFF]/40 flex items-center justify-between gap-3 ${cardBgClass}`}
+                      className={`p-4 rounded-3xl border transition active:scale-[0.99] cursor-pointer hover:border-[#4A90E2]/40 flex items-center justify-between gap-3 ${cardBgClass}`}
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-0.5 text-xs font-semibold bg-[#007AFF]/10 text-[#007AFF] rounded-lg">
+                          <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] rounded-lg">
                             {c.date}
                           </span>
-                          <span className="text-xs font-medium text-slate-500 dark:text-neutral-400">
+                          <span className="text-xs font-semibold text-slate-500 dark:text-neutral-400">
                             {songCount}곡 수록
                           </span>
                         </div>
 
-                        <h3 className="text-base font-bold truncate text-[#007AFF]">
+                        <h3 className="text-base font-bold truncate text-[#4A90E2]">
                           {c.title}
                         </h3>
 
                         {singers.length > 0 && (
                           <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-neutral-400 truncate">
-                            <Mic className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
+                            <Mic className="w-3.5 h-3.5 text-[#4A90E2] shrink-0" />
                             <span className="truncate">싱어: {singers.join(', ')}</span>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 text-[#007AFF] font-semibold text-xs shrink-0 pl-2">
+                      <div className="flex items-center gap-1 text-[#4A90E2] font-bold text-xs shrink-0 pl-2">
                         <span>보기</span>
                         <ArrowRight className="w-4 h-4" />
                       </div>
@@ -1619,7 +1623,7 @@ export default function Home() {
             <div className="flex items-center justify-between px-1">
               <button
                 onClick={() => setViewLevel('home')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-2xl text-xs font-semibold transition active:scale-95 ${subCardBg}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 ${subCardBg}`}
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>목록으로</span>
@@ -1627,7 +1631,7 @@ export default function Home() {
 
               <button
                 onClick={() => handleOpenModal()}
-                className="flex items-center gap-1 px-3.5 py-1.5 bg-[#007AFF] hover:bg-[#0071E3] text-white rounded-2xl text-xs font-semibold shadow-sm transition active:scale-95"
+                className="flex items-center gap-1 px-3.5 py-1.5 bg-[#4A90E2] hover:bg-[#3B82F6] text-white rounded-2xl text-xs font-bold shadow-xs transition active:scale-95"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>곡 추가</span>
@@ -1637,8 +1641,8 @@ export default function Home() {
             <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="w-4 h-4 text-[#007AFF] shrink-0" />
-                  <h2 className="text-base font-bold truncate text-slate-900 dark:text-white">{currentConti.title}</h2>
+                  <Calendar className="w-4 h-4 text-[#4A90E2] shrink-0" />
+                  <h2 className="text-base font-bold truncate text-slate-800 dark:text-white">{currentConti.title}</h2>
                   
                   <div className="flex items-center gap-1 shrink-0">
                     <button
@@ -1646,12 +1650,12 @@ export default function Home() {
                       className={`p-1 border rounded-lg transition ${subCardBg}`}
                       title="콘티 제목 수정"
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-[#007AFF]" />
+                      <Edit3 className="w-3.5 h-3.5 text-[#4A90E2]" />
                     </button>
                     <button
                       onClick={handleDeleteConti}
                       className={`p-1 border rounded-lg transition ${
-                        isDark ? 'bg-[#2C2C2E] text-neutral-400 hover:text-[#FF453A]' : 'bg-slate-100 text-slate-500 hover:text-[#FF3B30]'
+                        isDark ? 'bg-[#2C2C2E] text-neutral-400 hover:text-[#FF7675]' : 'bg-slate-100 text-slate-500 hover:text-[#E74C3C]'
                       }`}
                       title="이 콘티 전체 삭제"
                     >
@@ -1662,7 +1666,7 @@ export default function Home() {
 
                 <button
                   onClick={handleOpenSingerModal}
-                  className="text-xs font-semibold text-[#007AFF] hover:underline shrink-0"
+                  className="text-xs font-bold text-[#4A90E2] hover:underline shrink-0"
                 >
                   + 싱어 관리
                 </button>
@@ -1673,7 +1677,7 @@ export default function Home() {
                   {assignedSingers.map((singer) => (
                     <span
                       key={singer}
-                      className="px-2.5 py-0.5 rounded-lg bg-[#007AFF]/10 text-[#007AFF] font-semibold text-xs flex items-center gap-1"
+                      className="px-2.5 py-0.5 rounded-lg bg-[#EBF3FB] text-[#2B6CB0] font-bold text-xs flex items-center gap-1"
                     >
                       <Mic className="w-3 h-3" /> {singer}
                     </span>
@@ -1682,7 +1686,7 @@ export default function Home() {
               )}
 
               {customNote && (
-                <p className="text-xs text-slate-500 dark:text-neutral-400 pt-1 border-t border-black/5 dark:border-white/5">
+                <p className="text-xs text-slate-500 dark:text-neutral-400 pt-1 border-t border-slate-100 dark:border-neutral-800">
                   📝 {customNote}
                 </p>
               )}
@@ -1691,7 +1695,7 @@ export default function Home() {
             <div className="space-y-2.5 relative select-none w-full">
               {currentSongs.length === 0 ? (
                 <div className={`text-center py-12 border rounded-3xl text-sm px-4 text-slate-500 dark:text-neutral-400 ${cardBgClass}`}>
-                  등록된 찬양 곡이 없습니다. 상단 <span className="text-[#007AFF] font-semibold">[+ 곡 추가]</span>를 눌러보세요.
+                  등록된 찬양 곡이 없습니다. 상단 <span className="text-[#4A90E2] font-bold">[+ 곡 추가]</span>를 눌러보세요.
                 </div>
               ) : (
                 currentSongs.map((song, idx) => {
@@ -1702,12 +1706,12 @@ export default function Home() {
                   return (
                     <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
                       {isDropTarget && !isBeingDragged && (
-                        <div className="absolute -top-1 inset-x-0 h-1 bg-[#007AFF] rounded-full z-10 animate-pulse" />
+                        <div className="absolute -top-1 inset-x-0 h-1 bg-[#4A90E2] rounded-full z-10 animate-pulse" />
                       )}
 
                       <div
                         className={`flex flex-col border transition-all duration-150 overflow-hidden w-full ${
-                          isLyricsExpanded ? 'rounded-3xl ring-2 ring-[#AF52DE]/40' : 'rounded-3xl'
+                          isLyricsExpanded ? 'rounded-3xl ring-2 ring-[#8E74AE]/40' : 'rounded-3xl'
                         } ${
                           isBeingDragged
                             ? 'opacity-20 border-dashed border-neutral-400 scale-[0.98]'
@@ -1733,42 +1737,42 @@ export default function Home() {
                               onTouchEnd={endDragAction}
                               onMouseDown={(e) => handleMouseDown(idx, e)}
                               style={{ touchAction: 'none' }}
-                              className="p-1 -m-1 text-slate-400 hover:text-[#007AFF] cursor-grab active:cursor-grabbing shrink-0"
+                              className="p-1 -m-1 text-slate-400 hover:text-[#4A90E2] cursor-grab active:cursor-grabbing shrink-0"
                               title="길게 눌러 순서 변경"
                             >
                               <GripVertical className="w-5 h-5" />
                             </div>
 
-                            <div className="w-7 h-7 rounded-xl bg-[#007AFF]/10 text-[#007AFF] flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="w-7 h-7 rounded-xl bg-[#EBF3FB] text-[#2B6CB0] flex items-center justify-center font-bold text-xs shrink-0">
                               {idx + 1}
                             </div>
 
                             <div className="min-w-0 flex-1 space-y-0.5">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {song.headerTag && (
-                                  <span className="px-2 py-0.5 text-xs font-bold bg-[#FF9500]/15 text-[#FF9500] rounded-lg shrink-0">
+                                  <span className="px-2 py-0.5 text-xs font-bold bg-[#FEF3E2] text-[#D97706] rounded-lg shrink-0">
                                     {song.headerTag}
                                   </span>
                                 )}
 
-                                <h3 className="text-sm sm:text-base font-bold truncate text-slate-900 dark:text-white group-hover:text-[#007AFF] transition">
+                                <h3 className="text-sm sm:text-base font-bold truncate text-slate-800 dark:text-white group-hover:text-[#4A90E2] transition">
                                   {song.title}
                                 </h3>
 
                                 {song.key && (
-                                  <span className="px-2 py-0.5 text-xs font-semibold bg-[#007AFF]/10 text-[#007AFF] rounded-lg shrink-0">
+                                  <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] rounded-lg shrink-0">
                                     {song.key} Key
                                   </span>
                                 )}
                                 {song.sheetUrls && song.sheetUrls.length > 1 && (
-                                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-neutral-800 rounded-lg shrink-0">
+                                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-neutral-800 rounded-lg shrink-0">
                                     <Layers className="w-3 h-3" /> {song.sheetUrls.length}p
                                   </span>
                                 )}
                               </div>
 
                               {song.comment && (
-                                <div className="flex items-center gap-1 text-xs text-[#007AFF] font-medium">
+                                <div className="flex items-center gap-1 text-xs text-[#4A90E2] font-semibold">
                                   <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                                   <span className="truncate">{song.comment}</span>
                                 </div>
@@ -1782,14 +1786,14 @@ export default function Home() {
                                 <button
                                   onClick={() => executeReorder(idx, idx - 1)}
                                   disabled={idx === 0}
-                                  className={`px-2.5 py-1 rounded-xl border text-xs font-semibold disabled:opacity-20 ${subCardBg}`}
+                                  className={`px-2.5 py-1 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
                                 >
                                   위로
                                 </button>
                                 <button
                                   onClick={() => executeReorder(idx, idx + 1)}
                                   disabled={idx === currentSongs.length - 1}
-                                  className={`px-2.5 py-1 rounded-xl border text-xs font-semibold disabled:opacity-20 ${subCardBg}`}
+                                  className={`px-2.5 py-1 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
                                 >
                                   아래로
                                 </button>
@@ -1798,10 +1802,10 @@ export default function Home() {
                               <>
                                 <button
                                   onClick={() => handleToggleLyricsExpand(song.id)}
-                                  className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-semibold transition active:scale-95 ${
+                                  className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 ${
                                     isLyricsExpanded
-                                      ? 'bg-[#5856D6] border-[#5856D6] text-white'
-                                      : 'bg-[#5856D6]/10 border-[#5856D6]/20 text-[#5856D6] hover:bg-[#5856D6]/20'
+                                      ? 'bg-[#8E74AE] border-[#8E74AE] text-white shadow-xs'
+                                      : 'bg-[#F3E8FF] border-[#E9D8FD] text-[#6B46C1] hover:bg-[#E9D8FD]'
                                   }`}
                                   title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
                                 >
@@ -1819,7 +1823,7 @@ export default function Home() {
                                 <button
                                   onClick={() => handleDeleteSong(song.id)}
                                   className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${
-                                    isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-400 hover:text-[#FF453A]' : 'bg-slate-100 border-black/5 text-slate-500 hover:text-[#FF3B30]'
+                                    isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-400 hover:text-[#FF7675]' : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-[#E74C3C]'
                                   }`}
                                   title="곡 삭제"
                                 >
@@ -1832,30 +1836,30 @@ export default function Home() {
 
                         {isLyricsExpanded && (
                           <div className={`border-t px-4 py-3.5 space-y-3 ${
-                            isDark ? 'bg-black/40 border-white/5' : 'bg-slate-50 border-black/5'
+                            isDark ? 'bg-black/40 border-white/5' : 'bg-[#FAF8FF] border-purple-100'
                           }`}>
                             <div className="flex items-center justify-between flex-wrap gap-2">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-[#5856D6] flex items-center gap-1">
+                                <span className="text-xs font-bold text-[#8E74AE] flex items-center gap-1">
                                   <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
                                 </span>
 
-                                <div className="flex items-center rounded-xl bg-black/5 dark:bg-white/10 p-0.5 text-xs font-semibold">
+                                <div className="flex items-center rounded-xl bg-purple-100/60 dark:bg-white/10 p-0.5 text-xs font-bold">
                                   <button
                                     onClick={() => handleChangeFontSize('sm')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'sm' ? 'bg-[#5856D6] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'sm' ? 'bg-[#8E74AE] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
                                   >
                                     소
                                   </button>
                                   <button
                                     onClick={() => handleChangeFontSize('base')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'base' ? 'bg-[#5856D6] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'base' ? 'bg-[#8E74AE] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
                                   >
                                     중
                                   </button>
                                   <button
                                     onClick={() => handleChangeFontSize('lg')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'lg' ? 'bg-[#5856D6] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'lg' ? 'bg-[#8E74AE] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
                                   >
                                     대
                                   </button>
@@ -1866,15 +1870,15 @@ export default function Home() {
                                 {song.lyrics && (
                                   <button
                                     onClick={() => handleCopyLyrics(song.lyrics || '')}
-                                    className={`text-xs font-semibold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition ${subCardBg}`}
+                                    className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition ${subCardBg}`}
                                   >
-                                    <Copy className="w-3.5 h-3.5 text-[#5856D6]" />
+                                    <Copy className="w-3.5 h-3.5 text-[#8E74AE]" />
                                     <span>복사</span>
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleSearchLyricsWeb(song.title)}
-                                  className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-[#007AFF]/10 text-[#007AFF] hover:bg-[#007AFF]/20 flex items-center gap-1 transition"
+                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#EBF3FB] text-[#2B6CB0] hover:bg-[#DCEBF9] flex items-center gap-1 transition"
                                 >
                                   <Globe className="w-3.5 h-3.5" />
                                   <span>구글 검색 ↗</span>
@@ -1884,23 +1888,23 @@ export default function Home() {
 
                             {song.lyrics ? (
                               <div className={`font-normal leading-relaxed whitespace-pre-wrap p-3.5 rounded-2xl border max-h-80 overflow-y-auto ${
-                                lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-medium' : 'text-sm'
-                              } ${isDark ? 'bg-[#1C1C1E] border-neutral-800 text-neutral-100' : 'bg-white border-black/5 text-[#1C1C1E]'}`}>
+                                lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-semibold' : 'text-sm'
+                              } ${isDark ? 'bg-[#1C1C1E] border-neutral-800 text-neutral-100' : 'bg-white border-purple-100 text-slate-800'}`}>
                                 {song.lyrics}
                               </div>
                             ) : (
-                              <div className="py-6 text-center rounded-2xl border border-dashed border-black/10 dark:border-white/10 space-y-2">
+                              <div className="py-6 text-center rounded-2xl border border-dashed border-purple-200 dark:border-white/10 space-y-2">
                                 <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">등록된 가사가 없습니다.</p>
                                 <div className="flex justify-center gap-2">
                                   <button
                                     onClick={() => handleSearchLyricsWeb(song.title)}
-                                    className="px-3 py-1 bg-[#007AFF] text-white rounded-xl text-xs font-semibold shadow-sm"
+                                    className="px-3 py-1 bg-[#4A90E2] text-white rounded-xl text-xs font-bold shadow-xs"
                                   >
                                     구글 검색 ↗
                                   </button>
                                   <button
                                     onClick={() => handleOpenModal(song)}
-                                    className="px-3 py-1 bg-[#5856D6] text-white rounded-xl text-xs font-semibold shadow-sm"
+                                    className="px-3 py-1 bg-[#8E74AE] text-white rounded-xl text-xs font-bold shadow-xs"
                                   >
                                     + 가사 등록
                                   </button>
@@ -1923,19 +1927,19 @@ export default function Home() {
           <div className="space-y-3.5">
             <div className="flex items-center justify-between px-1">
               <div>
-                <h2 className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                  <Library className="w-5 h-5 text-[#5856D6]" />
+                <h2 className="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+                  <Library className="w-5 h-5 text-[#8E74AE]" />
                   찬양 보관소 ({librarySongs.length}곡)
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5 font-medium">콘티에 자주 사용하는 곡들을 검색해 보세요</p>
+                <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5 font-semibold">콘티에 자주 사용하는 곡들을 검색해 보세요</p>
               </div>
 
               <button
                 onClick={() => syncAllSongsToLibrary(true)}
                 disabled={isSyncingLib}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-semibold border transition active:scale-95 ${subCardBg}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold border transition active:scale-95 ${subCardBg}`}
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-[#5856D6] ${isSyncingLib ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-[#8E74AE] ${isSyncingLib ? 'animate-spin' : ''}`} />
                 <span>동기화</span>
               </button>
             </div>
@@ -1947,7 +1951,7 @@ export default function Home() {
                 value={librarySearchTerm}
                 onChange={(e) => setLibrarySearchTerm(e.target.value)}
                 placeholder="찬양 제목, Key, 가사 본문 검색"
-                className={`w-full border rounded-2xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#5856D6] ${inputBgClass}`}
+                className={`w-full border rounded-2xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#8E74AE] ${inputBgClass}`}
               />
             </div>
 
@@ -1961,18 +1965,18 @@ export default function Home() {
                   <div
                     key={libSong.id}
                     onClick={() => setPreviewLibSong(libSong)}
-                    className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cursor-pointer transition active:scale-[0.99] hover:border-[#5856D6]/40 ${cardBgClass}`}
+                    className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cursor-pointer transition active:scale-[0.99] hover:border-[#8E74AE]/40 ${cardBgClass}`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm sm:text-base truncate text-slate-900 dark:text-white">{libSong.title}</span>
+                        <span className="font-bold text-sm sm:text-base truncate text-slate-800 dark:text-white">{libSong.title}</span>
                         {libSong.key && (
-                          <span className="px-2 py-0.5 text-xs font-semibold bg-[#007AFF]/10 text-[#007AFF] rounded-lg">
+                          <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] rounded-lg">
                             {libSong.key} Key
                           </span>
                         )}
                         {libSong.bpm && (
-                          <span className="text-xs text-slate-500 dark:text-neutral-400 font-medium">♩ {libSong.bpm}</span>
+                          <span className="text-xs text-slate-500 dark:text-neutral-400 font-semibold">♩ {libSong.bpm}</span>
                         )}
                         <span className="text-xs text-slate-400 dark:text-neutral-500 font-medium">악보 {libSong.sheetUrls?.length || 0}장</span>
                       </div>
@@ -1981,7 +1985,7 @@ export default function Home() {
                       )}
                     </div>
 
-                    <span className="text-xs font-bold text-[#5856D6] px-3 py-1.5 rounded-xl bg-[#5856D6]/10 shrink-0">
+                    <span className="text-xs font-bold text-[#8E74AE] px-3 py-1.5 rounded-xl bg-[#F3E8FF] shrink-0">
                       보기
                     </span>
                   </div>
@@ -1993,19 +1997,19 @@ export default function Home() {
 
       </div>
 
-      {/* 하단 고정 Apple 스타일 플로팅 탭바 */}
+      {/* 하단 고정 플로팅 탭바 */}
       <nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
         <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
-          isDark ? 'bg-[#1C1C1E]/90 border-white/10' : 'bg-white/90 border-black/5'
+          isDark ? 'bg-[#1C1C1E]/90 border-white/10' : 'bg-white/95 border-slate-200'
         }`}>
           <button
             onClick={() => {
               setActiveTab('conti');
               setViewLevel('home');
             }}
-            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition active:scale-95 ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
               activeTab === 'conti'
-                ? 'bg-[#007AFF] text-white shadow-sm'
+                ? 'bg-[#4A90E2] text-white shadow-xs'
                 : 'text-slate-600 dark:text-neutral-400 hover:text-black dark:hover:text-white'
             }`}
           >
@@ -2015,9 +2019,9 @@ export default function Home() {
 
           <button
             onClick={() => setActiveTab('library')}
-            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition active:scale-95 ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
               activeTab === 'library'
-                ? 'bg-[#5856D6] text-white shadow-sm'
+                ? 'bg-[#8E74AE] text-white shadow-xs'
                 : 'text-slate-600 dark:text-neutral-400 hover:text-black dark:hover:text-white'
             }`}
           >
@@ -2027,17 +2031,17 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 🌟 전역 모달들 (Apple Action Sheet & Dialog Style) 🌟 */}
+      {/* 🌟 전역 모달들 🌟 */}
 
       {/* 1. 새 콘티 추가 달력 모달 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#007AFF]" />
+                <Calendar className="w-4 h-4 text-[#4A90E2]" />
                 950 콘티 날짜 선택
               </h2>
               <button onClick={() => setIsNewContiModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
@@ -2076,8 +2080,8 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 dark:text-neutral-500">
-                <span className="text-[#FF3B30]">일</span>
+              <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 dark:text-neutral-500">
+                <span className="text-[#E74C3C]">일</span>
                 <span>월</span>
                 <span>화</span>
                 <span>수</span>
@@ -2089,7 +2093,7 @@ export default function Home() {
               <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
 
               <div className="pt-1">
-                <label className="block text-xs font-semibold text-slate-600 dark:text-neutral-400 mb-1">
+                <label className="block text-xs font-bold text-slate-600 dark:text-neutral-400 mb-1">
                   생성될 콘티 제목
                 </label>
                 <input
@@ -2097,7 +2101,7 @@ export default function Home() {
                   required
                   value={contiTitleInput}
                   onChange={(e) => setContiTitleInput(e.target.value)}
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                 />
               </div>
 
@@ -2105,13 +2109,13 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsNewContiModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
+                  className="flex-1 py-2.5 bg-[#4A90E2] hover:bg-[#3B82F6] rounded-xl font-bold text-xs text-white shadow-xs"
                 >
                   콘티 생성
                 </button>
@@ -2121,15 +2125,15 @@ export default function Home() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 (글씨 시인성 완벽 개선) */}
+      {/* 2. 곡 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Music className="w-4 h-4 text-[#007AFF]" />
+                <Music className="w-4 h-4 text-[#4A90E2]" />
                 {editingSongId ? '찬양 곡 수정' : '찬양 곡 추가'}
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
@@ -2139,8 +2143,8 @@ export default function Home() {
 
             <form onSubmit={handleSaveModal} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1.5 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-[#FF9500]" />
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1.5 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-[#F39C12]" />
                   예배 순서 태그 (선택)
                 </label>
                 <div className="flex gap-1.5 mb-2 flex-wrap">
@@ -2149,9 +2153,9 @@ export default function Home() {
                       key={tag}
                       type="button"
                       onClick={() => setModalHeaderTag(tag)}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition ${
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition ${
                         modalHeaderTag === tag
-                          ? 'bg-[#FF9500] border-[#FF9500] text-black font-bold'
+                          ? 'bg-[#FEF3E2] border-[#F39C12] text-[#D97706]'
                           : subCardBg
                       }`}
                     >
@@ -2162,7 +2166,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setModalHeaderTag('')}
-                      className="px-2.5 py-1 rounded-xl text-xs font-semibold border border-red-500/40 text-red-500"
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold border border-red-500/40 text-red-500"
                     >
                       초기화
                     </button>
@@ -2173,29 +2177,29 @@ export default function Home() {
                   value={modalHeaderTag}
                   onChange={(e) => setModalHeaderTag(e.target.value)}
                   placeholder="직접 입력하거나 위 태그를 누르세요"
-                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF9500] ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#F39C12] ${inputBgClass}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">순수 곡 제목 *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">순수 곡 제목 *</label>
                 <input
                   type="text"
                   required
                   value={modalTitle}
                   onChange={(e) => setModalTitle(e.target.value)}
                   placeholder="예: 꽃들도, 은혜"
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                 />  
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">Key (선택)</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">Key (선택)</label>
                   <select
                     value={modalKey}
                     onChange={(e) => setModalKey(e.target.value)}
-                    className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] font-medium ${inputBgClass}`}
+                    className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4A90E2] font-semibold ${inputBgClass}`}
                   >
                     <option value="">- 선택 안 함 -</option>
                     {['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'].map((k) => (
@@ -2206,19 +2210,19 @@ export default function Home() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">BPM (템포, 선택)</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">BPM (템포, 선택)</label>
                   <input
                     type="number"
                     value={modalBpm}
                     onChange={(e) => setModalBpm(e.target.value)}
                     placeholder="예: 72"
-                    className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                    className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">
                   진행 순서 / 연주 메모 (선택)
                 </label>
                 <input
@@ -2226,17 +2230,17 @@ export default function Home() {
                   value={modalComment}
                   onChange={(e) => setModalComment(e.target.value)}
                   placeholder="예: Intro 4마디 후 시작 · 후렴 반복"
-                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300">찬양 가사 (선택)</label>
+                  <label className="text-xs font-bold text-slate-700 dark:text-neutral-300">찬양 가사 (선택)</label>
                   <button
                     type="button"
                     onClick={() => handleSearchLyricsWeb(modalTitle)}
-                    className="text-xs font-semibold text-[#007AFF] hover:underline flex items-center gap-1"
+                    className="text-xs font-bold text-[#4A90E2] hover:underline flex items-center gap-1"
                   >
                     <Globe className="w-3.5 h-3.5" />
                     <span>구글 가사 검색 ↗</span>
@@ -2247,19 +2251,19 @@ export default function Home() {
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
                   placeholder="가사를 입력하거나 구글에서 복사해 붙여넣으세요"
-                  className={`w-full border rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#5856D6] resize-none ${inputBgClass}`}
+                  className={`w-full border rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none ${inputBgClass}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-2">악보 등록</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-2">악보 등록</label>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
                     type="button"
                     onClick={() => setModalSheetType('file')}
                     className={`flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold border transition ${
                       modalSheetType === 'file'
-                        ? 'bg-[#007AFF] border-[#007AFF] text-white shadow-sm'
+                        ? 'bg-[#4A90E2] border-[#4A90E2] text-white shadow-xs'
                         : subCardBg
                     }`}
                   >
@@ -2272,7 +2276,7 @@ export default function Home() {
                     onClick={() => setModalSheetType('library')}
                     className={`flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold border transition ${
                       modalSheetType === 'library'
-                        ? 'bg-[#5856D6] border-[#5856D6] text-white shadow-sm'
+                        ? 'bg-[#8E74AE] border-[#8E74AE] text-white shadow-xs'
                         : subCardBg
                     }`}
                   >
@@ -2288,7 +2292,7 @@ export default function Home() {
                         href={googleSearchSheetUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 py-2 px-3 bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#007AFF]/20 transition"
+                        className="flex-1 py-2 px-3 bg-[#EBF3FB] text-[#2B6CB0] border border-[#CBD5E0] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#DCEBF9] transition"
                       >
                         <Globe className="w-3.5 h-3.5" />
                         <span>구글 악보 찾기 ↗</span>
@@ -2296,16 +2300,16 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={handlePasteClipboardUrl}
-                        className="flex-1 py-2 px-3 bg-[#5856D6]/10 text-[#5856D6] border border-[#5856D6]/20 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#5856D6]/20 transition"
+                        className="flex-1 py-2 px-3 bg-[#F3E8FF] text-[#6B46C1] border border-[#E9D8FD] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#E9D8FD] transition"
                       >
                         <ClipboardPaste className="w-3.5 h-3.5" />
                         <span>복사한 주소 넣기</span>
                       </button>
                     </div>
 
-                    <label className="w-full py-2.5 px-4 bg-[#34C759] hover:bg-[#30B753] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition active:scale-98">
+                    <label className="w-full py-2.5 px-4 bg-[#52B788] hover:bg-[#40916C] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98">
                       <ImageIcon className="w-4 h-4" />
-                      <span>모바일 갤러리 / 악보 파일 선택</span>
+                      <span>모바일 갤러리 / 악보 사진 선택</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -2316,14 +2320,14 @@ export default function Home() {
                     </label>
 
                     {isProcessing && (
-                      <span className="text-xs text-[#007AFF] block animate-pulse font-semibold text-center">
-                        악보 최적화 중...
+                      <span className="text-xs text-[#4A90E2] block animate-pulse font-bold text-center">
+                        악보 최적화 처리 중...
                       </span>
                     )}
 
                     {modalSheetUrls.length > 0 && (
                       <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-2xl max-h-48 overflow-y-auto ${
-                        isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-slate-100 border-black/5'
+                        isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-slate-100 border-slate-200'
                       }`}>
                         {modalSheetUrls.map((url, index) => (
                           <div key={index} className="relative group border rounded-xl p-1 flex flex-col items-center bg-white shadow-xs">
@@ -2339,7 +2343,7 @@ export default function Home() {
                             <button
                               type="button"
                               onClick={() => handleRemoveSheetPage(index)}
-                              className="absolute -top-1.5 -right-1.5 p-1 bg-[#FF3B30] text-white rounded-full shadow"
+                              className="absolute -top-1.5 -right-1.5 p-1 bg-[#EF4444] text-white rounded-full shadow"
                               title="삭제"
                             >
                               <X className="w-3 h-3" />
@@ -2360,12 +2364,12 @@ export default function Home() {
                         value={modalLibrarySearch}
                         onChange={(e) => setModalLibrarySearch(e.target.value)}
                         placeholder="보관된 곡명 검색"
-                        className={`w-full border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#5856D6] ${inputBgClass}`}
+                        className={`w-full border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#8E74AE] ${inputBgClass}`}
                       />
                     </div>
 
                     <div className={`max-h-48 overflow-y-auto space-y-1.5 p-1.5 border rounded-2xl ${
-                      isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-slate-50 border-black/5'
+                      isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-[#FAF8FF] border-purple-100'
                     }`}>
                       {filteredLibrary.length === 0 ? (
                         <p className="text-center py-4 text-xs text-slate-400">보관된 곡이 없습니다.</p>
@@ -2377,14 +2381,14 @@ export default function Home() {
                             className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition active:scale-[0.99] ${cardBgClass}`}
                           >
                             <div className="min-w-0 flex-1">
-                              <span className="font-bold text-xs truncate block text-slate-900 dark:text-white">{libSong.title}</span>
+                              <span className="font-bold text-xs truncate block text-slate-800 dark:text-white">{libSong.title}</span>
                               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5">
-                                {libSong.key && <span className="font-semibold text-[#007AFF]">{libSong.key} Key</span>}
+                                {libSong.key && <span className="font-bold text-[#4A90E2]">{libSong.key} Key</span>}
                                 {libSong.bpm && <span>♩ {libSong.bpm}</span>}
                                 <span>악보 {libSong.sheetUrls?.length || 0}장</span>
                               </div>
                             </div>
-                            <span className="px-2.5 py-1 rounded-lg bg-[#5856D6] text-white font-bold text-xs flex items-center gap-1 shrink-0 shadow-xs">
+                            <span className="px-2.5 py-1 rounded-lg bg-[#8E74AE] text-white font-bold text-xs flex items-center gap-1 shrink-0 shadow-xs">
                               <ArrowDownToLine className="w-3 h-3 text-white" /> 가져오기
                             </span>
                           </div>
@@ -2399,14 +2403,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] disabled:opacity-50 rounded-xl font-semibold text-xs text-white shadow-sm"
+                  className="flex-1 py-2.5 bg-[#4A90E2] hover:bg-[#3B82F6] disabled:opacity-50 rounded-xl font-bold text-xs text-white shadow-xs"
                 >
                   {isProcessing ? '처리 중...' : editingSongId ? '수정 완료' : '콘티에 추가'}
                 </button>
@@ -2420,11 +2424,11 @@ export default function Home() {
       {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Mic className="w-4 h-4 text-[#007AFF]" />
+                <Mic className="w-4 h-4 text-[#4A90E2]" />
                 싱어 배정 & 관리
               </h2>
               <button onClick={() => setIsSingerModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
@@ -2434,7 +2438,7 @@ export default function Home() {
 
             <div className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-2">
                   이번 주 찬양 싱어 선택
                 </label>
                 {masterSingers.length === 0 ? (
@@ -2452,7 +2456,7 @@ export default function Home() {
                           onClick={() => handleToggleSinger(singer)}
                           className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition ${
                             isChecked
-                              ? 'bg-[#007AFF] border-[#007AFF] text-white shadow-xs'
+                              ? 'bg-[#4A90E2] border-[#4A90E2] text-white shadow-xs'
                               : subCardBg
                           }`}
                         >
@@ -2465,7 +2469,7 @@ export default function Home() {
                 )}
               </div>
 
-              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-slate-50 border-black/5'}`}>
+              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-[#F8FAFC] border-slate-200'}`}>
                 <span className="text-xs font-bold block text-slate-700 dark:text-neutral-300">찬양팀 싱어 명단 추가</span>
                 <form onSubmit={handleAddMasterSinger} className="flex gap-2">
                   <input
@@ -2473,11 +2477,11 @@ export default function Home() {
                     value={newSingerName}
                     onChange={(e) => setNewSingerName(e.target.value)}
                     placeholder="새 싱어 이름"
-                    className={`flex-1 border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                    className={`flex-1 border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-[#007AFF] hover:bg-[#0071E3] text-white rounded-xl text-xs font-semibold shrink-0"
+                    className="px-3 py-1.5 bg-[#4A90E2] hover:bg-[#3B82F6] text-white rounded-xl text-xs font-bold shrink-0"
                   >
                     추가
                   </button>
@@ -2488,15 +2492,15 @@ export default function Home() {
                     {masterSingers.map((singer) => (
                       <span
                         key={singer}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-medium ${
-                          isDark ? 'bg-[#1C1C1E] border-neutral-700 text-neutral-200' : 'bg-white border-black/5 text-slate-700'
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-semibold ${
+                          isDark ? 'bg-[#1C1C1E] border-neutral-700 text-neutral-200' : 'bg-white border-slate-200 text-slate-700'
                         }`}
                       >
                         <span>{singer}</span>
                         <button
                           type="button"
                           onClick={() => handleDeleteMasterSinger(singer)}
-                          className="text-slate-400 hover:text-[#FF3B30]"
+                          className="text-slate-400 hover:text-[#EF4444]"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -2507,7 +2511,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">
                   이번 주 콘티 특이사항 메모
                 </label>
                 <input
@@ -2515,7 +2519,7 @@ export default function Home() {
                   value={noteInput}
                   onChange={(e) => setNoteInput(e.target.value)}
                   placeholder="예: 13:00 찬양팀 모임 / 단체복: 흰색"
-                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                 />
               </div>
 
@@ -2523,14 +2527,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsSingerModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   onClick={handleSaveContiSingers}
-                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
+                  className="flex-1 py-2.5 bg-[#4A90E2] hover:bg-[#3B82F6] rounded-xl font-bold text-xs text-white shadow-xs"
                 >
                   배정 저장
                 </button>
@@ -2544,11 +2548,11 @@ export default function Home() {
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Lock className="w-4 h-4 text-[#007AFF]" />
+                <Lock className="w-4 h-4 text-[#4A90E2]" />
                 관리자 인증
               </h2>
               <button onClick={() => setIsAuthModalOpen(false)} className="p-1 text-slate-400">
@@ -2558,7 +2562,7 @@ export default function Home() {
 
             <form onSubmit={handleLoginAdmin} className="mt-3.5 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">비밀번호</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">비밀번호</label>
                 <input
                   type="password"
                   required
@@ -2566,7 +2570,7 @@ export default function Home() {
                   value={authPasswordInput}
                   onChange={(e) => setAuthPasswordInput(e.target.value)}
                   placeholder="기본 비밀번호: 1234"
-                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                 />
               </div>
 
@@ -2574,13 +2578,13 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsAuthModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
+                  className="flex-1 py-2.5 bg-[#4A90E2] hover:bg-[#3B82F6] rounded-xl font-bold text-xs text-white shadow-xs"
                 >
                   인증하기
                 </button>
@@ -2594,11 +2598,11 @@ export default function Home() {
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-[#007AFF]" />
+                <SlidersHorizontal className="w-4 h-4 text-[#4A90E2]" />
                 설정 및 모드
               </h2>
               <button onClick={() => setIsSettingsModalOpen(false)} className="p-1 text-slate-400">
@@ -2616,7 +2620,7 @@ export default function Home() {
                 className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
               >
                 <div className="flex items-center gap-2.5">
-                  {isAdmin ? <Unlock className="w-4 h-4 text-[#34C759]" /> : <Lock className="w-4 h-4 text-slate-400" />}
+                  {isAdmin ? <Unlock className="w-4 h-4 text-[#52B788]" /> : <Lock className="w-4 h-4 text-slate-400" />}
                   <span>{isAdmin ? '관리자 모드 (활성화)' : '관리자 인증'}</span>
                 </div>
                 <span className="text-xs text-slate-400">{isAdmin ? '잠금' : '인증'}</span>
@@ -2631,7 +2635,7 @@ export default function Home() {
                     }}
                     className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${cardBgClass}`}
                   >
-                    <KeyRound className="w-4 h-4 text-[#007AFF]" />
+                    <KeyRound className="w-4 h-4 text-[#4A90E2]" />
                     <span>비밀번호 변경</span>
                   </button>
 
@@ -2641,7 +2645,7 @@ export default function Home() {
                       setIsReordering(!isReordering);
                     }}
                     className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${
-                      isReordering ? 'bg-[#FF9500]/15 border-[#FF9500]/40 text-[#FF9500]' : cardBgClass
+                      isReordering ? 'bg-[#FEF3E2] border-[#F39C12] text-[#D97706]' : cardBgClass
                     }`}
                   >
                     <GripVertical className="w-4 h-4" />
@@ -2655,7 +2659,7 @@ export default function Home() {
                 className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
               >
                 <div className="flex items-center gap-2.5">
-                  {isDark ? <Sun className="w-4 h-4 text-[#FFD60A]" /> : <Moon className="w-4 h-4 text-[#5856D6]" />}
+                  {isDark ? <Sun className="w-4 h-4 text-[#F39C12]" /> : <Moon className="w-4 h-4 text-[#8E74AE]" />}
                   <span>화면 테마</span>
                 </div>
                 <span className="text-xs text-slate-400">{isDark ? '어두운 모드' : '밝은 모드'}</span>
@@ -2669,14 +2673,14 @@ export default function Home() {
       {previewLibSong && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-3.5 sm:p-6">
           <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5 shrink-0">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
-                <Music className="w-4 h-4 text-[#5856D6] shrink-0" />
+                <Music className="w-4 h-4 text-[#8E74AE] shrink-0" />
                 <h2 className="text-base font-bold truncate">{previewLibSong.title}</h2>
                 {previewLibSong.key && (
-                  <span className="px-2 py-0.5 text-xs font-semibold bg-[#007AFF] text-white rounded-lg">
+                  <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] rounded-lg">
                     {previewLibSong.key} Key
                   </span>
                 )}
@@ -2692,10 +2696,10 @@ export default function Home() {
                   <span className="text-xs font-bold text-slate-500 dark:text-neutral-400 block">등록된 악보 ({previewLibSong.sheetUrls.length}장)</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {previewLibSong.sheetUrls.map((url, idx) => (
-                      <div key={idx} className="border border-black/5 rounded-2xl p-1 bg-white flex flex-col items-center shadow-xs">
+                      <div key={idx} className="border border-slate-200 rounded-2xl p-1 bg-white flex flex-col items-center shadow-xs">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={url} alt={`${idx + 1}p`} className="w-full h-auto max-h-56 object-contain rounded-xl" />
-                        <span className="text-xs font-semibold text-slate-700 mt-1">{idx + 1} 페이지</span>
+                        <span className="text-xs font-bold text-slate-700 mt-1">{idx + 1} 페이지</span>
                       </div>
                     ))}
                   </div>
@@ -2704,15 +2708,15 @@ export default function Home() {
                 <p className="text-xs text-slate-400">등록된 악보 이미지가 없습니다.</p>
               )}
 
-              <div className="space-y-1.5 pt-2 border-t border-black/5 dark:border-white/5">
+              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-white/5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#5856D6] flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-[#8E74AE] flex items-center gap-1.5">
                     <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
                   </span>
                   {previewLibSong.lyrics && (
                     <button
                       onClick={() => handleCopyLyrics(previewLibSong.lyrics || '')}
-                      className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-[#5856D6] text-white flex items-center gap-1"
+                      className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#8E74AE] text-white flex items-center gap-1 shadow-xs"
                     >
                       <Copy className="w-3 h-3 text-white" /> 복사
                     </button>
@@ -2720,7 +2724,7 @@ export default function Home() {
                 </div>
                 {previewLibSong.lyrics ? (
                   <div className={`p-3.5 rounded-2xl border text-sm font-normal leading-relaxed whitespace-pre-wrap ${
-                    isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white' : 'bg-slate-50 border-black/5 text-[#1C1C1E]'
+                    isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white' : 'bg-[#FAF8FF] border-purple-100 text-slate-800'
                   }`}>
                     {previewLibSong.lyrics}
                   </div>
@@ -2730,19 +2734,19 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-black/5 dark:border-white/5 flex justify-between items-center shrink-0">
+            <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex justify-between items-center shrink-0">
               <button
                 onClick={() => {
                   handleDeleteFromLibrary(previewLibSong.id, previewLibSong.title);
                   setPreviewLibSong(null);
                 }}
-                className="px-3 py-1.5 text-xs text-[#FF3B30] hover:bg-red-500/10 rounded-xl font-semibold"
+                className="px-3 py-1.5 text-xs text-[#EF4444] hover:bg-red-50 rounded-xl font-bold"
               >
                 보관소에서 삭제
               </button>
               <button
                 onClick={() => setPreviewLibSong(null)}
-                className={`px-4 py-1.5 rounded-xl text-xs font-semibold ${subCardBg}`}
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold ${subCardBg}`}
               >
                 닫기
               </button>
@@ -2755,11 +2759,11 @@ export default function Home() {
       {isChangePwModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-[#007AFF]" />
+                <KeyRound className="w-4 h-4 text-[#4A90E2]" />
                 비밀번호 변경
               </h2>
               <button onClick={() => setIsChangePwModalOpen(false)} className="p-1 text-slate-400">
@@ -2769,14 +2773,14 @@ export default function Home() {
 
             <form onSubmit={handleChangeAdminPassword} className="mt-3.5 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">새 비밀번호</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">새 비밀번호</label>
                 <input
                   type="password"
                   required
                   value={newPwInput}
                   onChange={(e) => setNewPwInput(e.target.value)}
                   placeholder="새 비밀번호 입력"
-                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                 />
               </div>
 
@@ -2784,13 +2788,13 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsChangePwModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
+                  className="flex-1 py-2.5 bg-[#4A90E2] hover:bg-[#3B82F6] rounded-xl font-bold text-xs text-white shadow-xs"
                 >
                   변경 완료
                 </button>
@@ -2804,11 +2808,11 @@ export default function Home() {
       {isAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-black/5 text-[#1C1C1E]'
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <h2 className="text-base font-bold flex items-center gap-2">
-                <Users className="w-4 h-4 text-[#007AFF]" />
+                <Users className="w-4 h-4 text-[#4A90E2]" />
                 예배 참석 여부
               </h2>
               <button onClick={() => setIsAttendanceModalOpen(false)} className="p-1 text-slate-400">
@@ -2818,25 +2822,25 @@ export default function Home() {
 
             <div className="mt-3.5 space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1">이름 (또는 직분)</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">이름 (또는 직분)</label>
                 <input
                   type="text"
                   value={myAttendanceName}
                   onChange={(e) => setMyAttendanceName(e.target.value)}
                   placeholder="예: 김지은 싱어"
-                  className={`w-full border rounded-xl px-3.5 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#007AFF] ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 mb-1.5">참석 상태 선택</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1.5">참석 상태 선택</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setMyAttendanceStatus('yes')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'yes'
-                        ? 'bg-[#34C759] border-[#34C759] text-white shadow-xs'
+                        ? 'bg-[#52B788] border-[#52B788] text-white shadow-xs'
                         : subCardBg
                     }`}
                   >
@@ -2847,7 +2851,7 @@ export default function Home() {
                     onClick={() => setMyAttendanceStatus('no')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'no'
-                        ? 'bg-[#FF3B30] border-[#FF3B30] text-white shadow-xs'
+                        ? 'bg-[#EF4444] border-[#EF4444] text-white shadow-xs'
                         : subCardBg
                     }`}
                   >
@@ -2858,7 +2862,7 @@ export default function Home() {
                     onClick={() => setMyAttendanceStatus('maybe')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'maybe'
-                        ? 'bg-[#FF9500] border-[#FF9500] text-white shadow-xs'
+                        ? 'bg-[#F39C12] border-[#F39C12] text-white shadow-xs'
                         : subCardBg
                     }`}
                   >
@@ -2871,14 +2875,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsAttendanceModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-xs ${subCardBg}`}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   onClick={() => handleSubmitAttendance(myAttendanceStatus)}
-                  className="flex-1 py-2.5 bg-[#007AFF] hover:bg-[#0071E3] rounded-xl font-semibold text-xs text-white shadow-sm"
+                  className="flex-1 py-2.5 bg-[#4A90E2] hover:bg-[#3B82F6] rounded-xl font-bold text-xs text-white shadow-xs"
                 >
                   출석 제출
                 </button>
