@@ -49,7 +49,7 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  Maximize2,
+  Settings,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -140,6 +140,8 @@ function getSafeDocId(title: string, key?: string | null): string {
   return rawId.replace(/[\/\s#?\[\]]/g, '_');
 }
 
+const DEFAULT_TAGS = ['<입례>', '<송영>', '<경배와찬양>', '<기도송>', '<헌금>', '<파송>', '<특송>'];
+
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
@@ -184,6 +186,11 @@ export default function Home() {
   const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState('');
 
+  // 🌟 태그 풀 상태 및 태그 관리 모달 상태 🌟
+  const [masterTags, setMasterTags] = useState<string[]>(DEFAULT_TAGS);
+  const [newTagName, setNewTagName] = useState('');
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
@@ -202,7 +209,7 @@ export default function Home() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🌟 악보 뷰어 & 줌/팬/스와이프 상태 🌟
+  // 악보 뷰어 & 줌/팬/스와이프 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -236,7 +243,6 @@ export default function Home() {
     });
   }, []);
 
-  // 곡이나 페이지가 바뀔 때 확대/위치 초기화
   useEffect(() => {
     setScale(1.0);
     setPosition({ x: 0, y: 0 });
@@ -357,6 +363,7 @@ export default function Home() {
     let unsubSongs = () => {};
     let unsubLib = () => {};
     let unsubSingers = () => {};
+    let unsubTags = () => {};
 
     try {
       const qContis = query(collection(db, 'contis_v2'), orderBy('date', 'desc'));
@@ -441,6 +448,16 @@ export default function Home() {
           setMasterSingers(Array.isArray(rawList) ? rawList : []);
         }
       });
+
+      // 🌟 태그 목록 실시간 동기화 🌟
+      unsubTags = onSnapshot(doc(db, 'settings', 'tags_pool'), (snap) => {
+        if (snap.exists()) {
+          const rawList = snap.data()?.list;
+          if (Array.isArray(rawList) && rawList.length > 0) {
+            setMasterTags(rawList);
+          }
+        }
+      });
     } catch (err) {
       console.error('Firebase 로드 실패:', err);
     }
@@ -450,6 +467,7 @@ export default function Home() {
       unsubSongs();
       unsubLib();
       unsubSingers();
+      unsubTags();
     };
   }, [mounted]);
 
@@ -524,7 +542,7 @@ export default function Home() {
     }
   };
 
-  // 🌟 스와이프 제스처 및 드래그 팬(Pan) 핸들러 🌟
+  // 스와이프 제스처 및 드래그 팬(Pan) 핸들러
   const handleTouchStartViewer = (e: React.TouchEvent) => {
     if (isDrawingMode || viewMode === 'lyrics') return;
 
@@ -560,20 +578,17 @@ export default function Home() {
       const diffY = touch.clientY - touchStartPos.current.y;
       const elapsed = Date.now() - touchStartPos.current.time;
 
-      // 수평 스와이프 감지 (시간 400ms 이내, X축 55px 이상 이동, 수직 이동 폭 제한)
       if (elapsed < 400 && Math.abs(diffX) > 55 && Math.abs(diffY) < 70) {
         const validSheets = (viewingSong?.sheetUrls || []).map(formatImageUrl).filter(Boolean);
         const totalPages = validSheets.length;
 
         if (diffX < 0) {
-          // 👈 왼쪽으로 스와이프 (다음 페이지 또는 다음 곡)
           if (currentPageIndex < totalPages - 1) {
             setCurrentPageIndex((p) => p + 1);
           } else {
             handleNextSong();
           }
         } else {
-          // 👉 오른쪽으로 스와이프 (이전 페이지 또는 이전 곡)
           if (currentPageIndex > 0) {
             setCurrentPageIndex((p) => p - 1);
           } else {
@@ -798,6 +813,43 @@ export default function Home() {
       setIsSingerModalOpen(false);
     } catch (err) {
       alert('싱어 저장 실패');
+    }
+  };
+
+  // 🌟 태그 추가 및 삭제 핸들러 🌟
+  const handleAddTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    let raw = newTagName.trim();
+    if (!raw) return;
+    if (!raw.startsWith('<')) raw = `<${raw}`;
+    if (!raw.endsWith('>')) raw = `${raw}>`;
+
+    if (masterTags.includes(raw)) {
+      alert('이미 존재하는 태그입니다.');
+      return;
+    }
+
+    const updated = [...masterTags, raw];
+    setMasterTags(updated);
+    setNewTagName('');
+
+    try {
+      await setDoc(doc(db, 'settings', 'tags_pool'), { list: updated }, { merge: true });
+    } catch (e) {
+      console.error('태그 저장 오류:', e);
+    }
+  };
+
+  const handleDeleteTag = async (tagToDelete: string) => {
+    if (!confirm(`'${tagToDelete}' 태그를 목록에서 삭제하시겠습니까?`)) return;
+    const updated = masterTags.filter((t) => t !== tagToDelete);
+    setMasterTags(updated);
+    if (modalHeaderTag === tagToDelete) setModalHeaderTag('');
+
+    try {
+      await setDoc(doc(db, 'settings', 'tags_pool'), { list: updated }, { merge: true });
+    } catch (e) {
+      console.error('태그 삭제 오류:', e);
     }
   };
 
@@ -1256,7 +1308,7 @@ export default function Home() {
     );
   }
 
-  // 🌟 파스텔 톤 팔레트 설정 🌟
+  // 파스텔 톤 팔레트 설정
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-[#F4F6F9] text-slate-800';
   const cardBgClass = isDark ? 'bg-[#1C1C1E] border-neutral-800/80 shadow-sm' : 'bg-white border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]';
@@ -1445,7 +1497,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 🌟 악보 캔버스 & 스와이프 제스처 메인 영역 🌟 */}
+        {/* 악보 캔버스 & 스와이프 제스처 메인 영역 */}
         <main
           ref={containerRef}
           onTouchStart={handleTouchStartViewer}
@@ -1654,7 +1706,7 @@ export default function Home() {
 
         {activeTab === 'conti' && viewLevel === 'home' && (
           <div className="space-y-4">
-            {/* 공지사항 카드 (파스텔 앰버 악센트) */}
+            {/* 공지사항 카드 */}
             <div className={`rounded-3xl border p-4 space-y-3 ${cardBgClass}`}>
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-2xl bg-[#FEF3E2] flex items-center justify-center shrink-0 mt-0.5">
@@ -1705,7 +1757,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* 🌟 1. 다가올 예배 일정 목록 🌟 */}
+            {/* 다가올 예배 일정 목록 */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-sm font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
@@ -1767,7 +1819,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* 🌟 2. 지난 콘티 보관함 (접기/펼치기 지원) 🌟 */}
+            {/* 지난 콘티 보관함 */}
             {pastContis.length > 0 && (
               <div className="space-y-2.5 pt-2">
                 <button
@@ -1854,7 +1906,7 @@ export default function Home() {
             <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="w-4 h-4 text-[#4A90E2] shrink-0" />
+                  <Calendar className="w-4 h-4 text-[#4A90E2]" />
                   <h2 className="text-base font-bold truncate text-slate-800 dark:text-white">{currentConti.title}</h2>
                   
                   <div className="flex items-center gap-1 shrink-0">
@@ -2358,13 +2410,25 @@ export default function Home() {
             </div>
 
             <form onSubmit={handleSaveModal} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
+              {/* 🌟 태그 선택 및 태그 관리 버튼 영역 🌟 */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1.5 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-[#F39C12]" />
-                  예배 순서 태그 (선택)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-[#F39C12]" />
+                    예배 순서 태그 (선택)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsTagModalOpen(true)}
+                    className="text-xs font-bold text-[#4A90E2] hover:underline flex items-center gap-1"
+                  >
+                    <Settings className="w-3 h-3" />
+                    <span>태그 관리/수정</span>
+                  </button>
+                </div>
+
                 <div className="flex gap-1.5 mb-2 flex-wrap">
-                  {['<입례>', '<송영>', '<경배와찬양>', '<기도송>', '<헌금>', '<파송>', '<특송>'].map((tag) => (
+                  {masterTags.map((tag) => (
                     <button
                       key={tag}
                       type="button"
@@ -2382,7 +2446,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setModalHeaderTag('')}
-                      className="px-2.5 py-1 rounded-xl text-xs font-bold border border-red-500/40 text-red-500"
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold border border-red-500/40 text-red-500 hover:bg-red-50"
                     >
                       초기화
                     </button>
@@ -2636,7 +2700,83 @@ export default function Home() {
         </div>
       )}
 
-      {/* 3. 싱어 관리 모달 */}
+      {/* 🌟 3. 태그 목록 관리 모달 🌟 */}
+      {isTagModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Tag className="w-4 h-4 text-[#F39C12]" />
+                예배 순서 태그 수정 및 관리
+              </h2>
+              <button onClick={() => setIsTagModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3.5 space-y-4 text-xs sm:text-sm">
+              <form onSubmit={handleAddTag} className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300">
+                  새 태그 추가 (예: 묵도, 결단찬양, 헌금송)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    placeholder="태그 이름 입력"
+                    className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#F39C12] ${inputBgClass}`}
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-[#F39C12] hover:bg-[#D97706] text-white rounded-xl text-xs font-bold shrink-0 shadow-xs"
+                  >
+                    추가
+                  </button>
+                </div>
+              </form>
+
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-600 dark:text-neutral-400 block">
+                  등록된 전체 태그 목록 ({masterTags.length}개)
+                </span>
+                <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto p-1.5 border rounded-2xl bg-slate-50 dark:bg-[#2C2C2E] border-slate-200 dark:border-neutral-700">
+                  {masterTags.map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FEF3E2] text-[#D97706] border border-[#F39C12]/30 shadow-xs"
+                    >
+                      <span>{t}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTag(t)}
+                        className="text-amber-700 hover:text-red-500 ml-0.5"
+                        title="태그 삭제"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTagModalOpen(false)}
+                  className="w-full py-2.5 bg-[#4A90E2] text-white rounded-xl font-bold text-xs shadow-xs"
+                >
+                  완료 및 닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. 싱어 관리 모달 */}
       {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2760,7 +2900,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 4. 관리자 인증 모달 */}
+      {/* 5. 관리자 인증 모달 */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
@@ -2810,7 +2950,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 5. 앱 설정 모달 */}
+      {/* 6. 앱 설정 모달 */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
@@ -2885,7 +3025,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 6. 보관소 미리보기 모달 */}
+      {/* 7. 보관소 미리보기 모달 */}
       {previewLibSong && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-3.5 sm:p-6">
           <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${
@@ -2971,7 +3111,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 7. 비밀번호 변경 모달 */}
+      {/* 8. 비밀번호 변경 모달 */}
       {isChangePwModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
@@ -3020,7 +3160,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 8. 출석 체크 모달 */}
+      {/* 9. 출석 체크 모달 */}
       {isAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
