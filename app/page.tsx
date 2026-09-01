@@ -268,7 +268,7 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-// 🌟 구글 실시간 에러 및 결과 정확 검증 함수 🌟
+// 🌟 차단 없는 브라우저 다이렉트 악보 썸네일 검색 엔진 🌟
   const handleSearchGoogleSheets = async (queryText?: string) => {
     const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
     const q = rawTarget.trim();
@@ -282,50 +282,49 @@ export default function PraiseApp() {
     setIsWebSearching(true);
     setGoogleSearchResults([]);
 
-    // 1. 내 보관함 일치 결과
+    // 1. 내 보관소 내 일치 곡 우선 추출
     const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
     const matchedLibResults: GoogleImageResult[] = librarySongs
       .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
       .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
 
-    if (!GOOGLE_API_KEY || !GOOGLE_SEARCH_ENGINE_ID) {
-      setIsWebSearching(false);
-      alert('GOOGLE_API_KEY 또는 GOOGLE_SEARCH_ENGINE_ID가 비어있습니다. page.tsx 상단을 확인해주세요.');
-      return;
-    }
-
     try {
-      // safe=off 또는 active, searchType=image
-      const googleApiUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY.trim()}&cx=${GOOGLE_SEARCH_ENGINE_ID.trim()}&q=${encodeURIComponent(
-        `${q} 악보`
-      )}&searchType=image&num=10`;
+      // 2. 다이렉트 이미지 검색 엔진 호출 (DuckDuckGo 이미지 파서 - API 키/결제 필요 없음)
+      const tokenRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://duckduckgo.com/?q=${encodeURIComponent(`${q} 악보`)}&iar=images&iax=images&ia=images`)}`);
+      const tokenHtml = await tokenRes.text();
+      const vqdMatch = tokenHtml.match(/vqd=([^&"']+)/) || tokenHtml.match(/vqd:\s*"([^"]+)"/);
+      const vqd = vqdMatch ? vqdMatch[1] : '';
 
-      const res = await fetch(googleApiUrl);
-      const data = await res.json();
+      let crawledImages: GoogleImageResult[] = [];
 
-      // 구글 API 자체 에러가 있는 경우 (키 권한, cx 미일치 등)
-      if (data.error) {
-        console.error('Google API Error:', data.error);
-        alert(`[구글 API 오류 발생]\n코드: ${data.error.code}\n원인: ${data.error.message}`);
-        setIsWebSearching(false);
-        return;
+      if (vqd) {
+        const imgApiUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://duckduckgo.com/i.js?l=kr-kr&o=json&q=${encodeURIComponent(`${q} 악보`)}&vqd=${vqd}&f=,,,&p=1`)}`;
+        const imgRes = await fetch(imgApiUrl);
+        const imgData = await imgRes.json();
+
+        if (imgData?.results && Array.isArray(imgData.results)) {
+          crawledImages = imgData.results.slice(0, 16).map((item: any) => ({
+            url: item.image,
+            thumbnail: item.thumbnail || item.image,
+            title: item.title || q,
+          }));
+        }
       }
 
-      if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-        const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
-          url: item.link,
-          thumbnail: item.image?.thumbnailLink || item.link,
-          title: item.title,
-        }));
-        setGoogleSearchResults([...matchedLibResults, ...fetchedImages]);
-      } else if (matchedLibResults.length > 0) {
-        setGoogleSearchResults(matchedLibResults);
+      const finalResults = [...matchedLibResults, ...crawledImages];
+
+      if (finalResults.length > 0) {
+        setGoogleSearchResults(finalResults);
       } else {
-        alert(`'${q}'에 대한 검색 결과가 0건입니다.\nProgrammable Search Engine 설정에서 [이미지 검색(Image search)]이 ON으로 켜져 있는지 확인해주세요.`);
+        alert('검색된 악보 이미지가 없습니다. 아래 [구글에서 직접 찾기]로 악보를 확인해 보세요.');
       }
     } catch (e: any) {
-      console.error('호출 실패:', e);
-      alert(`네트워크 연결 오류: ${e.message}`);
+      console.warn('검색 오류:', e);
+      if (matchedLibResults.length > 0) {
+        setGoogleSearchResults(matchedLibResults);
+      } else {
+        alert('실시간 검색 연결이 지연되고 있습니다. 아래 [구글에서 직접 찾기] 버튼을 이용해 주세요.');
+      }
     } finally {
       setIsWebSearching(false);
     }
@@ -901,7 +900,8 @@ export default function PraiseApp() {
       setModalLyrics(song.lyrics || '');
       setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
       setModalSheetType('search');
-      setWebSearchQuery(`${song.title} ${song.key ? `${song.key} Key` : ''}`.trim());
+      const combinedKey = song.key ? `${song.key} Key` : '';
+      setWebSearchQuery(`${song.title} ${combinedKey} 악보`.trim());
     } else {
       setEditingSongId(null);
       setModalHeaderTag('');
@@ -919,7 +919,7 @@ export default function PraiseApp() {
     setIsProcessing(false);
     setIsModalOpen(true);
   };
-
+  
   const handleSelectFromLibrary = (libSong: LibrarySong) => {
     setModalTitle(libSong.title || '');
     setModalKey(libSong.key || '');
@@ -2311,13 +2311,14 @@ export default function PraiseApp() {
                   onChange={(e) => {
                     const val = e.target.value;
                     setModalTitle(val);
-                    setWebSearchQuery(`${val} ${modalKey ? `${modalKey} Key` : ''}`.trim());
+                    const combinedKey = modalKey ? `${modalKey} Key` : '';
+                    setWebSearchQuery(`${val} ${combinedKey} 악보`.trim());
                   }}
                   placeholder="예: 꽃들도, 빛의 사자들이여"
                   className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                   }`}
-                />
+                />  
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2328,7 +2329,8 @@ export default function PraiseApp() {
                     onChange={(e) => {
                       const val = e.target.value;
                       setModalKey(val);
-                      setWebSearchQuery(`${modalTitle} ${val ? `${val} Key` : ''}`.trim());
+                      const combinedKey = val ? `${val} Key` : '';
+                      setWebSearchQuery(`${modalTitle} ${combinedKey} 악보`.trim());
                     }}
                     className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
