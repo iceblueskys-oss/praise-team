@@ -1260,9 +1260,10 @@ export default function Home() {
     );
   }
 
+  // backdrop-blur 제거하여 브라우저 그래픽 잔상 오류 방지
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-100 text-slate-900';
-  const cardBgClass = isDark ? 'bg-neutral-900/95 border-neutral-800 backdrop-blur-md' : 'bg-white border-slate-200 shadow-sm backdrop-blur-md';
+  const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
   const subCardBg = isDark ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-slate-100 border-slate-200 text-slate-700';
 
   // ==========================================
