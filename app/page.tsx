@@ -469,10 +469,12 @@ export default function Home() {
   const currentSongs = allSongs
     .filter((s) => s.contiId === currentConti?.id)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
-  const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
+  
+  // 🌟 전체 곡(allSongs)에서 안전하게 viewingSong을 찾아 즉시 뷰어를 오픈
+  const viewingSong = allSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
-// 🌟 콘티 세부 정보 변수 정의 추가
+  // 🌟 콘티 세부 정보 변수 정의 추가
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
   const currentNotice = currentConti?.notice || '';
