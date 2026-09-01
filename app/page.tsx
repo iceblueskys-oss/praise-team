@@ -149,7 +149,7 @@ function getSafeDocId(title: string, key?: string | null): string {
   return rawId.replace(/[\/\s#?\[\]]/g, '_');
 }
 
-export default function PraiseApp() {
+export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [contis, setContis] = useState<Conti[]>([]);
