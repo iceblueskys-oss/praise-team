@@ -14,32 +14,32 @@ import {
   PenTool,
   Layers,
   FileText,
-  일요일,
+  Sun,
   Moon,
   MessageSquare,
   SkipBack,
   SkipForward,
   GripVertical,
   Check,
-  사용자,
+  Users,
   Mic,
   PlusCircle,
-  링크 as LinkIcon,
+  Link as LinkIcon,
   Globe,
-  검색하기,
+  Search,
   Lock,
   Unlock,
   KeyRound,
   Library,
   ArrowDownToLine,
   RefreshCw,
-  꼬리표,
-  복사하기,
+  Tag,
+  Copy,
   BookOpen,
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
-  홈,
+  Home,
   Bell,
   CheckCircle2,
   XCircle,
@@ -63,7 +63,7 @@ import {
   getDoc,
 } from 'firebase/firestore';
 
-// 환경 변수에서 Google API 키 및 검색엔진 ID 로드
+// 환경 변수에서 Google API 키 및 검색엔진 ID 로드 (.env.local)
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY || '';
 const GOOGLE_SEARCH_ENGINE_ID = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_ENGINE_ID || '';
 
@@ -268,61 +268,64 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-// 🌟 구글 Custom Search API 정식 연동 함수 🌟
-const handleSearchGoogleSheets = async (queryText?: string) => {
-  const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
-  const q = rawTarget.trim();
+  // 🌟 구글 Custom Search API 정식 연동 함수 🌟
+  const handleSearchGoogleSheets = async (queryText?: string) => {
+    const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
+    const q = rawTarget.trim();
 
-  if (!q) {
-    alert('검색할 찬양 곡명을 입력해주세요.');
-    return;
-  }
-
-  setWebSearchQuery(q);
-  setIsWebSearching(true);
-  setGoogleSearchResults([]);
-
-  // 보관함 일치 우선 검색
-  const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
-  const matchedLibResults: GoogleImageResult[] = librarySongs
-    .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
-    .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
-
-  const searchKeyword = q.includes('악보') ? q : `${q} 악보`;
-
-  try {
-    const res = await fetch(
-      `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY.trim()}&cx=${GOOGLE_SEARCH_ENGINE_ID.trim()}&q=${encodeURIComponent(searchKeyword)}&searchType=image&num=10`
-    );
-    const data = await res.json();
-
-    if (data.error) {
-      console.error('Google API Error:', data.error);
-      alert(`[구글 검색 오류]\n${data.error.message}`);
-      setIsWebSearching(false);
+    if (!q) {
+      alert('검색할 찬양 곡명을 입력해주세요.');
       return;
     }
 
-    if (data.items && Array.isArray(data.items)) {
-      const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
-        url: item.link,
-        thumbnail: item.image?.thumbnailLink || item.link,
-        title: item.title,
-      }));
-      setGoogleSearchResults([...matchedLibResults, ...fetchedImages]);
-    } else if (matchedLibResults.length > 0) {
-      setGoogleSearchResults(matchedLibResults);
-    } else {
-      alert(`'${searchKeyword}'에 대한 악보 검색 결과가 없습니다.`);
+    setWebSearchQuery(q);
+    setIsWebSearching(true);
+    setGoogleSearchResults([]);
+
+    // 보관함 일치 우선 검색
+    const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
+    const matchedLibResults: GoogleImageResult[] = librarySongs
+      .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
+      .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
+
+    const searchKeyword = q.includes('악보') ? q : `${q} 악보`;
+
+    try {
+      const apiKey = GOOGLE_API_KEY.trim();
+      const cxId = GOOGLE_SEARCH_ENGINE_ID.trim();
+
+      const res = await fetch(
+        `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cxId}&q=${encodeURIComponent(searchKeyword)}&searchType=image&num=10`
+      );
+      const data = await res.json();
+
+      if (data.error) {
+        console.error('Google API Error:', data.error);
+        alert(`[구글 검색 오류]\n${data.error.message}`);
+        setIsWebSearching(false);
+        return;
+      }
+
+      if (data.items && Array.isArray(data.items)) {
+        const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
+          url: item.link,
+          thumbnail: item.image?.thumbnailLink || item.link,
+          title: item.title,
+        }));
+        setGoogleSearchResults([...matchedLibResults, ...fetchedImages]);
+      } else if (matchedLibResults.length > 0) {
+        setGoogleSearchResults(matchedLibResults);
+      } else {
+        alert(`'${searchKeyword}'에 대한 악보 검색 결과가 없습니다.`);
+      }
+    } catch (e: any) {
+      console.error('네트워크 에러:', e);
+      alert(`네트워크 연결 오류: ${e.message}`);
+    } finally {
+      setIsWebSearching(false);
     }
-  } catch (e: any) {
-    console.error('네트워크 에러:', e);
-    alert(`네트워크 연결 오류: ${e.message}`);
-  } finally {
-    setIsWebSearching(false);
-  }
-};
-  
+  };
+
   // 클립보드에서 직접 URL 붙여넣기
   const handlePasteClipboardUrl = async () => {
     try {
@@ -1898,7 +1901,7 @@ const handleSearchGoogleSheets = async (queryText?: string) => {
                                       : isDark
                                       ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-purple-300'
                                       : 'bg-slate-100 hover:bg-purple-50 border-slate-300 text-purple-700'
-                                    }`}
+                                  }`}
                                   title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
                                 >
                                   <BookOpen className="w-4 h-4" />
@@ -2323,7 +2326,7 @@ const handleSearchGoogleSheets = async (queryText?: string) => {
                       const val = e.target.value;
                       setModalKey(val);
                       const combinedKey = val ? `${val} Key` : '';
-                      setWebSearchQuery(`${modalTitle} ${combinedKey}악보`.trim());
+                      setWebSearchQuery(`${modalTitle} ${combinedKey} 악보`.trim());
                     }}
                     className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
@@ -2397,7 +2400,7 @@ const handleSearchGoogleSheets = async (queryText?: string) => {
                     type="button"
                     onClick={() => {
                       setModalSheetType('search');
-                      const initialQ = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`.trim();
+                      const initialQ = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim();
                       setWebSearchQuery(initialQ);
                       if (modalTitle && googleSearchResults.length === 0) {
                         handleSearchGoogleSheets(initialQ);
@@ -2454,7 +2457,7 @@ const handleSearchGoogleSheets = async (queryText?: string) => {
                         type="text"
                         value={webSearchQuery}
                         onChange={(e) => setWebSearchQuery(e.target.value)}
-                        placeholder="악보 검색어 (예: 꽃들도)"
+                        placeholder="악보 검색어 (예: 꽃들도 악보)"
                         className={`flex-1 border rounded-xl px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                           isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                         }`}
