@@ -14,41 +14,37 @@ import {
   PenTool,
   Layers,
   FileText,
-  일요일,
+  Sun,
   Moon,
   MessageSquare,
   SkipBack,
   SkipForward,
   GripVertical,
   Check,
-  사용자,
+  Users,
   Mic,
   PlusCircle,
-  링크 as LinkIcon,
   Globe,
-  검색하기,
+  Search,
   Lock,
   Unlock,
   KeyRound,
   Library,
   ArrowDownToLine,
   RefreshCw,
-  꼬리표,
-  복사하기,
+  Tag,
+  Copy,
   BookOpen,
-  ChevronDown,
-  ChevronUp,
   SlidersHorizontal,
-  홈,
+  Home as HomeIcon,
   Bell,
   CheckCircle2,
   XCircle,
   HelpCircle,
   RotateCcw,
   ArrowRight,
-  CheckCircle,
-  Loader2,
   ClipboardPaste,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -62,10 +58,6 @@ import {
   writeBatch,
   getDoc,
 } from 'firebase/firestore';
-
-// 환경 변수에서 Google API 키 및 검색엔진 ID 로드 (.env.local)
-const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY || '';
-const GOOGLE_SEARCH_ENGINE_ID = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_ENGINE_ID || '';
 
 interface SongItem {
   id: string;
@@ -99,12 +91,6 @@ interface Conti {
   customNote?: string;
   notice?: string;
   attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
-}
-
-interface GoogleImageResult {
-  url: string;
-  thumbnail: string;
-  title: string;
 }
 
 function getUpcomingSunday(): Date {
@@ -162,7 +148,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'conti' | 'library'>('conti');
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [noticeInput, setNoticeInput] = useState('');
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -206,15 +191,10 @@ export default function Home() {
   const [modalBpm, setModalBpm] = useState('');
   const [modalComment, setModalComment] = useState('');
   const [modalLyrics, setModalLyrics] = useState('');
-  const [modalSheetType, setModalSheetType] = useState<'search' | 'file' | 'library'>('search');
+  const [modalSheetType, setModalSheetType] = useState<'file' | 'library'>('file');
   const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // 🌟 Google Custom Search API 프론트엔드 직접 연동 🌟
-  const [webSearchQuery, setWebSearchQuery] = useState('');
-  const [googleSearchResults, setGoogleSearchResults] = useState<GoogleImageResult[]>([]);
-  const [isWebSearching, setIsWebSearching] = useState(false);
 
   // 악보 뷰어 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
@@ -268,78 +248,6 @@ export default function Home() {
     alert('가사가 복사되었습니다.');
   };
 
-// 🌟 차단 없는 실시간 찬양 악보 검색 파서 🌟
-  const handleSearchGoogleSheets = async (queryText?: string) => {
-    const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
-    const q = rawTarget.trim();
-
-    if (!q) {
-      alert('검색할 찬양 곡명을 입력해주세요.');
-      return;
-    }
-
-    setWebSearchQuery(q);
-    setIsWebSearching(true);
-    setGoogleSearchResults([]);
-
-    // 1. 내 보관소 내 일치 곡 우선 추출
-    const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
-    const matchedLibResults: GoogleImageResult[] = librarySongs
-      .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
-      .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
-
-    const searchKeyword = q.includes('악보') ? q : `${q} 악보`;
-
-    try {
-      // 2. 외부 프록시 경유 위키/블로그/구글 찬양 악보 이미지 검색
-      const targetUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchKeyword)}`;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-      
-      const res = await fetch(proxyUrl);
-      const data = await res.json();
-      const htmlText = data?.contents || '';
-
-      const fetchedImages: GoogleImageResult[] = [];
-      const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*>/gi;
-      let match;
-
-      while ((match = imgRegex.exec(htmlText)) !== null) {
-        const src = match[1];
-        if (
-          !src.includes('duckduckgo.com') &&
-          !src.includes('favicon') &&
-          !src.includes('icon') &&
-          (src.includes('jpg') || src.includes('jpeg') || src.includes('png') || src.includes('tse'))
-        ) {
-          fetchedImages.push({
-            url: src,
-            thumbnail: src,
-            title: searchKeyword,
-          });
-        }
-        if (fetchedImages.length >= 12) break;
-      }
-
-      const finalResults = [...matchedLibResults, ...fetchedImages];
-
-      if (finalResults.length > 0) {
-        setGoogleSearchResults(finalResults);
-      } else {
-        alert('검색된 악보 이미지가 없습니다. 아래 [구글에서 직접 찾기 ↗] 버튼을 이용해 악보를 확인해 주세요.');
-      }
-    } catch (e: any) {
-      console.warn('검색 처리 알림:', e);
-      if (matchedLibResults.length > 0) {
-        setGoogleSearchResults(matchedLibResults);
-      } else {
-        alert('실시간 악보 검색 연결이 원활하지 않습니다. 아래 [구글에서 직접 찾기 ↗] 링크를 눌러 이미지를 확인해 주세요.');
-      }
-    } finally {
-      setIsWebSearching(false);
-    }
-  };
-
-  // 클립보드에서 직접 URL 붙여넣기
   const handlePasteClipboardUrl = async () => {
     try {
       const text = await navigator.clipboard.readText();
@@ -723,19 +631,6 @@ export default function Home() {
     }
   };
 
-  const handleOpenSearchWeb = (engine: 'google' | 'daum') => {
-    const term = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim();
-    if (!modalTitle.trim()) {
-      alert('곡 제목을 먼저 입력해주세요.');
-      return;
-    }
-    const url =
-      engine === 'google'
-        ? `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(term)}`
-        : `https://search.daum.net/search?w=img&q=${encodeURIComponent(term)}`;
-    window.open(url, '_blank');
-  };
-
   const handleOpenSingerModal = () => {
     setSelectedSingers(Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : []);
     setNoteInput(currentConti?.customNote || '');
@@ -908,9 +803,7 @@ export default function Home() {
       setModalComment(song.comment || '');
       setModalLyrics(song.lyrics || '');
       setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
-      setModalSheetType('search');
-      const combinedKey = song.key ? `${song.key} Key` : '';
-      setWebSearchQuery(`${song.title} ${combinedKey} 악보`.trim());
+      setModalSheetType('file');
     } else {
       setEditingSongId(null);
       setModalHeaderTag('');
@@ -919,11 +812,9 @@ export default function Home() {
       setModalBpm('');
       setModalComment('');
       setModalLyrics('');
-      setModalSheetType('search');
+      setModalSheetType('file');
       setModalSheetUrls([]);
-      setWebSearchQuery('');
     }
-    setGoogleSearchResults([]);
     setModalLibrarySearch('');
     setIsProcessing(false);
     setIsModalOpen(true);
@@ -1260,7 +1151,6 @@ export default function Home() {
     );
   }
 
-  // backdrop-blur 제거하여 브라우저 그래픽 잔상 오류 방지
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-slate-100 text-slate-900';
   const cardBgClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-slate-200 shadow-sm';
@@ -1573,6 +1463,10 @@ export default function Home() {
     );
   });
 
+  const googleSearchSheetUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+    `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim()
+  )}`;
+
   return (
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-32 p-3.5 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),18px)] ${bgClass}`}>
       <div className="max-w-2xl mx-auto space-y-4 w-full">
@@ -1782,7 +1676,7 @@ export default function Home() {
                       key={singer}
                       className="px-2.5 py-0.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-500 font-bold text-xs flex items-center gap-1"
                     >
-                      <Mic className="w-3 h-3" /> {singer}
+                      <Mic className="w-3.5 h-3.5" /> {singer}
                     </span>
                   ))}
                 </div>
@@ -2134,7 +2028,7 @@ export default function Home() {
                 : 'opacity-60 hover:opacity-100'
             }`}
           >
-            <Home className="w-4 h-4" />
+            <HomeIcon className="w-4 h-4" />
             <span>예배 일정</span>
           </button>
 
@@ -2251,7 +2145,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 (Google Custom Search API 브라우저 연동) */}
+      {/* 2. 곡 추가/수정 모달 (모바일 최적화 파일 업로드 & 구글 바로가기) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2318,12 +2212,7 @@ export default function Home() {
                   type="text"
                   required
                   value={modalTitle}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setModalTitle(val);
-                    const combinedKey = modalKey ? `${modalKey} Key` : '';
-                    setWebSearchQuery(`${val} ${combinedKey} 악보`.trim());
-                  }}
+                  onChange={(e) => setModalTitle(e.target.value)}
                   placeholder="예: 꽃들도, 빛의 사자들이여"
                   className={`w-full border rounded-xl px-3.5 py-2.5 text-sm sm:text-base focus:outline-none focus:border-blue-500 ${
                     isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
@@ -2336,12 +2225,7 @@ export default function Home() {
                   <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-1.5">Key (선택)</label>
                   <select
                     value={modalKey}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setModalKey(val);
-                      const combinedKey = val ? `${val} Key` : '';
-                      setWebSearchQuery(`${modalTitle} ${combinedKey} 악보`.trim());
-                    }}
+                    onChange={(e) => setModalKey(e.target.value)}
                     className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                     }`}
@@ -2408,30 +2292,8 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2">악보 등록 방식</label>
-                <div className="grid grid-cols-3 gap-2 mb-3.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalSheetType('search');
-                      const initialQ = `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim();
-                      setWebSearchQuery(initialQ);
-                      if (modalTitle && googleSearchResults.length === 0) {
-                        handleSearchGoogleSheets(initialQ);
-                      }
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
-                      modalSheetType === 'search'
-                        ? 'bg-blue-600 border-blue-500 text-white'
-                        : isDark
-                        ? 'bg-neutral-800 border-neutral-700 text-neutral-400'
-                        : 'bg-slate-100 border-slate-300 text-slate-600'
-                    }`}
-                  >
-                    <Search className="w-4 h-4" />
-                    <span>구글 악보 검색</span>
-                  </button>
-
+                <label className="block text-xs sm:text-sm font-semibold opacity-75 mb-2">악보 등록</label>
+                <div className="grid grid-cols-2 gap-2 mb-3.5">
                   <button
                     type="button"
                     onClick={() => setModalSheetType('file')}
@@ -2443,8 +2305,8 @@ export default function Home() {
                         : 'bg-slate-100 border-slate-300 text-slate-600'
                     }`}
                   >
-                    <FileText className="w-4 h-4" />
-                    <span>파일 첨부</span>
+                    <ImageIcon className="w-4 h-4" />
+                    <span>파일 / 갤러리 사진 첨부</span>
                   </button>
 
                   <button
@@ -2463,150 +2325,59 @@ export default function Home() {
                   </button>
                 </div>
 
-                {/* 1. Google API 악보 검색 탭 */}
-                {modalSheetType === 'search' && (
+                {modalSheetType === 'file' && (
                   <div className="space-y-3">
                     <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={webSearchQuery}
-                        onChange={(e) => setWebSearchQuery(e.target.value)}
-                        placeholder="악보 검색어 (예: 꽃들도 악보)"
-                        className={`flex-1 border rounded-xl px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
-                          isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSearchGoogleSheets()}
-                        disabled={isWebSearching}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                      <a
+                        href={googleSearchSheetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-2.5 px-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-blue-100 transition"
                       >
-                        {isWebSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                        <span>검색</span>
-                      </button>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenSearchWeb('google')}
-                        className="flex-1 py-2 px-2 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-500 font-bold rounded-xl text-xs flex items-center justify-center gap-1 transition active:scale-95"
-                      >
-                        <Globe className="w-3.5 h-3.5" />
-                        <span>구글에서 직접 찾기 ↗</span>
-                      </button>
+                        <Globe className="w-4 h-4" />
+                        <span>구글 악보 찾기 ↗</span>
+                      </a>
                       <button
                         type="button"
                         onClick={handlePasteClipboardUrl}
-                        className="flex-1 py-2 px-2 bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/30 text-purple-600 dark:text-purple-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1 transition active:scale-95"
+                        className="flex-1 py-2.5 px-3 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-purple-100 transition"
                       >
-                        <ClipboardPaste className="w-3.5 h-3.5" />
+                        <ClipboardPaste className="w-4 h-4" />
                         <span>복사한 주소 넣기</span>
                       </button>
                     </div>
 
-                    {modalSheetUrls.length > 0 && (
-                      <div className={`p-3 rounded-2xl border flex flex-col items-center gap-2 ${
-                        isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-50 border-slate-200'
-                      }`}>
-                        <div className="flex items-center justify-between w-full">
-                          <span className="text-xs font-bold text-emerald-500 flex items-center gap-1">
-                            <CheckCircle className="w-3.5 h-3.5" /> 선택된 악보 ({modalSheetUrls.length}장)
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setModalSheetUrls([])}
-                            className="text-xs font-bold text-red-500 hover:underline"
-                          >
-                            선택 해제
-                          </button>
-                        </div>
-                        <div className="flex flex-wrap gap-2 justify-center">
-                          {modalSheetUrls.map((url, idx) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={idx}
-                              src={url}
-                              alt="선택된 악보"
-                              className="h-28 w-auto object-contain rounded-xl border bg-white shadow-sm"
-                            />
-                          ))}
-                        </div>
-                      </div>
+                    <label className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md transition active:scale-98">
+                      <ImageIcon className="w-4 h-4" />
+                      <span>모바일 갤러리 / 악보 파일 선택 (다중 선택 가능)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {isProcessing && (
+                      <span className="text-xs sm:text-sm text-blue-500 block animate-pulse font-bold text-center">
+                        악보 이미지 최적화 중...
+                      </span>
                     )}
 
-                    <div className="space-y-1.5">
-                      <span className="text-[11px] font-bold opacity-75">
-                        검색 결과 (터치하면 바로 악보로 등록됩니다)
-                      </span>
-
-                      {isWebSearching ? (
-                        <div className="py-10 text-center text-xs opacity-70 flex flex-col items-center gap-2">
-                          <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                          <span>Google에서 고화질 악보를 검색하는 중입니다...</span>
-                        </div>
-                      ) : googleSearchResults.length === 0 ? (
-                        <div className={`p-8 rounded-2xl border text-center text-xs opacity-60 ${
-                          isDark ? 'bg-neutral-800/40 border-neutral-800' : 'bg-slate-50 border-slate-200'
-                        }`}>
-                          곡명을 입력하고 [검색]을 누르면 악보 썸네일이 나타납니다.
-                        </div>
-                      ) : (
-                        <div className={`grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-2xl ${
-                          isDark ? 'bg-neutral-800/50 border-neutral-700' : 'bg-slate-50 border-slate-200'
-                        }`}>
-                          {googleSearchResults.map((item, i) => {
-                            const isSelected = modalSheetUrls.includes(item.url);
-
-                            return (
-                              <div
-                                key={i}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    setModalSheetUrls(modalSheetUrls.filter((u) => u !== item.url));
-                                  } else {
-                                    setModalSheetUrls([item.url]);
-                                  }
-                                }}
-                                className={`relative group border-2 rounded-xl p-1 bg-white cursor-pointer transition active:scale-95 flex flex-col items-center overflow-hidden ${
-                                  isSelected ? 'border-blue-600 ring-2 ring-blue-500/40' : 'border-transparent hover:border-slate-300'
-                                }`}
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={item.thumbnail}
-                                  alt={item.title}
-                                  className="w-full h-24 object-contain rounded-lg bg-white"
-                                  onError={(e) => {
-                                    (e.target as HTMLElement).parentElement?.remove();
-                                  }}
-                                />
-                                {isSelected && (
-                                  <div className="absolute inset-0 bg-blue-600/20 backdrop-blur-[1px] flex items-center justify-center">
-                                    <CheckCircle className="w-6 h-6 text-blue-600 fill-white" />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {modalSheetType === 'file' && (
-                  <div className="space-y-2.5">
                     {modalSheetUrls.length > 0 && (
-                      <div className={`grid grid-cols-3 gap-2.5 p-3 border rounded-2xl max-h-52 overflow-y-auto ${isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-200'}`}>
+                      <div className={`grid grid-cols-3 gap-2.5 p-3 border rounded-2xl max-h-52 overflow-y-auto ${
+                        isDark ? 'bg-neutral-800/80 border-neutral-700' : 'bg-slate-100 border-slate-200'
+                      }`}>
                         {modalSheetUrls.map((url, index) => (
-                          <div key={index} className={`relative group border rounded-xl p-1.5 flex flex-col items-center ${isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-slate-300'}`}>
+                          <div key={index} className={`relative group border rounded-xl p-1.5 flex flex-col items-center ${
+                            isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-slate-300'
+                          }`}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={url}
                               alt={`${index + 1}p`}
-                              className="w-full h-16 object-contain rounded-lg bg-white"
+                              className="w-full h-20 object-contain rounded-lg bg-white"
                             />
                             <span className="text-xs font-bold opacity-80 mt-1">
                               {index + 1} 페이지
@@ -2622,23 +2393,6 @@ export default function Home() {
                           </div>
                         ))}
                       </div>
-                    )}
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileChange}
-                      className={`w-full text-xs sm:text-sm file:mr-2.5 file:py-2 file:px-3.5 file:rounded-xl file:border-0 cursor-pointer ${
-                        isDark
-                          ? 'text-neutral-400 file:bg-neutral-800 file:text-neutral-200'
-                          : 'text-slate-600 file:bg-slate-200 file:text-slate-800'
-                      }`}
-                    />
-                    {isProcessing && (
-                      <span className="text-xs sm:text-sm text-blue-500 block animate-pulse font-bold">
-                        악보 처리 중...
-                      </span>
                     )}
                   </div>
                 )}
@@ -3033,7 +2787,7 @@ export default function Home() {
                 </div>
                 {previewLibSong.lyrics ? (
                   <div className={`p-4 rounded-2xl border text-sm sm:text-base font-medium leading-relaxed whitespace-pre-wrap ${
-                    isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-slate-50 border-slate-200'
+                    isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-slate-50 border-slate-200'
                   }`}>
                     {previewLibSong.lyrics}
                   </div>
