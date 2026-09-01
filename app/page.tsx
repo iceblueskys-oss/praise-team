@@ -45,6 +45,9 @@ import {
   ArrowRight,
   ClipboardPaste,
   Image as ImageIcon,
+  History,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -146,6 +149,7 @@ export default function Home() {
 
   const [viewLevel, setViewLevel] = useState<'home' | 'detail'>('home');
   const [activeTab, setActiveTab] = useState<'conti' | 'library'>('conti');
+  const [showPastContis, setShowPastContis] = useState(false);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
@@ -467,6 +471,11 @@ export default function Home() {
     .sort((a, b) => (a.order || 0) - (b.order || 0));
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
+
+  // 날짜 기준 콘티 분리 (오늘 이후 = 다가올 일정, 오늘 이전 = 지난 콘티)
+  const todayStr = formatDateToStr(new Date());
+  const upcomingContis = contis.filter((c) => (c.date || '') >= todayStr);
+  const pastContis = contis.filter((c) => (c.date || '') < todayStr);
 
   const handleUpdateViewingSongLyrics = async (newLyrics: string) => {
     if (!viewingSong) return;
@@ -1158,316 +1167,6 @@ export default function Home() {
   const subCardBg = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-200 hover:bg-[#38383A]' : 'bg-[#EDF2F7] border-slate-200/60 text-slate-700 hover:bg-[#E2E8F0]';
   const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder-slate-400';
 
-  // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (화이트 캔버스 고정)
-  // ==========================================
-  if (viewingSong) {
-    const totalPages = viewingSong.sheetUrls?.length || 0;
-    const currentSheetUrl = viewingSong.sheetUrls?.[currentPageIndex] || '';
-
-    return (
-      <div
-        style={{ overscrollBehavior: 'none' }}
-        className="fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none bg-[#F5F7FA] text-slate-900"
-      >
-        {/* 뷰어 상단 툴바 */}
-        <div
-          className={`fixed top-3 sm:top-5 inset-x-3 sm:inset-x-6 z-50 transition-all duration-300 pointer-events-none ${
-            showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
-          }`}
-          style={{ paddingTop: 'env(safe-area-inset-top)' }}
-        >
-          <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">
-            <div className="pointer-events-auto flex items-center justify-between p-2 rounded-2xl bg-white/95 border border-slate-200 shadow-xl backdrop-blur-xl text-slate-800">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setViewingSongId(null);
-                    setCurrentPageIndex(0);
-                    setViewMode('sheet');
-                  }}
-                  className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
-                  title="목록으로 나가기"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-
-                {viewingSong.key && (
-                  <span className="px-2.5 py-1 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] border border-[#CBD5E0] rounded-lg">
-                    {viewingSong.key} Key
-                  </span>
-                )}
-                {viewingSong.bpm && (
-                  <span className="text-xs font-semibold text-slate-500 hidden xs:inline">
-                    ♩ {viewingSong.bpm}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
-                    viewMode === 'lyrics'
-                      ? 'bg-[#8E74AE] text-white shadow-sm'
-                      : 'bg-[#F3E8FF] text-[#6B46C1] hover:bg-[#E9D8FD]'
-                  }`}
-                >
-                  {viewMode === 'sheet' ? <BookOpen className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
-                  <span>{viewMode === 'sheet' ? '가사' : '악보'}</span>
-                </button>
-
-                {viewMode === 'sheet' && currentSheetUrl && (
-                  <button
-                    onClick={() => setIsDrawingMode(!isDrawingMode)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
-                      isDrawingMode
-                        ? 'bg-[#FEF3E2] border border-[#F39C12] text-[#D97706]'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <PenTool className="w-3.5 h-3.5" />
-                    <span>{isDrawingMode ? '완료' : '필기'}</span>
-                  </button>
-                )}
-
-                {viewMode === 'sheet' && (
-                  <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200">
-                    <button
-                      onClick={() => setScale((s) => Math.max(s - 0.2, 0.6))}
-                      className="w-7 h-7 flex items-center justify-center text-xs font-bold text-slate-700 hover:text-black"
-                    >
-                      -
-                    </button>
-                    <button
-                      onClick={() => setScale((s) => Math.min(s + 0.2, 2.0))}
-                      className="w-7 h-7 flex items-center justify-center text-xs font-bold text-slate-700 hover:text-black"
-                    >
-                      +
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {viewingSong.comment && (
-              <div className="pointer-events-auto self-center px-3.5 py-1.5 rounded-full bg-[#EBF3FB] border border-[#BEE3F8] shadow-md text-xs font-semibold text-[#2B6CB0] flex items-center gap-1.5 max-w-sm truncate">
-                <MessageSquare className="w-3.5 h-3.5 text-[#3182CE] shrink-0" />
-                <span className="font-bold shrink-0">진행:</span>
-                <span className="truncate">{viewingSong.comment}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {viewMode === 'sheet' && isDrawingMode && (
-          <div
-            className={`fixed top-20 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
-              showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
-            }`}
-            style={{ paddingTop: 'env(safe-area-inset-top)' }}
-          >
-            <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-2xl bg-white/95 border border-slate-200 shadow-xl backdrop-blur-xl">
-              <div className="flex items-center p-0.5 rounded-xl bg-slate-100 gap-0.5">
-                <button
-                  onClick={() => setCurrentTool('pen')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'pen' ? 'bg-[#4A90E2] text-white shadow-xs' : 'text-slate-600'}`}
-                >
-                  펜
-                </button>
-                <button
-                  onClick={() => setCurrentTool('highlighter')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'highlighter' ? 'bg-[#FEEBC8] text-[#C05621] shadow-xs' : 'text-slate-600'}`}
-                >
-                  형광펜
-                </button>
-                <button
-                  onClick={() => setCurrentTool('eraser')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentTool === 'eraser' ? 'bg-slate-700 text-white shadow-xs' : 'text-slate-600'}`}
-                >
-                  지우개
-                </button>
-              </div>
-
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-100">
-                {['#EF4444', '#3B82F6', '#10B981', '#1E293B', '#F59E0B'].map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => setPenColor(color)}
-                    style={{ backgroundColor: color }}
-                    className={`w-4 h-4 rounded-full transition-transform ${
-                      penColor === color ? 'scale-125 ring-2 ring-slate-400' : 'opacity-70'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              <button
-                onClick={handleClearDrawing}
-                className="p-1.5 rounded-xl bg-slate-100 hover:bg-red-50 text-[#EF4444] transition"
-                title="현재 페이지 필기 지우기"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 🌟 악보 캔버스 (화이트 배경 고정) 🌟 */}
-        <main
-          onClick={() => {
-            if (!isDrawingMode) setShowViewerControls(!showViewerControls);
-          }}
-          style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
-          className="flex-1 overflow-auto flex items-center justify-center p-3 pt-24 pb-24 relative bg-[#F8F9FA]"
-        >
-          {viewMode === 'lyrics' ? (
-            <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl h-full flex flex-col justify-center p-2">
-              <div className="w-full h-full rounded-3xl p-5 border border-slate-200 bg-white shadow-xl flex flex-col">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                  <span className="text-sm font-bold text-[#8E74AE] flex items-center gap-1.5">
-                    <BookOpen className="w-4 h-4" /> 찬양 가사
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleSearchLyricsWeb(viewingSong.title)}
-                      className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#EBF3FB] text-[#2B6CB0] hover:bg-[#DCEBF9] transition"
-                    >
-                      구글 검색 ↗
-                    </button>
-                    <button
-                      onClick={() => handleCopyLyrics(viewingSong.lyrics || '')}
-                      className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#8E74AE] text-white flex items-center gap-1 active:scale-95 transition"
-                    >
-                      <Copy className="w-3.5 h-3.5" /> 복사
-                    </button>
-                  </div>
-                </div>
-
-                <textarea
-                  value={viewingSong.lyrics || ''}
-                  onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
-                  placeholder="등록된 가사가 없습니다. 가사를 입력하거나 붙여넣으세요."
-                  className="w-full flex-1 p-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-base font-normal leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none text-slate-800 placeholder-slate-400"
-                />
-              </div>
-            </div>
-          ) : !currentSheetUrl ? (
-            <div className="text-center p-8 rounded-3xl border border-slate-200 bg-white shadow-xl max-w-xs text-slate-800">
-              <p className="font-bold text-base mb-1">등록된 악보가 없습니다.</p>
-              <p className="text-xs text-slate-500">곡 수정 메뉴에서 악보 이미지를 첨부해주세요.</p>
-            </div>
-          ) : (
-            <div
-              className="relative transition-transform duration-100 origin-center inline-block max-w-full my-auto"
-              style={{ transform: `scale(${scale})` }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                ref={imageRef}
-                key={currentSheetUrl}
-                src={currentSheetUrl}
-                alt={`${viewingSong.title} - ${currentPageIndex + 1}p`}
-                onLoad={initCanvas}
-                className="max-h-[80vh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none rounded-xl shadow-lg border border-slate-200"
-              />
-              <canvas
-                ref={canvasRef}
-                onMouseDown={startDraw}
-                onMouseMove={onDraw}
-                onMouseUp={stopDraw}
-                onMouseLeave={stopDraw}
-                onTouchStart={startDraw}
-                onTouchMove={onDraw}
-                onTouchEnd={stopDraw}
-                style={{ mixBlendMode: 'multiply' }}
-                className={`absolute inset-0 w-full h-full rounded-xl ${
-                  isDrawingMode ? 'cursor-crosshair touch-none' : 'pointer-events-none'
-                }`}
-              />
-            </div>
-          )}
-        </main>
-
-        {/* 뷰어 하단 툴바 */}
-        <footer
-          className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
-            showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
-        >
-          <div className="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full bg-white/95 border border-slate-200 shadow-xl backdrop-blur-xl">
-            <button
-              onClick={handlePrevSong}
-              disabled={currentSongIndex <= 0}
-              className="px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-30 active:scale-95 transition flex items-center gap-1"
-            >
-              <SkipBack className="w-3.5 h-3.5 text-[#4A90E2]" />
-              <span>이전 곡</span>
-            </button>
-
-            {viewMode === 'sheet' && totalPages > 1 && (
-              <div className="flex items-center gap-1 px-1.5 border-x border-slate-200">
-                <button
-                  onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
-                  disabled={currentPageIndex === 0}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 hover:text-black hover:bg-slate-100 disabled:opacity-20 transition"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-xs font-bold text-[#4A90E2] px-1 min-w-[32px] text-center">
-                  {currentPageIndex + 1}/{totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
-                  disabled={currentPageIndex === totalPages - 1}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 hover:text-black hover:bg-slate-100 disabled:opacity-20 transition"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            <button
-              onClick={handleNextSong}
-              disabled={currentSongIndex >= currentSongs.length - 1}
-              className="px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-30 active:scale-95 transition flex items-center gap-1"
-            >
-              <span>다음 곡</span>
-              <SkipForward className="w-3.5 h-3.5 text-[#4A90E2]" />
-            </button>
-          </div>
-        </footer>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // 2. 메인 화면
-  // ==========================================
-  const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
-  const customNote = currentConti?.customNote || '';
-  const currentNotice = currentConti?.notice || '';
-  const currentAttendance = currentConti?.attendance || {};
-
-  const yesCount = Object.values(currentAttendance).filter((v) => v === 'yes').length;
-  const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
-  const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
-
-  const filteredLibrary = librarySongs.filter((s) => {
-    const term = (librarySearchTerm || modalLibrarySearch).toLowerCase().trim();
-    if (!term) return true;
-    return (
-      (s.title || '').toLowerCase().includes(term) ||
-      (s.key || '').toLowerCase().includes(term) ||
-      (s.lyrics || '').toLowerCase().includes(term)
-    );
-  });
-
-  const googleSearchSheetUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
-    `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim()
-  )}`;
-
   return (
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
       <div className="max-w-xl mx-auto space-y-4 w-full">
@@ -1555,22 +1254,24 @@ export default function Home() {
               )}
             </div>
 
-            {/* 콘티 목록 */}
+            {/* 🌟 1. 다가올 예배 일정 목록 🌟 */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-sm font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-[#4A90E2]" />
-                  예배 콘티 일정
+                  다가오는 예배 일정
                 </h2>
-                <span className="text-xs text-slate-500 dark:text-neutral-500 font-semibold">총 {contis.length}개</span>
+                <span className="text-xs text-[#4A90E2] font-bold bg-[#EBF3FB] px-2 py-0.5 rounded-lg">
+                  {upcomingContis.length}개 예정
+                </span>
               </div>
 
-              {contis.length === 0 ? (
-                <div className={`text-center py-12 border rounded-3xl text-sm px-4 text-slate-500 dark:text-neutral-400 ${cardBgClass}`}>
-                  등록된 예배 일정이 없습니다. 상단 <span className="text-[#4A90E2] font-bold">[+ 새 콘티]</span>를 눌러 일정을 추가해보세요.
+              {upcomingContis.length === 0 ? (
+                <div className={`text-center py-10 border rounded-3xl text-sm px-4 text-slate-500 dark:text-neutral-400 ${cardBgClass}`}>
+                  예정된 예배 일정이 없습니다. 상단 <span className="text-[#4A90E2] font-bold">[+ 새 콘티]</span>를 눌러 다가올 예배를 등록해보세요.
                 </div>
               ) : (
-                contis.map((c) => {
+                upcomingContis.map((c) => {
                   const songCount = allSongs.filter((s) => s.contiId === c.id).length;
                   const singers = c.assignedSingers || [];
 
@@ -1581,7 +1282,7 @@ export default function Home() {
                         setSelectedContiId(c.id);
                         setViewLevel('detail');
                       }}
-                      className={`p-4 rounded-3xl border transition active:scale-[0.99] cursor-pointer hover:border-[#4A90E2]/40 flex items-center justify-between gap-3 ${cardBgClass}`}
+                      className={`p-4 rounded-3xl border transition active:scale-[0.99] cursor-pointer hover:border-[#4A90E2]/50 flex items-center justify-between gap-3 ${cardBgClass}`}
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1606,7 +1307,7 @@ export default function Home() {
                       </div>
 
                       <div className="flex items-center gap-1 text-[#4A90E2] font-bold text-xs shrink-0 pl-2">
-                        <span>보기</span>
+                        <span>콘티 보기</span>
                         <ArrowRight className="w-4 h-4" />
                       </div>
                     </div>
@@ -1614,6 +1315,67 @@ export default function Home() {
                 })
               )}
             </div>
+
+            {/* 🌟 2. 지난 콘티 보관함 (접기/펼치기 지원) 🌟 */}
+            {pastContis.length > 0 && (
+              <div className="space-y-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPastContis(!showPastContis)}
+                  className={`w-full p-3 rounded-2xl border flex items-center justify-between transition active:scale-98 ${subCardBg}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-slate-500" />
+                    <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-neutral-300">
+                      지난 예배 콘티 ({pastContis.length}개)
+                    </span>
+                  </div>
+                  {showPastContis ? (
+                    <ChevronUp className="w-4 h-4 text-slate-500" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                  )}
+                </button>
+
+                {showPastContis && (
+                  <div className="space-y-2 pl-1">
+                    {pastContis.map((c) => {
+                      const songCount = allSongs.filter((s) => s.contiId === c.id).length;
+                      return (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setSelectedContiId(c.id);
+                            setViewLevel('detail');
+                          }}
+                          className={`p-3.5 rounded-2xl border opacity-75 hover:opacity-100 transition active:scale-[0.99] cursor-pointer flex items-center justify-between gap-3 ${cardBgClass}`}
+                        >
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-400 rounded-md">
+                                {c.date}
+                              </span>
+                              <span className="text-[11px] text-slate-400">
+                                {songCount}곡
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold truncate text-slate-700 dark:text-neutral-300">
+                              {c.title}
+                            </h4>
+                          </div>
+
+                          <div className="flex items-center gap-1 text-slate-500 font-semibold text-xs shrink-0">
+                            <span>보기</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
 
