@@ -268,7 +268,7 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-// 🌟 차단 없는 브라우저 다이렉트 악보 썸네일 검색 엔진 🌟
+// 🌟 구글 Custom Search API 정식 연동 함수 🌟
   const handleSearchGoogleSheets = async (queryText?: string) => {
     const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
     const q = rawTarget.trim();
@@ -282,48 +282,50 @@ export default function PraiseApp() {
     setIsWebSearching(true);
     setGoogleSearchResults([]);
 
-    // 1. 내 보관소 내 일치 곡 우선 추출
+    // 1. 내 보관함 일치 결과 우선 추출
     const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
     const matchedLibResults: GoogleImageResult[] = librarySongs
       .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
       .flatMap((lib) => (lib.sheetUrls || []).map((url) => ({ url, thumbnail: url, title: `[보관함] ${lib.title}` })));
 
+    // 검색어에 이미 '악보'가 포함되어 있는지 확인 후 쿼리 생성
+    const searchKeyword = q.includes('악보') ? q : `${q} 악보`;
+
     try {
-      // 2. 다이렉트 이미지 검색 엔진 호출 (DuckDuckGo 이미지 파서 - API 키/결제 필요 없음)
-      const tokenRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://duckduckgo.com/?q=${encodeURIComponent(`${q} 악보`)}&iar=images&iax=images&ia=images`)}`);
-      const tokenHtml = await tokenRes.text();
-      const vqdMatch = tokenHtml.match(/vqd=([^&"']+)/) || tokenHtml.match(/vqd:\s*"([^"]+)"/);
-      const vqd = vqdMatch ? vqdMatch[1] : '';
+      const apiKey = GOOGLE_API_KEY.trim();
+      const cxId = GOOGLE_SEARCH_ENGINE_ID.trim();
 
-      let crawledImages: GoogleImageResult[] = [];
+      // 구글 Custom Search API 직접 호출
+      const res = await fetch(
+        `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cxId}&q=${encodeURIComponent(searchKeyword)}&searchType=image&num=10`
+      );
+      const data = await res.json();
 
-      if (vqd) {
-        const imgApiUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://duckduckgo.com/i.js?l=kr-kr&o=json&q=${encodeURIComponent(`${q} 악보`)}&vqd=${vqd}&f=,,,&p=1`)}`;
-        const imgRes = await fetch(imgApiUrl);
-        const imgData = await imgRes.json();
-
-        if (imgData?.results && Array.isArray(imgData.results)) {
-          crawledImages = imgData.results.slice(0, 16).map((item: any) => ({
-            url: item.image,
-            thumbnail: item.thumbnail || item.image,
-            title: item.title || q,
-          }));
-        }
+      if (data.error) {
+        console.error('Google API Error:', data.error);
+        alert(`[구글 검색 오류]\n${data.error.message || 'API 키 또는 검색엔진 설정을 확인해주세요.'}`);
+        setIsWebSearching(false);
+        return;
       }
 
-      const finalResults = [...matchedLibResults, ...crawledImages];
-
-      if (finalResults.length > 0) {
-        setGoogleSearchResults(finalResults);
+      if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+        const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
+          url: item.link,
+          thumbnail: item.image?.thumbnailLink || item.link,
+          title: item.title,
+        }));
+        setGoogleSearchResults([...matchedLibResults, ...fetchedImages]);
+      } else if (matchedLibResults.length > 0) {
+        setGoogleSearchResults(matchedLibResults);
       } else {
-        alert('검색된 악보 이미지가 없습니다. 아래 [구글에서 직접 찾기]로 악보를 확인해 보세요.');
+        alert(`'${searchKeyword}'에 대한 악보 검색 결과가 없습니다.\nProgrammable Search Engine 설정에서 [이미지 검색]이 켜져 있는지 확인해주세요.`);
       }
     } catch (e: any) {
-      console.warn('검색 오류:', e);
+      console.error('네트워크 에러:', e);
       if (matchedLibResults.length > 0) {
         setGoogleSearchResults(matchedLibResults);
       } else {
-        alert('실시간 검색 연결이 지연되고 있습니다. 아래 [구글에서 직접 찾기] 버튼을 이용해 주세요.');
+        alert(`네트워크 연결 오류가 발생했습니다: ${e.message}`);
       }
     } finally {
       setIsWebSearching(false);
@@ -2330,7 +2332,7 @@ export default function PraiseApp() {
                       const val = e.target.value;
                       setModalKey(val);
                       const combinedKey = val ? `${val} Key` : '';
-                      setWebSearchQuery(`${modalTitle} ${combinedKey} 악보`.trim());
+                      setWebSearchQuery(`${modalTitle} ${combinedKey}악보`.trim());
                     }}
                     className={`w-full border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-blue-500 ${
                       isDark ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
