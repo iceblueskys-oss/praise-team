@@ -14,9 +14,9 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/praise-team/favicon.svg" type="image/svg+xml" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
