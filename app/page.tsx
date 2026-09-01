@@ -63,9 +63,9 @@ import {
   getDoc,
 } from 'firebase/firestore';
 
-// 🌟 발급받으신 Google API 키와 검색엔진 ID를 여기에 입력하세요 🌟
-const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY || 'AIzaSyDJxBkhlJXxEvNJ-C_yr2iFS59GnMlVmkk';
-const GOOGLE_SEARCH_ENGINE_ID = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_ENGINE_ID || '54cb7ca93116045aa';
+// 환경 변수에서 Google API 키 및 검색엔진 ID 로드
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY || '';
+const GOOGLE_SEARCH_ENGINE_ID = process.env.NEXT_PUBLIC_GOOGLE_SEARCH_ENGINE_ID || '';
 
 interface SongItem {
   id: string;
