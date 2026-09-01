@@ -49,6 +49,7 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  Maximize2,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -120,7 +121,6 @@ function formatDateToTitle(d: Date, typeSuffix = '950'): string {
   return `${year}.${month}.${date} ${typeSuffix}`;
 }
 
-// 🌟 구글 드라이브 차단 방지 및 이미지 URL 정규화
 function formatImageUrl(url: string): string {
   const trimmed = url ? url.trim() : '';
   if (!trimmed) return '';
@@ -202,11 +202,12 @@ export default function Home() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 악보 뷰어 상태
+  // 🌟 악보 뷰어 & 줌/팬/스와이프 상태 🌟
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [scale, setScale] = useState(1.0);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser'>('pen');
   const [penColor, setPenColor] = useState('#EF4444');
@@ -215,9 +216,15 @@ export default function Home() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
+
+  // 제스처 추적용 Ref
+  const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
+  const isPanning = useRef(false);
+  const startPanPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -229,8 +236,10 @@ export default function Home() {
     });
   }, []);
 
+  // 곡이나 페이지가 바뀔 때 확대/위치 초기화
   useEffect(() => {
     setScale(1.0);
+    setPosition({ x: 0, y: 0 });
     setSheetImgError(false);
   }, [viewingSongId, currentPageIndex]);
 
@@ -475,7 +484,7 @@ export default function Home() {
     return () => unsubDraw();
   }, [viewingSongId, currentPageIndex, viewMode]);
 
-  // 🌟 활성 콘티 및 안전한 viewingSong 식별
+  // 활성 콘티 및 안전한 viewingSong 식별
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const viewingSong = allSongs.find((s) => s.id === viewingSongId) || null;
 
@@ -496,10 +505,87 @@ export default function Home() {
   const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
   const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
 
-  // 날짜 기준 콘티 분리 (오늘 이후 = 다가올 일정, 오늘 이전 = 지난 콘티)
+  // 날짜 기준 콘티 분리
   const todayStr = formatDateToStr(new Date());
   const upcomingContis = contis.filter((c) => (c.date || '') >= todayStr);
   const pastContis = contis.filter((c) => (c.date || '') < todayStr);
+
+  const handlePrevSong = () => {
+    if (currentSongIndex > 0) {
+      setViewingSongId(currentSongs[currentSongIndex - 1].id);
+      setCurrentPageIndex(0);
+    }
+  };
+
+  const handleNextSong = () => {
+    if (currentSongIndex < currentSongs.length - 1) {
+      setViewingSongId(currentSongs[currentSongIndex + 1].id);
+      setCurrentPageIndex(0);
+    }
+  };
+
+  // 🌟 스와이프 제스처 및 드래그 팬(Pan) 핸들러 🌟
+  const handleTouchStartViewer = (e: React.TouchEvent) => {
+    if (isDrawingMode || viewMode === 'lyrics') return;
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      touchStartPos.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+
+      if (scale > 1.0) {
+        isPanning.current = true;
+        startPanPos.current = { x: touch.clientX - position.x, y: touch.clientY - position.y };
+      }
+    }
+  };
+
+  const handleTouchMoveViewer = (e: React.TouchEvent) => {
+    if (isDrawingMode || viewMode === 'lyrics') return;
+
+    if (isPanning.current && scale > 1.0 && e.touches.length === 1) {
+      const touch = e.touches[0];
+      const maxLimit = 350 * (scale - 1);
+      const newX = Math.max(-maxLimit, Math.min(maxLimit, touch.clientX - startPanPos.current.x));
+      const newY = Math.max(-maxLimit * 1.5, Math.min(maxLimit * 1.5, touch.clientY - startPanPos.current.y));
+      setPosition({ x: newX, y: newY });
+    }
+  };
+
+  const handleTouchEndViewer = (e: React.TouchEvent) => {
+    if (isDrawingMode || viewMode === 'lyrics') return;
+
+    if (scale <= 1.05 && touchStartPos.current) {
+      const touch = e.changedTouches[0];
+      const diffX = touch.clientX - touchStartPos.current.x;
+      const diffY = touch.clientY - touchStartPos.current.y;
+      const elapsed = Date.now() - touchStartPos.current.time;
+
+      // 수평 스와이프 감지 (시간 400ms 이내, X축 55px 이상 이동, 수직 이동 폭 제한)
+      if (elapsed < 400 && Math.abs(diffX) > 55 && Math.abs(diffY) < 70) {
+        const validSheets = (viewingSong?.sheetUrls || []).map(formatImageUrl).filter(Boolean);
+        const totalPages = validSheets.length;
+
+        if (diffX < 0) {
+          // 👈 왼쪽으로 스와이프 (다음 페이지 또는 다음 곡)
+          if (currentPageIndex < totalPages - 1) {
+            setCurrentPageIndex((p) => p + 1);
+          } else {
+            handleNextSong();
+          }
+        } else {
+          // 👉 오른쪽으로 스와이프 (이전 페이지 또는 이전 곡)
+          if (currentPageIndex > 0) {
+            setCurrentPageIndex((p) => p - 1);
+          } else {
+            handlePrevSong();
+          }
+        }
+      }
+    }
+
+    isPanning.current = false;
+    touchStartPos.current = null;
+  };
 
   const handleUpdateViewingSongLyrics = async (newLyrics: string) => {
     if (!viewingSong) return;
@@ -793,20 +879,6 @@ export default function Home() {
       await batch.commit();
     } catch (e) {
       alert('순서 저장 실패');
-    }
-  };
-
-  const handlePrevSong = () => {
-    if (currentSongIndex > 0) {
-      setViewingSongId(currentSongs[currentSongIndex - 1].id);
-      setCurrentPageIndex(0);
-    }
-  };
-
-  const handleNextSong = () => {
-    if (currentSongIndex < currentSongs.length - 1) {
-      setViewingSongId(currentSongs[currentSongIndex + 1].id);
-      setCurrentPageIndex(0);
     }
   };
 
@@ -1184,6 +1256,7 @@ export default function Home() {
     );
   }
 
+  // 🌟 파스텔 톤 팔레트 설정 🌟
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-[#F4F6F9] text-slate-800';
   const cardBgClass = isDark ? 'bg-[#1C1C1E] border-neutral-800/80 shadow-sm' : 'bg-white border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]';
@@ -1191,7 +1264,7 @@ export default function Home() {
   const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder-slate-400';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (화이트 캔버스 고정)
+  // 1. 악보 & 가사 뷰어 화면 (스와이프 + 안전 팬/줌 엔진)
   // ==========================================
   if (viewingSong) {
     const validSheets = (viewingSong.sheetUrls || []).map(formatImageUrl).filter(Boolean);
@@ -1218,6 +1291,8 @@ export default function Home() {
                     setViewingSongId(null);
                     setCurrentPageIndex(0);
                     setViewMode('sheet');
+                    setScale(1.0);
+                    setPosition({ x: 0, y: 0 });
                   }}
                   className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
                   title="목록으로 나가기"
@@ -1252,7 +1327,13 @@ export default function Home() {
 
                 {viewMode === 'sheet' && currentSheetUrl && (
                   <button
-                    onClick={() => setIsDrawingMode(!isDrawingMode)}
+                    onClick={() => {
+                      setIsDrawingMode(!isDrawingMode);
+                      if (!isDrawingMode) {
+                        setScale(1.0);
+                        setPosition({ x: 0, y: 0 });
+                      }
+                    }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
                       isDrawingMode
                         ? 'bg-[#FEF3E2] border border-[#F39C12] text-[#D97706]'
@@ -1265,15 +1346,33 @@ export default function Home() {
                 )}
 
                 {viewMode === 'sheet' && (
-                  <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200">
+                  <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200 gap-0.5">
                     <button
-                      onClick={() => setScale((s) => Math.max(s - 0.2, 0.6))}
+                      onClick={() => {
+                        setScale((s) => {
+                          const next = Math.max(s - 0.2, 0.8);
+                          if (next <= 1.0) setPosition({ x: 0, y: 0 });
+                          return next;
+                        });
+                      }}
                       className="w-7 h-7 flex items-center justify-center text-xs font-bold text-slate-700 hover:text-black"
                     >
                       -
                     </button>
+                    {scale > 1.05 && (
+                      <button
+                        onClick={() => {
+                          setScale(1.0);
+                          setPosition({ x: 0, y: 0 });
+                        }}
+                        className="px-1.5 h-7 flex items-center justify-center text-[11px] font-bold text-[#4A90E2] hover:bg-slate-200 rounded-lg"
+                        title="원래 크기로 복귀"
+                      >
+                        100%
+                      </button>
+                    )}
                     <button
-                      onClick={() => setScale((s) => Math.min(s + 0.2, 2.0))}
+                      onClick={() => setScale((s) => Math.min(s + 0.2, 2.2))}
                       className="w-7 h-7 flex items-center justify-center text-xs font-bold text-slate-700 hover:text-black"
                     >
                       +
@@ -1346,13 +1445,17 @@ export default function Home() {
           </div>
         )}
 
-        {/* 🌟 악보 캔버스 (화이트 배경 고정) 🌟 */}
+        {/* 🌟 악보 캔버스 & 스와이프 제스처 메인 영역 🌟 */}
         <main
+          ref={containerRef}
+          onTouchStart={handleTouchStartViewer}
+          onTouchMove={handleTouchMoveViewer}
+          onTouchEnd={handleTouchEndViewer}
           onClick={() => {
-            if (!isDrawingMode) setShowViewerControls(!showViewerControls);
+            if (!isDrawingMode && !isPanning.current) setShowViewerControls(!showViewerControls);
           }}
-          style={{ overscrollBehavior: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }}
-          className="flex-1 overflow-auto flex items-center justify-center p-3 pt-24 pb-24 relative bg-[#F8F9FA]"
+          style={{ overscrollBehavior: 'contain', touchAction: isDrawingMode ? 'none' : 'pan-x pan-y' }}
+          className="flex-1 overflow-hidden flex items-center justify-center p-3 pt-24 pb-24 relative bg-[#F8F9FA]"
         >
           {viewMode === 'lyrics' ? (
             <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl h-full flex flex-col justify-center p-2">
@@ -1411,8 +1514,11 @@ export default function Home() {
             </div>
           ) : (
             <div
-              className="relative transition-transform duration-100 origin-center inline-block max-w-full my-auto"
-              style={{ transform: `scale(${scale})` }}
+              className="relative origin-center inline-block max-w-full my-auto transition-transform duration-75"
+              style={{
+                transform: `translate3d(${position.x}px, ${position.y}px, 0px) scale(${scale})`,
+                cursor: scale > 1.05 ? 'grab' : 'default',
+              }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -1748,7 +1854,7 @@ export default function Home() {
             <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="w-4 h-4 text-[#4A90E2]" />
+                  <Calendar className="w-4 h-4 text-[#4A90E2] shrink-0" />
                   <h2 className="text-base font-bold truncate text-slate-800 dark:text-white">{currentConti.title}</h2>
                   
                   <div className="flex items-center gap-1 shrink-0">
@@ -1833,6 +1939,8 @@ export default function Home() {
                               setCurrentPageIndex(0);
                               setViewMode('sheet');
                               setShowViewerControls(true);
+                              setScale(1.0);
+                              setPosition({ x: 0, y: 0 });
                             }}
                             className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
                           >
