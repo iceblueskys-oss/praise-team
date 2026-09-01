@@ -14,32 +14,32 @@ import {
   PenTool,
   Layers,
   FileText,
-  Sun,
+  일요일,
   Moon,
   MessageSquare,
   SkipBack,
   SkipForward,
   GripVertical,
   Check,
-  Users,
+  사용자,
   Mic,
   PlusCircle,
-  Link as LinkIcon,
+  링크 as LinkIcon,
   Globe,
-  Search,
+  검색하기,
   Lock,
   Unlock,
   KeyRound,
   Library,
   ArrowDownToLine,
   RefreshCw,
-  Tag,
-  Copy,
+  꼬리표,
+  복사하기,
   BookOpen,
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
-  Home,
+  홈,
   Bell,
   CheckCircle2,
   XCircle,
@@ -268,7 +268,7 @@ export default function PraiseApp() {
     alert('가사가 복사되었습니다.');
   };
 
-  // 🌟 구글 Custom Search API 정식 연동 함수 🌟
+// 🌟 차단 없는 실시간 찬양 악보 검색 파서 🌟
   const handleSearchGoogleSheets = async (queryText?: string) => {
     const rawTarget = queryText !== undefined ? queryText : (webSearchQuery || `${modalTitle} ${modalKey ? `${modalKey} Key` : ''}`);
     const q = rawTarget.trim();
@@ -282,7 +282,7 @@ export default function PraiseApp() {
     setIsWebSearching(true);
     setGoogleSearchResults([]);
 
-    // 보관함 일치 우선 검색
+    // 1. 내 보관소 내 일치 곡 우선 추출
     const coreTitle = q.replace(/악보|key|찬양/gi, '').trim().toLowerCase();
     const matchedLibResults: GoogleImageResult[] = librarySongs
       .filter((lib) => lib.title && (lib.title.toLowerCase().includes(coreTitle) || coreTitle.includes(lib.title.toLowerCase())))
@@ -291,36 +291,49 @@ export default function PraiseApp() {
     const searchKeyword = q.includes('악보') ? q : `${q} 악보`;
 
     try {
-      const apiKey = GOOGLE_API_KEY.trim();
-      const cxId = GOOGLE_SEARCH_ENGINE_ID.trim();
-
-      const res = await fetch(
-        `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cxId}&q=${encodeURIComponent(searchKeyword)}&searchType=image&num=10`
-      );
+      // 2. 외부 프록시 경유 위키/블로그/구글 찬양 악보 이미지 검색
+      const targetUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchKeyword)}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+      
+      const res = await fetch(proxyUrl);
       const data = await res.json();
+      const htmlText = data?.contents || '';
 
-      if (data.error) {
-        console.error('Google API Error:', data.error);
-        alert(`[구글 검색 오류]\n${data.error.message}`);
-        setIsWebSearching(false);
-        return;
+      const fetchedImages: GoogleImageResult[] = [];
+      const imgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*>/gi;
+      let match;
+
+      while ((match = imgRegex.exec(htmlText)) !== null) {
+        const src = match[1];
+        if (
+          !src.includes('duckduckgo.com') &&
+          !src.includes('favicon') &&
+          !src.includes('icon') &&
+          (src.includes('jpg') || src.includes('jpeg') || src.includes('png') || src.includes('tse'))
+        ) {
+          fetchedImages.push({
+            url: src,
+            thumbnail: src,
+            title: searchKeyword,
+          });
+        }
+        if (fetchedImages.length >= 12) break;
       }
 
-      if (data.items && Array.isArray(data.items)) {
-        const fetchedImages: GoogleImageResult[] = data.items.map((item: any) => ({
-          url: item.link,
-          thumbnail: item.image?.thumbnailLink || item.link,
-          title: item.title,
-        }));
-        setGoogleSearchResults([...matchedLibResults, ...fetchedImages]);
-      } else if (matchedLibResults.length > 0) {
-        setGoogleSearchResults(matchedLibResults);
+      const finalResults = [...matchedLibResults, ...fetchedImages];
+
+      if (finalResults.length > 0) {
+        setGoogleSearchResults(finalResults);
       } else {
-        alert(`'${searchKeyword}'에 대한 악보 검색 결과가 없습니다.`);
+        alert('검색된 악보 이미지가 없습니다. 아래 [구글에서 직접 찾기 ↗] 버튼을 이용해 악보를 확인해 주세요.');
       }
     } catch (e: any) {
-      console.error('네트워크 에러:', e);
-      alert(`네트워크 연결 오류: ${e.message}`);
+      console.warn('검색 처리 알림:', e);
+      if (matchedLibResults.length > 0) {
+        setGoogleSearchResults(matchedLibResults);
+      } else {
+        alert('실시간 악보 검색 연결이 원활하지 않습니다. 아래 [구글에서 직접 찾기 ↗] 링크를 눌러 이미지를 확인해 주세요.');
+      }
     } finally {
       setIsWebSearching(false);
     }
