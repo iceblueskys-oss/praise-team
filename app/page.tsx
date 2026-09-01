@@ -14,26 +14,26 @@ import {
   PenTool,
   Layers,
   FileText,
-  일요일,
+  Sun,
   Moon,
   MessageSquare,
   SkipBack,
   SkipForward,
   GripVertical,
   Check,
-  사용자,
+  Users,
   Mic,
   PlusCircle,
   Globe,
-  검색하기,
+  Search,
   Lock,
   Unlock,
   KeyRound,
   Library,
   ArrowDownToLine,
   RefreshCw,
-  꼬리표,
-  복사하기,
+  Tag,
+  Copy,
   BookOpen,
   SlidersHorizontal,
   Home as HomeIcon,
@@ -465,16 +465,18 @@ export default function Home() {
     return () => unsubDraw();
   }, [viewingSongId, currentPageIndex, viewMode]);
 
+  // 🌟 활성 콘티 및 안전한 viewingSong 식별
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
-  const currentSongs = allSongs
-    .filter((s) => s.contiId === currentConti?.id)
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
-  
-  // 🌟 전체 곡(allSongs)에서 안전하게 viewingSong을 찾아 즉시 뷰어를 오픈
   const viewingSong = allSongs.find((s) => s.id === viewingSongId) || null;
+
+  // 뷰어 네비게이션용 곡 리스트 (현재 곡이 속한 콘티 기준)
+  const activeViewerContiId = viewingSong?.contiId || currentConti?.id;
+  const currentSongs = allSongs
+    .filter((s) => s.contiId === activeViewerContiId)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
-  // 🌟 콘티 세부 정보 변수 정의 추가
+  // 콘티 세부 정보
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
   const customNote = currentConti?.customNote || '';
   const currentNotice = currentConti?.notice || '';
@@ -1179,6 +1181,20 @@ export default function Home() {
   const subCardBg = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-200 hover:bg-[#38383A]' : 'bg-[#EDF2F7] border-slate-200/60 text-slate-700 hover:bg-[#E2E8F0]';
   const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder-slate-400';
 
+  const filteredLibrary = librarySongs.filter((s) => {
+    const term = (librarySearchTerm || modalLibrarySearch).toLowerCase().trim();
+    if (!term) return true;
+    return (
+      (s.title || '').toLowerCase().includes(term) ||
+      (s.key || '').toLowerCase().includes(term) ||
+      (s.lyrics || '').toLowerCase().includes(term)
+    );
+  });
+
+  const googleSearchSheetUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+    `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim()
+  )}`;
+
   return (
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
       <div className="max-w-xl mx-auto space-y-4 w-full">
@@ -1493,15 +1509,16 @@ export default function Home() {
                         }`}
                       >
                         <div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
-                           <div
-                              onClick={() => {
-                                setViewingSongId(song.id);
-                                setCurrentPageIndex(0);
-                                setViewMode('sheet');
-                                setShowViewerControls(true);
-                              }}
-                              className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
-                            >
+                          <div
+                            onClick={() => {
+                              setSelectedContiId(song.contiId);
+                              setViewingSongId(song.id);
+                              setCurrentPageIndex(0);
+                              setViewMode('sheet');
+                              setShowViewerControls(true);
+                            }}
+                            className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
+                          >
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
