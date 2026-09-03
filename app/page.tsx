@@ -52,6 +52,7 @@ import {
   Settings,
   Palette,
   ExternalLink,
+  Wand2,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -166,24 +167,26 @@ function getSafeDocId(title: string, key?: string | null): string {
   return rawId.replace(/[\/\s#?\[\]]/g, '_');
 }
 
-// 🌟 구글 AI 개요 및 웹 텍스트 줄바꿈/공백 스마트 복원기
-function normalizeLyricsText(input: string): string {
+// 🌟 구글 AI 개요 및 스페이스로 뭉개진 가사 줄바꿈 복원 함수
+function formatAndFixLyrics(input: string): string {
   if (!input) return '';
   let text = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // AI 개요 복사 시 줄바꿈이 전혀 없이 공백으로 이어진 경우 자동 분절 복원
-  const lineCount = (text.match(/\n/g) || []).length;
-  if (lineCount < 2 && text.length > 50) {
-    // 1. 번호 매김(1. 2. [후렴] 등) 앞 줄바꿈
-    text = text.replace(/([0-9]\.|\([0-9]\)|\[후렴\]|\[Bridge\]|후렴:)/g, '\n\n$1 ');
-    // 2. 마침표나 쉼표, 느낌표 뒤 줄바꿈 복원
-    text = text.replace(/([.!?])\s+/g, '$1\n');
-    // 3. 한국어 종결 어미 패턴 분절 (하네, 있네, 리라, 도다, 니다, 세요 등)
-    text = text.replace(/(하네|있네|리라|도다|니다|소서|노라|찬양해|예배해|주옵소서|사랑해)\s+/g, '$1\n');
+  // 줄바꿈이 이미 3줄 이상이면 사용자가 복사한 원본 줄바꿈 유지
+  const lines = text.split('\n').filter((l) => l.trim().length > 0);
+  if (lines.length >= 3) {
+    return text.trim();
   }
 
-  // 중복 빈 줄 정리 (최대 2줄 개행 유지)
-  return text.replace(/\n{3,}/g, '\n\n').trim();
+  // 뭉개진 텍스트 복원: 마침표, 절 번호, 찬양 어미 뒤 강제 개행
+  text = text
+    .replace(/\s*(\([0-9]+\)|\[[0-9]+\]|[0-9]\.|\bV[1-4]\b|\bChorus\b|\[후렴\]|\[Bridge\]|후렴:)\s*/gi, '\n\n$1 ')
+    .replace(/([,.~!?])\s+/g, '$1\n')
+    .replace(/(하네|있네|리라|도다|니다|소서|노라|옵소서|주시네|채우네|임하네|찬양해|예배해|사랑해|영원히|예수님|하나님|성령님|할렐루야|아멘)\s+/g, '$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return text;
 }
 
 export default function Home() {
@@ -235,7 +238,7 @@ export default function Home() {
   const [newTagColor, setNewTagColor] = useState<string>('amber');
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
 
-  // 🌟 Safari PWA 안전 검색 팝업 상태 🌟
+  // Safari PWA 안전 검색 팝업
   const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
@@ -299,7 +302,6 @@ export default function Home() {
     setExpandedLyricsSongId((prev) => (prev === songId ? null : songId));
   };
 
-  // Safari PWA에서 튕겨나가지 않고 안전하게 검색을 유도하는 트리거
   const handleOpenSearchGuide = (titleToSearch?: string) => {
     const q = (titleToSearch || modalTitle || '').trim();
     if (!q) {
@@ -309,7 +311,7 @@ export default function Home() {
     setSearchModalTitle(q);
   };
 
-  // 🌟 AI 개요 가사 공백/줄바꿈 완벽 복원 붙여넣기 🌟
+  // 🌟 가사 스마트 붙여넣기 (AI 개요 줄바꿈 복원)
   const handlePasteLyricsDirect = async (targetSongId?: string) => {
     let rawText = '';
 
@@ -318,37 +320,36 @@ export default function Home() {
         rawText = await navigator.clipboard.readText();
       }
     } catch (e) {
-      console.warn('클립보드 접근 권한 필요');
+      console.warn('클립보드 API 차단');
     }
 
     if (!rawText || !rawText.trim()) {
-      const promptText = window.prompt('복사하신 가사를 여기에 붙여넣어 주세요:');
+      const promptText = window.prompt('복사하신 찬양 가사를 여기에 붙여넣어 주세요:');
       if (promptText) rawText = promptText;
     }
 
     if (!rawText || !rawText.trim()) {
-      alert('붙여넣을 가사 텍스트가 없습니다.');
+      alert('붙여넣을 가사가 없습니다.');
       return;
     }
 
-    // AI 개요 텍스트 줄바꿈 및 소절 자동 복원
-    const normalized = normalizeLyricsText(rawText);
+    const fixedText = formatAndFixLyrics(rawText);
 
     if (targetSongId) {
       try {
-        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: normalized }, { merge: true });
+        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: fixedText }, { merge: true });
         const targetSong = allSongs.find((s) => s.id === targetSongId);
         if (targetSong) {
           const libDocId = getSafeDocId(targetSong.title, targetSong.key);
-          await setDoc(doc(db, 'song_library', libDocId), { lyrics: normalized, updatedAt: Date.now() }, { merge: true });
+          await setDoc(doc(db, 'song_library', libDocId), { lyrics: fixedText, updatedAt: Date.now() }, { merge: true });
         }
-        alert('가사가 줄바꿈 및 공백을 복원하여 저장되었습니다!');
+        alert('가사가 깔끔하게 줄바꿈되어 등록되었습니다!');
       } catch (err) {
-        alert('가사 저장 중 오류가 발생했습니다.');
+        alert('가사 저장 오류');
       }
     } else {
-      setModalLyrics(normalized);
-      alert('가사가 줄바꿈 복원 처리되어 입력창에 들어갔습니다!');
+      setModalLyrics(fixedText);
+      alert('가사가 입력창에 줄바꿈되어 들어갔습니다!');
     }
   };
 
@@ -1996,7 +1997,7 @@ export default function Home() {
             <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="w-4 h-4 text-[#4A90E2]" />
+                  <Calendar className="w-4 h-4 text-[#4A90E2] shrink-0" />
                   <h2 className="text-base font-bold truncate text-slate-800 dark:text-white">{currentConti.title}</h2>
                   
                   <div className="flex items-center gap-1 shrink-0">
@@ -2651,21 +2652,35 @@ export default function Home() {
                 />
               </div>
 
-              {/* 가사 스마트 입력 & 공백 보존 붙여넣기 */}
+              {/* 🌟 가사 입력 및 정돈 버튼 🌟 */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                   <label className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1">
                     <BookOpen className="w-3.5 h-3.5 text-[#8E74AE]" /> 찬양 가사 (선택)
                   </label>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!modalLyrics.trim()) {
+                          alert('정돈할 가사가 없습니다.');
+                          return;
+                        }
+                        setModalLyrics(formatAndFixLyrics(modalLyrics));
+                      }}
+                      className="text-xs font-bold px-2 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 rounded-lg hover:bg-amber-100 flex items-center gap-1 transition active:scale-95"
+                      title="한 줄로 붙은 가사를 소절 단위로 줄바꿈"
+                    >
+                      <Wand2 className="w-3 h-3" />
+                      <span>줄바꿈 정돈</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => handlePasteLyricsDirect()}
                       className="text-xs font-bold px-2.5 py-1 bg-[#8E74AE]/15 text-[#8E74AE] border border-[#8E74AE]/30 rounded-lg hover:bg-[#8E74AE]/25 flex items-center gap-1 transition active:scale-95"
-                      title="복사된 가사 바로 붙여넣기"
                     >
                       <ClipboardPaste className="w-3 h-3" />
-                      <span>복사한 가사 붙여넣기</span>
+                      <span>가사 붙여넣기</span>
                     </button>
                     <button
                       type="button"
@@ -2681,7 +2696,7 @@ export default function Home() {
                   rows={5}
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
-                  placeholder="가사를 복사한 후 상단 [복사한 가사 붙여넣기]를 누르면 AI 개요 텍스트도 줄바꿈이 깔끔하게 복원되어 들어갑니다."
+                  placeholder="가사를 복사한 후 상단 [가사 붙여넣기]를 누르세요. 줄바꿈이 뭉개진 경우 [줄바꿈 정돈]을 누르면 소절별로 자동 분리됩니다."
                   style={{ whiteSpace: 'pre-wrap' }}
                   className={`w-full border rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none ${inputBgClass}`}
                 />
