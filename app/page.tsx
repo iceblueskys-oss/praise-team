@@ -51,6 +51,7 @@ import {
   AlertCircle,
   Settings,
   Palette,
+  Sparkles,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -67,7 +68,7 @@ import {
 
 interface CustomTag {
   name: string;
-  color: string; // 예: 'amber', 'blue', 'purple', 'emerald', 'rose', 'indigo'
+  color: string;
 }
 
 interface SongItem {
@@ -104,7 +105,6 @@ interface Conti {
   attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
 }
 
-// 🌟 파스텔 태그 색상 테마 프리셋
 const TAG_COLOR_THEMES: Record<string, { bg: string; text: string; border: string; label: string }> = {
   amber: { bg: 'bg-[#FEF3E2] dark:bg-amber-950/40', text: 'text-[#D97706] dark:text-amber-400', border: 'border-[#F39C12]/30', label: '살구 앰버' },
   blue: { bg: 'bg-[#EBF3FB] dark:bg-blue-950/40', text: 'text-[#2B6CB0] dark:text-blue-400', border: 'border-[#4A90E2]/30', label: '스카이 블루' },
@@ -210,7 +210,6 @@ export default function Home() {
   const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState('');
 
-  // 🌟 커스텀 컬러 태그 상태 🌟
   const [masterTags, setMasterTags] = useState<CustomTag[]>(DEFAULT_CUSTOM_TAGS);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState<string>('amber');
@@ -280,10 +279,28 @@ export default function Home() {
   const handleSearchLyricsWeb = (titleToSearch?: string) => {
     const q = (titleToSearch || modalTitle || '').trim();
     if (!q) {
-      alert('곡 제목이 없습니다.');
+      alert('곡 제목을 먼저 입력해주세요.');
       return;
     }
     window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
+  };
+
+  // 🌟 클립보드에서 가사 원터치 붙여넣기 🌟
+  const handlePasteLyricsFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        setModalLyrics(text.trim());
+        alert('가사가 붙여넣어졌습니다!');
+      } else {
+        alert('클립보드에 복사된 텍스트가 없습니다.');
+      }
+    } catch (e) {
+      const direct = prompt('복사한 가사를 여기에 붙여넣어 주세요:');
+      if (direct && direct.trim()) {
+        setModalLyrics(direct.trim());
+      }
+    }
   };
 
   const handleCopyLyrics = (textToCopy: string) => {
@@ -473,7 +490,6 @@ export default function Home() {
         }
       });
 
-      // 🌟 태그 풀 v2 (이름 + 색상) 동기화 (기존 문자열 배열 호환)
       unsubTags = onSnapshot(doc(db, 'settings', 'tags_pool_v2'), (snap) => {
         if (snap.exists()) {
           const rawList = snap.data()?.list;
@@ -839,7 +855,6 @@ export default function Home() {
     }
   };
 
-  // 🌟 순수 텍스트 태그 추가 & 색상 지정 핸들러 🌟
   const handleAddTag = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = newTagName.trim();
@@ -874,7 +889,6 @@ export default function Home() {
     }
   };
 
-  // 태그 이름으로 스타일 매핑 반환 헬퍼 함수
   const getTagStyle = (tagStr?: string) => {
     if (!tagStr) return null;
     const clean = tagStr.replace(/[<>]/g, '').trim();
@@ -1345,7 +1359,7 @@ export default function Home() {
   const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder-slate-400';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (스와이프 + 안전 팬/줌 엔진)
+  // 1. 악보 & 가사 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const validSheets = (viewingSong.sheetUrls || []).map(formatImageUrl).filter(Boolean);
@@ -1357,7 +1371,6 @@ export default function Home() {
         style={{ overscrollBehavior: 'none' }}
         className="fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none bg-[#F5F7FA] text-slate-900"
       >
-        {/* 뷰어 상단 툴바 */}
         <div
           className={`fixed top-3 sm:top-5 inset-x-3 sm:inset-x-6 z-50 transition-all duration-300 pointer-events-none ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
@@ -1526,7 +1539,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 악보 캔버스 & 스와이프 제스처 메인 영역 */}
+        {/* 악보 캔버스 */}
         <main
           ref={containerRef}
           onTouchStart={handleTouchStartViewer}
@@ -1629,7 +1642,6 @@ export default function Home() {
           )}
         </main>
 
-        {/* 뷰어 하단 툴바 */}
         <footer
           className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
@@ -2423,7 +2435,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 */}
+      {/* 2. 곡 추가/수정 모달 (가사 스마트 입력 지원) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2440,7 +2452,7 @@ export default function Home() {
             </div>
 
             <form onSubmit={handleSaveModal} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
-              {/* 🌟 태그 선택 및 태그 관리 버튼 영역 🌟 */}
+              {/* 태그 선택 및 태그 관리 버튼 영역 */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
@@ -2549,24 +2561,38 @@ export default function Home() {
                 />
               </div>
 
+              {/* 🌟 가사 스마트 검색 & 원터치 붙여넣기 🌟 */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-neutral-300">찬양 가사 (선택)</label>
-                  <button
-                    type="button"
-                    onClick={() => handleSearchLyricsWeb(modalTitle)}
-                    className="text-xs font-bold text-[#4A90E2] hover:underline flex items-center gap-1"
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>구글 가사 검색 ↗</span>
-                  </button>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1">
+                    <BookOpen className="w-3.5 h-3.5 text-[#8E74AE]" /> 찬양 가사 (선택)
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handlePasteLyricsFromClipboard}
+                      className="text-xs font-bold px-2.5 py-1 bg-[#8E74AE]/15 text-[#8E74AE] border border-[#8E74AE]/30 rounded-lg hover:bg-[#8E74AE]/25 flex items-center gap-1 transition active:scale-95"
+                      title="복사된 가사 바로 붙여넣기"
+                    >
+                      <ClipboardPaste className="w-3 h-3" />
+                      <span>복사한 가사 붙여넣기</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSearchLyricsWeb(modalTitle)}
+                      className="text-xs font-bold px-2.5 py-1 bg-[#4A90E2]/15 text-[#4A90E2] border border-[#4A90E2]/30 rounded-lg hover:bg-[#4A90E2]/25 flex items-center gap-1 transition active:scale-95"
+                    >
+                      <Globe className="w-3 h-3" />
+                      <span>구글 가사 검색 ↗</span>
+                    </button>
+                  </div>
                 </div>
                 <textarea
-                  rows={3}
+                  rows={4}
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
-                  placeholder="가사를 입력하거나 구글에서 복사해 붙여넣으세요"
-                  className={`w-full border rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none ${inputBgClass}`}
+                  placeholder="구글에서 가사를 복사한 후 상단 [복사한 가사 붙여넣기]를 누르거나 여기에 직접 입력하세요."
+                  className={`w-full border rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none ${inputBgClass}`}
                 />
               </div>
 
@@ -2735,7 +2761,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🌟 3. 태그 목록 & 색상 관리 전용 모달 🌟 */}
+      {/* 3. 태그 목록 & 색상 관리 전용 모달 */}
       {isTagModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
