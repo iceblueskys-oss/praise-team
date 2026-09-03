@@ -51,6 +51,7 @@ import {
   AlertCircle,
   Settings,
   Palette,
+  ExternalLink,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -165,6 +166,26 @@ function getSafeDocId(title: string, key?: string | null): string {
   return rawId.replace(/[\/\s#?\[\]]/g, '_');
 }
 
+// 🌟 구글 AI 개요 및 웹 텍스트 줄바꿈/공백 스마트 복원기
+function normalizeLyricsText(input: string): string {
+  if (!input) return '';
+  let text = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // AI 개요 복사 시 줄바꿈이 전혀 없이 공백으로 이어진 경우 자동 분절 복원
+  const lineCount = (text.match(/\n/g) || []).length;
+  if (lineCount < 2 && text.length > 50) {
+    // 1. 번호 매김(1. 2. [후렴] 등) 앞 줄바꿈
+    text = text.replace(/([0-9]\.|\([0-9]\)|\[후렴\]|\[Bridge\]|후렴:)/g, '\n\n$1 ');
+    // 2. 마침표나 쉼표, 느낌표 뒤 줄바꿈 복원
+    text = text.replace(/([.!?])\s+/g, '$1\n');
+    // 3. 한국어 종결 어미 패턴 분절 (하네, 있네, 리라, 도다, 니다, 세요 등)
+    text = text.replace(/(하네|있네|리라|도다|니다|소서|노라|찬양해|예배해|주옵소서|사랑해)\s+/g, '$1\n');
+  }
+
+  // 중복 빈 줄 정리 (최대 2줄 개행 유지)
+  return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
@@ -213,6 +234,9 @@ export default function Home() {
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState<string>('amber');
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+
+  // 🌟 Safari PWA 안전 검색 팝업 상태 🌟
+  const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
@@ -275,57 +299,56 @@ export default function Home() {
     setExpandedLyricsSongId((prev) => (prev === songId ? null : songId));
   };
 
-  const handleSearchLyricsWeb = (titleToSearch?: string) => {
+  // Safari PWA에서 튕겨나가지 않고 안전하게 검색을 유도하는 트리거
+  const handleOpenSearchGuide = (titleToSearch?: string) => {
     const q = (titleToSearch || modalTitle || '').trim();
     if (!q) {
       alert('곡 제목을 먼저 입력해주세요.');
       return;
     }
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
+    setSearchModalTitle(q);
   };
 
-  // 🌟 공백, 들여쓰기, 줄바꿈을 100% 원본 그대로 보존하는 가사 붙여넣기 핸들러
+  // 🌟 AI 개요 가사 공백/줄바꿈 완벽 복원 붙여넣기 🌟
   const handlePasteLyricsDirect = async (targetSongId?: string) => {
     let rawText = '';
-    
-    // 1차: Clipboard API
+
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
         rawText = await navigator.clipboard.readText();
       }
     } catch (e) {
-      console.warn('클립보드 API 접근 권한 대기 중...');
+      console.warn('클립보드 접근 권한 필요');
     }
 
-    // 2차: 권한 차단 시 입력창 제공
     if (!rawText || !rawText.trim()) {
-      const promptText = window.prompt('복사하신 찬양 가사를 아래에 붙여넣어 주세요:');
+      const promptText = window.prompt('복사하신 가사를 여기에 붙여넣어 주세요:');
       if (promptText) rawText = promptText;
     }
 
     if (!rawText || !rawText.trim()) {
-      alert('붙여넣을 가사 내용이 없습니다.');
+      alert('붙여넣을 가사 텍스트가 없습니다.');
       return;
     }
 
-    // 줄바꿈 정규화 (\r\n -> \n), 공백과 들여쓰기는 완벽 보존
-    const preservedText = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    // AI 개요 텍스트 줄바꿈 및 소절 자동 복원
+    const normalized = normalizeLyricsText(rawText);
 
     if (targetSongId) {
       try {
-        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: preservedText }, { merge: true });
+        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: normalized }, { merge: true });
         const targetSong = allSongs.find((s) => s.id === targetSongId);
         if (targetSong) {
           const libDocId = getSafeDocId(targetSong.title, targetSong.key);
-          await setDoc(doc(db, 'song_library', libDocId), { lyrics: preservedText, updatedAt: Date.now() }, { merge: true });
+          await setDoc(doc(db, 'song_library', libDocId), { lyrics: normalized, updatedAt: Date.now() }, { merge: true });
         }
-        alert('가사가 원본 줄바꿈 그대로 등록되었습니다!');
+        alert('가사가 줄바꿈 및 공백을 복원하여 저장되었습니다!');
       } catch (err) {
         alert('가사 저장 중 오류가 발생했습니다.');
       }
     } else {
-      setModalLyrics(preservedText);
-      alert('가사가 정상적으로 입력되었습니다!');
+      setModalLyrics(normalized);
+      alert('가사가 줄바꿈 복원 처리되어 입력창에 들어갔습니다!');
     }
   };
 
@@ -1585,10 +1608,10 @@ export default function Home() {
                   </span>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleSearchLyricsWeb(viewingSong.title)}
+                      onClick={() => handleOpenSearchGuide(viewingSong.title)}
                       className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#EBF3FB] text-[#2B6CB0] hover:bg-[#DCEBF9] transition"
                     >
-                      구글 검색 ↗
+                      가사 찾기 ↗
                     </button>
                     <button
                       onClick={() => handleCopyLyrics(viewingSong.lyrics || '')}
@@ -1973,7 +1996,7 @@ export default function Home() {
             <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="w-4 h-4 text-[#4A90E2] shrink-0" />
+                  <Calendar className="w-4 h-4 text-[#4A90E2]" />
                   <h2 className="text-base font-bold truncate text-slate-800 dark:text-white">{currentConti.title}</h2>
                   
                   <div className="flex items-center gap-1 shrink-0">
@@ -2225,11 +2248,11 @@ export default function Home() {
                                 )}
                                 <button
                                   type="button"
-                                  onClick={() => handleSearchLyricsWeb(song.title)}
+                                  onClick={() => handleOpenSearchGuide(song.title)}
                                   className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#EBF3FB] text-[#2B6CB0] hover:bg-[#DCEBF9] flex items-center gap-1 transition active:scale-95"
                                 >
                                   <Globe className="w-3.5 h-3.5" />
-                                  <span>구글 검색 ↗</span>
+                                  <span>가사 찾기 ↗</span>
                                 </button>
                               </div>
                             </div>
@@ -2246,7 +2269,7 @@ export default function Home() {
                             ) : (
                               <div className="py-6 text-center rounded-2xl border border-dashed border-purple-200 dark:border-white/10 space-y-2">
                                 <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">등록된 가사가 없습니다.</p>
-                                <p className="text-[11px] text-slate-400">구글 등에서 가사를 복사한 후 상단 <span className="font-bold text-[#8E74AE]">[가사 붙여넣기]</span>를 누르세요.</p>
+                                <p className="text-[11px] text-slate-400">가사를 복사한 후 상단 <span className="font-bold text-[#8E74AE]">[가사 붙여넣기]</span>를 누르세요.</p>
                               </div>
                             )}
                           </div>
@@ -2368,6 +2391,48 @@ export default function Home() {
           </button>
         </div>
       </nav>
+
+      {/* 🌟 Safari PWA 안전 가사 검색 안내 모달 🌟 */}
+      {searchModalTitle && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border space-y-4 ${
+            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Globe className="w-4 h-4 text-[#4A90E2]" />
+                가사 검색 안내
+              </h3>
+              <button onClick={() => setSearchModalTitle(null)} className="p-1 text-slate-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-neutral-300 leading-relaxed">
+              홈 화면 앱에서 구글로 바로 이동하면 앱이 멈추는 현상을 방지하기 위해 아래 버튼을 눌러 이동해 주세요.
+            </p>
+
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(`${searchModalTitle} 찬양 가사`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setSearchModalTitle(null)}
+              className="w-full py-3 bg-[#4A90E2] hover:bg-[#3B82F6] text-white rounded-2xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition"
+            >
+              <span>구글에서 [{searchModalTitle}] 검색</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <button
+              type="button"
+              onClick={() => setSearchModalTitle(null)}
+              className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 모달: 새 콘티 추가 */}
       {isNewContiModalOpen && (
@@ -2604,11 +2669,11 @@ export default function Home() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleSearchLyricsWeb(modalTitle)}
+                      onClick={() => handleOpenSearchGuide(modalTitle)}
                       className="text-xs font-bold px-2.5 py-1 bg-[#4A90E2]/15 text-[#4A90E2] border border-[#4A90E2]/30 rounded-lg hover:bg-[#4A90E2]/25 flex items-center gap-1 transition active:scale-95"
                     >
                       <Globe className="w-3 h-3" />
-                      <span>구글 가사 검색 ↗</span>
+                      <span>가사 찾기 ↗</span>
                     </button>
                   </div>
                 </div>
@@ -2616,7 +2681,7 @@ export default function Home() {
                   rows={5}
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
-                  placeholder="가사를 입력하거나 상단 [복사한 가사 붙여넣기]를 누르세요."
+                  placeholder="가사를 복사한 후 상단 [복사한 가사 붙여넣기]를 누르면 AI 개요 텍스트도 줄바꿈이 깔끔하게 복원되어 들어갑니다."
                   style={{ whiteSpace: 'pre-wrap' }}
                   className={`w-full border rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none ${inputBgClass}`}
                 />
@@ -3304,7 +3369,7 @@ export default function Home() {
                 <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1.5">참석 상태 선택</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
-                    입력="button"
+                    type="button"
                     onClick={() => setMyAttendanceStatus('yes')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'yes'
@@ -3315,7 +3380,7 @@ export default function Home() {
                     참석
                   </button>
                   <button
-                    입력="button"
+                    type="button"
                     onClick={() => setMyAttendanceStatus('no')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'no'
@@ -3326,7 +3391,7 @@ export default function Home() {
                     불참
                   </button>
                   <button
-                    입력="button"
+                    type="button"
                     onClick={() => setMyAttendanceStatus('maybe')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'maybe'
@@ -3341,14 +3406,14 @@ export default function Home() {
 
               <div className="flex gap-2 pt-1">
                 <button
-                  입력="button"
+                  type="button"
                   onClick={() => setIsAttendanceModalOpen(false)}
                   className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
-                  입력="submit"
+                  type="submit"
                   onClick={() => handleSubmitAttendance(myAttendanceStatus)}
                   className="flex-1 py-2.5 bg-[#4A90E2] hover:bg-[#3B82F6] rounded-xl font-bold text-xs text-white shadow-xs"
                 >
