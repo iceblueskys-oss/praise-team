@@ -14,29 +14,29 @@ import {
   PenTool,
   Layers,
   FileText,
-  일요일,
+  Sun,
   Moon,
   MessageSquare,
   SkipBack,
   SkipForward,
   GripVertical,
   Check,
-  사용자,
+  Users,
   Mic,
   PlusCircle,
   Globe,
-  검색하기,
+  Search,
   Lock,
   Unlock,
   KeyRound,
   Library,
   ArrowDownToLine,
   RefreshCw,
-  꼬리표,
-  복사하기,
+  Tag,
+  Copy,
   BookOpen,
   SlidersHorizontal,
-  홈 as HomeIcon,
+  Home as HomeIcon,
   Bell,
   CheckCircle2,
   XCircle,
@@ -45,11 +45,11 @@ import {
   ArrowRight,
   ClipboardPaste,
   Image as ImageIcon,
-  기록,
+  History,
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  설정,
+  Settings,
   Palette,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -284,22 +284,22 @@ export default function Home() {
     window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
   };
 
- // 🌟 공백, 들여쓰기, 줄바꿈을 100% 원본 그대로 보존하는 가사 붙여넣기 핸들러
+  // 🌟 공백, 들여쓰기, 줄바꿈을 100% 원본 그대로 보존하는 가사 붙여넣기 핸들러
   const handlePasteLyricsDirect = async (targetSongId?: string) => {
     let rawText = '';
     
-    // 1차 시도: Clipboard API
+    // 1차: Clipboard API
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
         rawText = await navigator.clipboard.readText();
       }
     } catch (e) {
-      console.warn('클립보드 API 접근 제한, 수동 입력창으로 전환합니다.');
+      console.warn('클립보드 API 접근 권한 대기 중...');
     }
 
-    // 클립보드가 비어있거나 권한으로 막힌 경우 확실한 팝업 제공
+    // 2차: 권한 차단 시 입력창 제공
     if (!rawText || !rawText.trim()) {
-      const promptText = window.prompt('복사하신 찬양 가사를 아래에 붙여넣어 주세요 (줄바꿈/공백 완벽 유지):');
+      const promptText = window.prompt('복사하신 찬양 가사를 아래에 붙여넣어 주세요:');
       if (promptText) rawText = promptText;
     }
 
@@ -308,36 +308,24 @@ export default function Home() {
       return;
     }
 
-    // \r\n, \r을 순수 표준 개행문자 \n으로 치환 (줄바꿈과 띄어쓰기 절대 훼손 금지)
-    const formattedLyrics = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    // 줄바꿈 정규화 (\r\n -> \n), 공백과 들여쓰기는 완벽 보존
+    const preservedText = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
     if (targetSongId) {
       try {
-        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: formattedLyrics }, { merge: true });
+        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: preservedText }, { merge: true });
         const targetSong = allSongs.find((s) => s.id === targetSongId);
         if (targetSong) {
           const libDocId = getSafeDocId(targetSong.title, targetSong.key);
-          await setDoc(doc(db, 'song_library', libDocId), { lyrics: formattedLyrics, updatedAt: Date.now() }, { merge: true });
+          await setDoc(doc(db, 'song_library', libDocId), { lyrics: preservedText, updatedAt: Date.now() }, { merge: true });
         }
         alert('가사가 원본 줄바꿈 그대로 등록되었습니다!');
       } catch (err) {
         alert('가사 저장 중 오류가 발생했습니다.');
       }
     } else {
-      setModalLyrics(formattedLyrics);
-      alert('가사가 입력창에 정상적으로 붙여넣어졌습니다!');
-    }
-  };
-    } catch (err) {
-      const manual = prompt('복사하신 찬양 가사를 아래에 붙여넣어 주세요:');
-      if (manual && manual.trim()) {
-        const preservedText = manual.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        if (targetSongId) {
-          await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: preservedText }, { merge: true });
-        } else {
-          setModalLyrics(preservedText);
-        }
-      }
+      setModalLyrics(preservedText);
+      alert('가사가 정상적으로 입력되었습니다!');
     }
   };
 
@@ -1198,7 +1186,7 @@ export default function Home() {
         key: modalKey.trim() ? modalKey.trim() : null,
         bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
         comment: modalComment.trim(),
-        lyrics: modalLyrics, // 공백과 줄바꿈 보존
+        lyrics: modalLyrics,
         sheetUrls: finalSheets,
         order: songOrder,
       };
@@ -1615,6 +1603,7 @@ export default function Home() {
                   value={viewingSong.lyrics || ''}
                   onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
                   placeholder="등록된 가사가 없습니다. 가사를 입력하거나 붙여넣으세요."
+                  style={{ whiteSpace: 'pre-wrap' }}
                   className="w-full flex-1 p-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-base font-normal leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none text-slate-800 placeholder-slate-400"
                 />
               </div>
@@ -2181,7 +2170,7 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* 🌟 단일화된 깔끔한 가사 패널 🌟 */}
+                        {/* 단일화된 깔끔한 가사 패널 */}
                         {isLyricsExpanded && (
                           <div className={`border-t px-4 py-3.5 space-y-3 ${
                             isDark ? 'bg-black/40 border-white/5' : 'bg-[#FAF8FF] border-purple-100'
@@ -2216,6 +2205,7 @@ export default function Home() {
 
                               <div className="flex items-center gap-1.5">
                                 <button
+                                  type="button"
                                   onClick={() => handlePasteLyricsDirect(song.id)}
                                   className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#8E74AE] text-white hover:bg-[#7D639D] flex items-center gap-1 shadow-xs transition active:scale-95"
                                   title="복사한 가사 원본 공백 그대로 붙여넣기"
@@ -2225,6 +2215,7 @@ export default function Home() {
                                 </button>
                                 {song.lyrics && (
                                   <button
+                                    type="button"
                                     onClick={() => handleCopyLyrics(song.lyrics || '')}
                                     className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition active:scale-95 ${subCardBg}`}
                                   >
@@ -2233,6 +2224,7 @@ export default function Home() {
                                   </button>
                                 )}
                                 <button
+                                  type="button"
                                   onClick={() => handleSearchLyricsWeb(song.title)}
                                   className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#EBF3FB] text-[#2B6CB0] hover:bg-[#DCEBF9] flex items-center gap-1 transition active:scale-95"
                                 >
@@ -2254,7 +2246,7 @@ export default function Home() {
                             ) : (
                               <div className="py-6 text-center rounded-2xl border border-dashed border-purple-200 dark:border-white/10 space-y-2">
                                 <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">등록된 가사가 없습니다.</p>
-                                <p className="text-[11px] text-slate-400">구글 등에서 가사를 복사한 후 상단 <span className="font-bold text-[#8E74AE]">[가사 붙여넣기]</span>를 눌러주세요.</p>
+                                <p className="text-[11px] text-slate-400">구글 등에서 가사를 복사한 후 상단 <span className="font-bold text-[#8E74AE]">[가사 붙여넣기]</span>를 누르세요.</p>
                               </div>
                             )}
                           </div>
@@ -3196,9 +3188,12 @@ export default function Home() {
                   )}
                 </div>
                 {previewLibSong.lyrics ? (
-                  <div className={`p-3.5 rounded-2xl border text-sm font-normal leading-relaxed whitespace-pre-wrap ${
-                    isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white' : 'bg-[#FAF8FF] border-purple-100 text-slate-800'
-                  }`}>
+                  <div 
+                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    className={`p-3.5 rounded-2xl border text-sm font-normal leading-relaxed ${
+                      isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white' : 'bg-[#FAF8FF] border-purple-100 text-slate-800'
+                    }`}
+                  >
                     {previewLibSong.lyrics}
                   </div>
                 ) : (
@@ -3309,7 +3304,7 @@ export default function Home() {
                 <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1.5">참석 상태 선택</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
-                    type="button"
+                    입력="button"
                     onClick={() => setMyAttendanceStatus('yes')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'yes'
@@ -3320,7 +3315,7 @@ export default function Home() {
                     참석
                   </button>
                   <button
-                    type="button"
+                    입력="button"
                     onClick={() => setMyAttendanceStatus('no')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'no'
@@ -3331,7 +3326,7 @@ export default function Home() {
                     불참
                   </button>
                   <button
-                    type="button"
+                    입력="button"
                     onClick={() => setMyAttendanceStatus('maybe')}
                     className={`py-2 rounded-xl text-xs font-bold border transition ${
                       myAttendanceStatus === 'maybe'
@@ -3346,14 +3341,14 @@ export default function Home() {
 
               <div className="flex gap-2 pt-1">
                 <button
-                  type="button"
+                  입력="button"
                   onClick={() => setIsAttendanceModalOpen(false)}
                   className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
                 >
                   취소
                 </button>
                 <button
-                  type="submit"
+                  입력="submit"
                   onClick={() => handleSubmitAttendance(myAttendanceStatus)}
                   className="flex-1 py-2.5 bg-[#4A90E2] hover:bg-[#3B82F6] rounded-xl font-bold text-xs text-white shadow-xs"
                 >
