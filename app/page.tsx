@@ -14,29 +14,29 @@ import {
   PenTool,
   Layers,
   FileText,
-  Sun,
+  일요일,
   Moon,
   MessageSquare,
   SkipBack,
   SkipForward,
   GripVertical,
   Check,
-  Users,
+  사용자,
   Mic,
   PlusCircle,
   Globe,
-  Search,
+  검색하기,
   Lock,
   Unlock,
   KeyRound,
   Library,
   ArrowDownToLine,
   RefreshCw,
-  Tag,
-  Copy,
+  꼬리표,
+  복사하기,
   BookOpen,
   SlidersHorizontal,
-  Home as HomeIcon,
+  홈 as HomeIcon,
   Bell,
   CheckCircle2,
   XCircle,
@@ -45,11 +45,11 @@ import {
   ArrowRight,
   ClipboardPaste,
   Image as ImageIcon,
-  History,
+  기록,
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  Settings,
+  설정,
   Palette,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -284,32 +284,50 @@ export default function Home() {
     window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
   };
 
-  // 🌟 공백과 줄바꿈을 완벽히 보존하는 즉시 붙여넣기 핸들러 🌟
+ // 🌟 공백, 들여쓰기, 줄바꿈을 100% 원본 그대로 보존하는 가사 붙여넣기 핸들러
   const handlePasteLyricsDirect = async (targetSongId?: string) => {
+    let rawText = '';
+    
+    // 1차 시도: Clipboard API
     try {
-      const text = await navigator.clipboard.readText();
-      if (!text || !text.replace(/\s/g, '')) {
-        alert('클립보드에 복사된 가사가 없습니다.');
-        return;
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        rawText = await navigator.clipboard.readText();
       }
-      
-      // 줄바꿈 정규화 (\r\n -> \n), 공백과 들여쓰기는 완벽 보존
-      const preservedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    } catch (e) {
+      console.warn('클립보드 API 접근 제한, 수동 입력창으로 전환합니다.');
+    }
 
-      if (targetSongId) {
-        // 곡 리스트 카드에서 직접 붙여넣는 경우 바로 Firestore 저장
-        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: preservedText }, { merge: true });
+    // 클립보드가 비어있거나 권한으로 막힌 경우 확실한 팝업 제공
+    if (!rawText || !rawText.trim()) {
+      const promptText = window.prompt('복사하신 찬양 가사를 아래에 붙여넣어 주세요 (줄바꿈/공백 완벽 유지):');
+      if (promptText) rawText = promptText;
+    }
+
+    if (!rawText || !rawText.trim()) {
+      alert('붙여넣을 가사 내용이 없습니다.');
+      return;
+    }
+
+    // \r\n, \r을 순수 표준 개행문자 \n으로 치환 (줄바꿈과 띄어쓰기 절대 훼손 금지)
+    const formattedLyrics = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    if (targetSongId) {
+      try {
+        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: formattedLyrics }, { merge: true });
         const targetSong = allSongs.find((s) => s.id === targetSongId);
         if (targetSong) {
           const libDocId = getSafeDocId(targetSong.title, targetSong.key);
-          await setDoc(doc(db, 'song_library', libDocId), { lyrics: preservedText, updatedAt: Date.now() }, { merge: true });
+          await setDoc(doc(db, 'song_library', libDocId), { lyrics: formattedLyrics, updatedAt: Date.now() }, { merge: true });
         }
         alert('가사가 원본 줄바꿈 그대로 등록되었습니다!');
-      } else {
-        // 모달 내부 입력창에 넣는 경우
-        setModalLyrics(preservedText);
-        alert('가사가 입력창에 붙여넣어졌습니다!');
+      } catch (err) {
+        alert('가사 저장 중 오류가 발생했습니다.');
       }
+    } else {
+      setModalLyrics(formattedLyrics);
+      alert('가사가 입력창에 정상적으로 붙여넣어졌습니다!');
+    }
+  };
     } catch (err) {
       const manual = prompt('복사하신 찬양 가사를 아래에 붙여넣어 주세요:');
       if (manual && manual.trim()) {
@@ -2225,15 +2243,18 @@ export default function Home() {
                             </div>
 
                             {song.lyrics ? (
-                              <div className={`font-normal leading-relaxed whitespace-pre-wrap p-3.5 rounded-2xl border max-h-80 overflow-y-auto ${
-                                lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-semibold' : 'text-sm'
-                              } ${isDark ? 'bg-[#1C1C1E] border-neutral-800 text-neutral-100' : 'bg-white border-purple-100 text-slate-800'}`}>
+                              <div 
+                                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                                className={`font-normal leading-relaxed p-4 rounded-2xl border max-h-80 overflow-y-auto font-sans tracking-normal ${
+                                  lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-medium' : 'text-sm'
+                                } ${isDark ? 'bg-[#1C1C1E] border-neutral-800 text-neutral-100' : 'bg-white border-purple-100 text-slate-800'}`}
+                              >
                                 {song.lyrics}
                               </div>
                             ) : (
                               <div className="py-6 text-center rounded-2xl border border-dashed border-purple-200 dark:border-white/10 space-y-2">
                                 <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">등록된 가사가 없습니다.</p>
-                                <p className="text-[11px] text-slate-400">구글에서 가사를 복사한 후 상단 <span className="font-bold text-[#8E74AE]">[가사 붙여넣기]</span>를 누르세요.</p>
+                                <p className="text-[11px] text-slate-400">구글 등에서 가사를 복사한 후 상단 <span className="font-bold text-[#8E74AE]">[가사 붙여넣기]</span>를 눌러주세요.</p>
                               </div>
                             )}
                           </div>
@@ -2600,11 +2621,12 @@ export default function Home() {
                   </div>
                 </div>
                 <textarea
-                  rows={4}
+                  rows={5}
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
-                  placeholder="구글에서 가사를 복사한 후 상단 [복사한 가사 붙여넣기]를 누르면 줄바꿈이 완벽하게 유지되어 들어갑니다."
-                  className={`w-full border rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none whitespace-pre-wrap ${inputBgClass}`}
+                  placeholder="가사를 입력하거나 상단 [복사한 가사 붙여넣기]를 누르세요."
+                  style={{ whiteSpace: 'pre-wrap' }}
+                  className={`w-full border rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none ${inputBgClass}`}
                 />
               </div>
 
