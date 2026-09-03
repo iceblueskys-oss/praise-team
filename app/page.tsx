@@ -51,7 +51,6 @@ import {
   AlertCircle,
   Settings,
   Palette,
-  Sparkles,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -233,7 +232,7 @@ export default function Home() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 악보 뷰어 & 줌/팬/스와이프 상태
+  // 악보 뷰어 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -285,20 +284,41 @@ export default function Home() {
     window.open(`https://www.google.com/search?q=${encodeURIComponent(`${q} 찬양 가사`)}`, '_blank');
   };
 
-  // 🌟 클립보드에서 가사 원터치 붙여넣기 🌟
-  const handlePasteLyricsFromClipboard = async () => {
+  // 🌟 공백과 줄바꿈을 완벽히 보존하는 즉시 붙여넣기 핸들러 🌟
+  const handlePasteLyricsDirect = async (targetSongId?: string) => {
     try {
       const text = await navigator.clipboard.readText();
-      if (text && text.trim()) {
-        setModalLyrics(text.trim());
-        alert('가사가 붙여넣어졌습니다!');
-      } else {
-        alert('클립보드에 복사된 텍스트가 없습니다.');
+      if (!text || !text.replace(/\s/g, '')) {
+        alert('클립보드에 복사된 가사가 없습니다.');
+        return;
       }
-    } catch (e) {
-      const direct = prompt('복사한 가사를 여기에 붙여넣어 주세요:');
-      if (direct && direct.trim()) {
-        setModalLyrics(direct.trim());
+      
+      // 줄바꿈 정규화 (\r\n -> \n), 공백과 들여쓰기는 완벽 보존
+      const preservedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+      if (targetSongId) {
+        // 곡 리스트 카드에서 직접 붙여넣는 경우 바로 Firestore 저장
+        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: preservedText }, { merge: true });
+        const targetSong = allSongs.find((s) => s.id === targetSongId);
+        if (targetSong) {
+          const libDocId = getSafeDocId(targetSong.title, targetSong.key);
+          await setDoc(doc(db, 'song_library', libDocId), { lyrics: preservedText, updatedAt: Date.now() }, { merge: true });
+        }
+        alert('가사가 원본 줄바꿈 그대로 등록되었습니다!');
+      } else {
+        // 모달 내부 입력창에 넣는 경우
+        setModalLyrics(preservedText);
+        alert('가사가 입력창에 붙여넣어졌습니다!');
+      }
+    } catch (err) {
+      const manual = prompt('복사하신 찬양 가사를 아래에 붙여넣어 주세요:');
+      if (manual && manual.trim()) {
+        const preservedText = manual.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        if (targetSongId) {
+          await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: preservedText }, { merge: true });
+        } else {
+          setModalLyrics(preservedText);
+        }
       }
     }
   };
@@ -1160,7 +1180,7 @@ export default function Home() {
         key: modalKey.trim() ? modalKey.trim() : null,
         bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
         comment: modalComment.trim(),
-        lyrics: modalLyrics.trim(),
+        lyrics: modalLyrics, // 공백과 줄바꿈 보존
         sheetUrls: finalSheets,
         order: songOrder,
       };
@@ -1176,7 +1196,7 @@ export default function Home() {
           key: modalKey.trim() ? modalKey.trim() : null,
           bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
           comment: modalComment.trim(),
-          lyrics: modalLyrics.trim(),
+          lyrics: modalLyrics,
           sheetUrls: finalSheets,
           updatedAt: Date.now(),
         },
@@ -1539,7 +1559,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 악보 캔버스 */}
         <main
           ref={containerRef}
           onTouchStart={handleTouchStartViewer}
@@ -1947,7 +1966,7 @@ export default function Home() {
             <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="w-4 h-4 text-[#4A90E2]" />
+                  <Calendar className="w-4 h-4 text-[#4A90E2] shrink-0" />
                   <h2 className="text-base font-bold truncate text-slate-800 dark:text-white">{currentConti.title}</h2>
                   
                   <div className="flex items-center gap-1 shrink-0">
@@ -2144,6 +2163,7 @@ export default function Home() {
                           </div>
                         </div>
 
+                        {/* 🌟 단일화된 깔끔한 가사 패널 🌟 */}
                         {isLyricsExpanded && (
                           <div className={`border-t px-4 py-3.5 space-y-3 ${
                             isDark ? 'bg-black/40 border-white/5' : 'bg-[#FAF8FF] border-purple-100'
@@ -2177,10 +2197,18 @@ export default function Home() {
                               </div>
 
                               <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handlePasteLyricsDirect(song.id)}
+                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#8E74AE] text-white hover:bg-[#7D639D] flex items-center gap-1 shadow-xs transition active:scale-95"
+                                  title="복사한 가사 원본 공백 그대로 붙여넣기"
+                                >
+                                  <ClipboardPaste className="w-3.5 h-3.5 text-white" />
+                                  <span>가사 붙여넣기</span>
+                                </button>
                                 {song.lyrics && (
                                   <button
                                     onClick={() => handleCopyLyrics(song.lyrics || '')}
-                                    className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition ${subCardBg}`}
+                                    className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition active:scale-95 ${subCardBg}`}
                                   >
                                     <Copy className="w-3.5 h-3.5 text-[#8E74AE]" />
                                     <span>복사</span>
@@ -2188,7 +2216,7 @@ export default function Home() {
                                 )}
                                 <button
                                   onClick={() => handleSearchLyricsWeb(song.title)}
-                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#EBF3FB] text-[#2B6CB0] hover:bg-[#DCEBF9] flex items-center gap-1 transition"
+                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#EBF3FB] text-[#2B6CB0] hover:bg-[#DCEBF9] flex items-center gap-1 transition active:scale-95"
                                 >
                                   <Globe className="w-3.5 h-3.5" />
                                   <span>구글 검색 ↗</span>
@@ -2205,20 +2233,7 @@ export default function Home() {
                             ) : (
                               <div className="py-6 text-center rounded-2xl border border-dashed border-purple-200 dark:border-white/10 space-y-2">
                                 <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">등록된 가사가 없습니다.</p>
-                                <div className="flex justify-center gap-2">
-                                  <button
-                                    onClick={() => handleSearchLyricsWeb(song.title)}
-                                    className="px-3 py-1 bg-[#4A90E2] text-white rounded-xl text-xs font-bold shadow-xs"
-                                  >
-                                    구글 검색 ↗
-                                  </button>
-                                  <button
-                                    onClick={() => handleOpenModal(song)}
-                                    className="px-3 py-1 bg-[#8E74AE] text-white rounded-xl text-xs font-bold shadow-xs"
-                                  >
-                                    + 가사 등록
-                                  </button>
-                                </div>
+                                <p className="text-[11px] text-slate-400">구글에서 가사를 복사한 후 상단 <span className="font-bold text-[#8E74AE]">[가사 붙여넣기]</span>를 누르세요.</p>
                               </div>
                             )}
                           </div>
@@ -2232,7 +2247,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 탭 콘텐츠: 찬양 보관소 뷰 */}
+        {/* 찬양 보관소 뷰 */}
         {activeTab === 'library' && (
           <div className="space-y-3.5">
             <div className="flex items-center justify-between px-1">
@@ -2307,7 +2322,7 @@ export default function Home() {
 
       </div>
 
-      {/* 하단 고정 플로팅 탭바 */}
+      {/* 하단 플로팅 탭바 */}
       <nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
         <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
           isDark ? 'bg-[#1C1C1E]/90 border-white/10' : 'bg-white/95 border-slate-200'
@@ -2341,9 +2356,7 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 🌟 전역 모달들 🌟 */}
-
-      {/* 1. 새 콘티 추가 달력 모달 */}
+      {/* 모달: 새 콘티 추가 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
@@ -2435,7 +2448,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 2. 곡 추가/수정 모달 (가사 스마트 입력 지원) */}
+      {/* 모달: 곡 추가/수정 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2452,7 +2465,6 @@ export default function Home() {
             </div>
 
             <form onSubmit={handleSaveModal} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
-              {/* 태그 선택 및 태그 관리 버튼 영역 */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
@@ -2561,7 +2573,7 @@ export default function Home() {
                 />
               </div>
 
-              {/* 🌟 가사 스마트 검색 & 원터치 붙여넣기 🌟 */}
+              {/* 가사 스마트 입력 & 공백 보존 붙여넣기 */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1">
@@ -2570,7 +2582,7 @@ export default function Home() {
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={handlePasteLyricsFromClipboard}
+                      onClick={() => handlePasteLyricsDirect()}
                       className="text-xs font-bold px-2.5 py-1 bg-[#8E74AE]/15 text-[#8E74AE] border border-[#8E74AE]/30 rounded-lg hover:bg-[#8E74AE]/25 flex items-center gap-1 transition active:scale-95"
                       title="복사된 가사 바로 붙여넣기"
                     >
@@ -2591,8 +2603,8 @@ export default function Home() {
                   rows={4}
                   value={modalLyrics}
                   onChange={(e) => setModalLyrics(e.target.value)}
-                  placeholder="구글에서 가사를 복사한 후 상단 [복사한 가사 붙여넣기]를 누르거나 여기에 직접 입력하세요."
-                  className={`w-full border rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none ${inputBgClass}`}
+                  placeholder="구글에서 가사를 복사한 후 상단 [복사한 가사 붙여넣기]를 누르면 줄바꿈이 완벽하게 유지되어 들어갑니다."
+                  className={`w-full border rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8E74AE] resize-none whitespace-pre-wrap ${inputBgClass}`}
                 />
               </div>
 
@@ -2761,7 +2773,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 3. 태그 목록 & 색상 관리 전용 모달 */}
+      {/* 모달: 태그 관리 */}
       {isTagModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2859,7 +2871,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 4. 싱어 관리 모달 */}
+      {/* 모달: 싱어 관리 */}
       {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
@@ -2983,7 +2995,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 5. 관리자 인증 모달 */}
+      {/* 모달: 관리자 인증 */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
@@ -3033,7 +3045,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 6. 앱 설정 모달 */}
+      {/* 모달: 앱 설정 */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
@@ -3108,7 +3120,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 7. 보관소 미리보기 모달 */}
+      {/* 모달: 보관소 미리보기 */}
       {previewLibSong && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-3.5 sm:p-6">
           <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${
@@ -3194,7 +3206,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 8. 비밀번호 변경 모달 */}
+      {/* 모달: 비밀번호 변경 */}
       {isChangePwModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
@@ -3243,7 +3255,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 9. 출석 체크 모달 */}
+      {/* 모달: 출석 체크 */}
       {isAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
