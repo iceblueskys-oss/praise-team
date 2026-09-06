@@ -105,14 +105,38 @@ interface Conti {
   attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
 }
 
-// 🌟 선명하고 세련된 파스텔 태그 색상 테마 팔레트
-const TAG_COLOR_THEMES: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  amber: { bg: 'bg-[#FFF3D6] dark:bg-amber-950/60', text: 'text-[#B45309] dark:text-amber-300', border: 'border-[#FDE68A] dark:border-amber-700/50', label: '웜 앰버' },
-  blue: { bg: 'bg-[#E0F2FE] dark:bg-sky-950/60', text: 'text-[#0369A1] dark:text-sky-300', border: 'border-[#BAE6FD] dark:border-sky-700/50', label: '소프트 블루' },
-  purple: { bg: 'bg-[#F3E8FF] dark:bg-purple-950/60', text: 'text-[#7E22CE] dark:text-purple-300', border: 'border-[#E9D5FF] dark:border-purple-700/50', label: '라벤더' },
-  emerald: { bg: 'bg-[#DCFCE7] dark:bg-emerald-950/60', text: 'text-[#15803D] dark:text-emerald-300', border: 'border-[#BBF7D0] dark:border-emerald-700/50', label: '세이지 그린' },
-  rose: { bg: 'bg-[#FFE4E6] dark:bg-rose-950/60', text: 'text-[#BE123C] dark:text-rose-300', border: 'border-[#FECDD3] dark:border-rose-700/50', label: '로즈 핑크' },
-  indigo: { bg: 'bg-[#E0E7FF] dark:bg-indigo-950/60', text: 'text-[#4338CA] dark:text-indigo-300', border: 'border-[#C7D2FE] dark:border-indigo-700/50', label: '로열 인디고' },
+// 🌟 다크모드/라이트모드 수동 스타일 매핑 (Tailwind darkMode: 'class' 의존성 제거)
+const TAG_COLOR_THEMES: Record<string, { light: { bg: string; text: string; border: string }; dark: { bg: string; text: string; border: string }; label: string }> = {
+  amber: {
+    light: { bg: 'bg-[#FFF3D6]', text: 'text-[#B45309]', border: 'border-[#FDE68A]' },
+    dark: { bg: 'bg-[#78350F]/50', text: 'text-[#FCD34D]', border: 'border-[#B45309]/50' },
+    label: '웜 앰버',
+  },
+  blue: {
+    light: { bg: 'bg-[#E0F2FE]', text: 'text-[#0369A1]', border: 'border-[#BAE6FD]' },
+    dark: { bg: 'bg-[#0C4A6E]/50', text: 'text-[#7DD3FC]', border: 'border-[#0284C7]/50' },
+    label: '소프트 블루',
+  },
+  purple: {
+    light: { bg: 'bg-[#F3E8FF]', text: 'text-[#7E22CE]', border: 'border-[#E9D5FF]' },
+    dark: { bg: 'bg-[#581C87]/50', text: 'text-[#D8B4FE]', border: 'border-[#9333EA]/50' },
+    label: '라벤더',
+  },
+  emerald: {
+    light: { bg: 'bg-[#DCFCE7]', text: 'text-[#15803D]', border: 'border-[#BBF7D0]' },
+    dark: { bg: 'bg-[#064E3B]/50', text: 'text-[#6EE7B7]', border: 'border-[#059669]/50' },
+    label: '세이지 그린',
+  },
+  rose: {
+    light: { bg: 'bg-[#FFE4E6]', text: 'text-[#BE123C]', border: 'border-[#FECDD3]' },
+    dark: { bg: 'bg-[#881337]/50', text: 'text-[#FDA4AF]', border: 'border-[#E11D48]/50' },
+    label: '로즈 핑크',
+  },
+  indigo: {
+    light: { bg: 'bg-[#E0E7FF]', text: 'text-[#4338CA]', border: 'border-[#C7D2FE]' },
+    dark: { bg: 'bg-[#312E81]/50', text: 'text-[#A5B4FC]', border: 'border-[#4F46E5]/50' },
+    label: '로열 인디고',
+  },
 };
 
 const DEFAULT_CUSTOM_TAGS: CustomTag[] = [
@@ -943,13 +967,13 @@ export default function Home() {
     }
   };
 
-  // 🌟 태그 스타일 반환 헬퍼 (배경, 글자색, 테두리 매핑)
   const getTagStyle = (tagStr?: string) => {
     if (!tagStr) return null;
     const clean = tagStr.replace(/[<>]/g, '').trim();
     const matched = masterTags.find((t) => t.name === clean || `<${t.name}>` === tagStr || t.name === tagStr);
     const colorKey = matched?.color || 'amber';
-    return TAG_COLOR_THEMES[colorKey] || TAG_COLOR_THEMES.amber;
+    const themeObj = TAG_COLOR_THEMES[colorKey] || TAG_COLOR_THEMES.amber;
+    return isDark ? themeObj.dark : themeObj.light;
   };
 
   const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
@@ -1407,12 +1431,12 @@ export default function Home() {
     );
   }
 
-  // 🌟 색상 클래스
+  // 🌟 완벽한 명암 분기 (인라인 클래스로 Tailwind dark: 클래스 미적용 문제 원천 차단)
   const isDark = theme === 'dark';
-  const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-[#F4F6F9] text-slate-900';
-  const cardBgClass = isDark ? 'bg-[#1C1C1E] border-neutral-800/80 shadow-sm' : 'bg-white border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]';
-  const subCardBg = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-200 hover:bg-[#38383A]' : 'bg-[#EDF2F7] border-slate-200/60 text-slate-700 hover:bg-[#E2E8F0]';
-  const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder-slate-400';
+  const bgClass = isDark ? 'bg-[#121214] text-white' : 'bg-[#F4F6F9] text-slate-900';
+  const cardBgClass = isDark ? 'bg-[#1E1E22] border-[#2E2E34] shadow-md' : 'bg-white border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]';
+  const subCardBg = isDark ? 'bg-[#2A2A30] border-[#383842] text-neutral-200 hover:bg-[#34343C]' : 'bg-[#EDF2F7] border-slate-200/60 text-slate-700 hover:bg-[#E2E8F0]';
+  const inputBgClass = isDark ? 'bg-[#2A2A30] border-[#383842] text-white placeholder-neutral-500' : 'bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder-slate-400';
 
   const textTitleClass = isDark ? 'text-white' : 'text-slate-900';
   const textSubClass = isDark ? 'text-neutral-400' : 'text-slate-500';
@@ -1774,7 +1798,7 @@ export default function Home() {
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
       <div className="max-w-xl mx-auto space-y-4 w-full">
         
-        {/* 파스텔 헤더 */}
+        {/* 헤더 */}
         <header className="flex items-center justify-between gap-2 px-1 pt-1">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#68A5E8] to-[#9B83C5] flex items-center justify-center text-white shadow-md shadow-blue-500/15">
@@ -1809,12 +1833,12 @@ export default function Home() {
             {/* 공지사항 카드 */}
             <div className={`rounded-3xl border p-4 space-y-3 ${cardBgClass}`}>
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-2xl bg-[#FEF3E2] dark:bg-amber-950/40 flex items-center justify-center shrink-0 mt-0.5">
+                <div className={`w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${isDark ? 'bg-amber-950/60' : 'bg-[#FEF3E2]'}`}>
                   <Bell className="w-4 h-4 text-[#F39C12]" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 dark:text-neutral-400">찬양팀 공지사항</span>
+                    <span className={`text-xs font-bold ${textSubClass}`}>찬양팀 공지사항</span>
                     {currentConti && (
                       <button
                         onClick={() => {
@@ -1834,15 +1858,15 @@ export default function Home() {
               </div>
 
               {currentConti && (
-                <div className="border-t border-slate-100 dark:border-neutral-800 pt-3 flex items-center justify-between gap-2 flex-wrap">
+                <div className={`border-t pt-3 flex items-center justify-between gap-2 flex-wrap ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
                   <div className="flex items-center gap-1.5 text-xs font-bold">
-                    <span className="px-2.5 py-1 rounded-xl bg-[#E8F7EE] dark:bg-emerald-950/50 text-[#2E7D32] dark:text-emerald-300 flex items-center gap-1">
+                    <span className={`px-2.5 py-1 rounded-xl flex items-center gap-1 ${isDark ? 'bg-emerald-950/60 text-emerald-300' : 'bg-[#E8F7EE] text-[#2E7D32]'}`}>
                       <CheckCircle2 className="w-3.5 h-3.5" /> 참석 {yesCount}
                     </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-[#FEECEC] dark:bg-rose-950/50 text-[#C53030] dark:text-rose-300 flex items-center gap-1">
+                    <span className={`px-2.5 py-1 rounded-xl flex items-center gap-1 ${isDark ? 'bg-rose-950/60 text-rose-300' : 'bg-[#FEECEC] text-[#C53030]'}`}>
                       <XCircle className="w-3.5 h-3.5" /> 불참 {noCount}
                     </span>
-                    <span className="px-2.5 py-1 rounded-xl bg-[#FEF3E2] dark:bg-amber-950/50 text-[#D97706] dark:text-amber-300 flex items-center gap-1">
+                    <span className={`px-2.5 py-1 rounded-xl flex items-center gap-1 ${isDark ? 'bg-amber-950/60 text-amber-300' : 'bg-[#FEF3E2] text-[#D97706]'}`}>
                       <HelpCircle className="w-3.5 h-3.5" /> 미정 {maybeCount}
                     </span>
                   </div>
@@ -1864,7 +1888,7 @@ export default function Home() {
                   <Calendar className="w-4 h-4 text-[#4A90E2]" />
                   다가오는 예배 일정
                 </h2>
-                <span className="text-xs text-[#4A90E2] font-bold bg-[#EBF3FB] dark:bg-blue-950/50 px-2 py-0.5 rounded-lg">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${isDark ? 'bg-blue-950/60 text-blue-300' : 'bg-[#EBF3FB] text-[#4A90E2]'}`}>
                   {upcomingContis.length}개 예정
                 </span>
               </div>
@@ -1889,7 +1913,7 @@ export default function Home() {
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] dark:bg-blue-950/50 text-[#2B6CB0] dark:text-blue-300 rounded-lg">
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded-lg ${isDark ? 'bg-blue-950/60 text-blue-300' : 'bg-[#EBF3FB] text-[#2B6CB0]'}`}>
                             {c.date}
                           </span>
                           <span className={`text-xs font-semibold ${textSubClass}`}>
@@ -1951,11 +1975,11 @@ export default function Home() {
                             setSelectedContiId(c.id);
                             setViewLevel('detail');
                           }}
-                          className={`p-3.5 rounded-2xl border opacity-85 hover:opacity-100 transition active:scale-[0.99] cursor-pointer flex items-center justify-between gap-3 ${cardBgClass}`}
+                          className={`p-3.5 rounded-2xl border transition active:scale-[0.99] cursor-pointer flex items-center justify-between gap-3 ${cardBgClass}`}
                         >
                           <div className="min-w-0 flex-1 space-y-0.5">
                             <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-neutral-400 rounded-md">
+                              <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md ${isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-slate-100 text-slate-600'}`}>
                                 {c.date}
                               </span>
                               <span className="text-[11px] text-slate-400">
@@ -2019,9 +2043,7 @@ export default function Home() {
                     </button>
                     <button
                       onClick={handleDeleteConti}
-                      className={`p-1 border rounded-lg transition ${
-                        isDark ? 'bg-[#2C2C2E] text-neutral-400 hover:text-[#FF7675]' : 'bg-slate-100 text-slate-500 hover:text-[#E74C3C]'
-                      }`}
+                      className={`p-1 border rounded-lg transition ${isDark ? 'bg-[#2A2A30] text-rose-400 hover:text-rose-300' : 'bg-slate-100 text-slate-500 hover:text-[#E74C3C]'}`}
                       title="이 콘티 전체 삭제"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -2042,7 +2064,7 @@ export default function Home() {
                   {assignedSingers.map((singer) => (
                     <span
                       key={singer}
-                      className="px-2.5 py-0.5 rounded-lg bg-[#EBF3FB] dark:bg-blue-950/50 text-[#2B6CB0] dark:text-blue-300 font-bold text-xs flex items-center gap-1"
+                      className={`px-2.5 py-0.5 rounded-lg font-bold text-xs flex items-center gap-1 ${isDark ? 'bg-blue-950/60 text-blue-300 border border-blue-900/50' : 'bg-[#EBF3FB] text-[#2B6CB0]'}`}
                     >
                       <Mic className="w-3 h-3" /> {singer}
                     </span>
@@ -2051,7 +2073,7 @@ export default function Home() {
               )}
 
               {customNote && (
-                <p className={`text-xs pt-1 border-t border-slate-100 dark:border-neutral-800 ${textSubClass}`}>
+                <p className={`text-xs pt-1 border-t ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'} ${textSubClass}`}>
                   📝 {customNote}
                 </p>
               )}
@@ -2077,10 +2099,10 @@ export default function Home() {
 
                       <div
                         className={`flex flex-col border transition-all duration-150 overflow-hidden w-full ${
-                          isLyricsExpanded ? 'rounded-3xl ring-2 ring-[#8E74AE]/40' : 'rounded-3xl'
+                          isLyricsExpanded ? 'rounded-3xl ring-2 ring-[#8E74AE]/60' : 'rounded-3xl'
                         } ${
                           isBeingDragged
-                            ? 'opacity-20 border-dashed border-neutral-400 scale-[0.98]'
+                            ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
                             : cardBgClass
                         }`}
                       >
@@ -2106,39 +2128,52 @@ export default function Home() {
                               onTouchEnd={endDragAction}
                               onMouseDown={(e) => handleMouseDown(idx, e)}
                               style={{ touchAction: 'none' }}
-                              className="p-1 -m-1 text-slate-400 hover:text-[#4A90E2] cursor-grab active:cursor-grabbing shrink-0"
+                              className={`p-1 -m-1 cursor-grab active:cursor-grabbing shrink-0 transition ${isDark ? 'text-neutral-500 hover:text-white' : 'text-slate-400 hover:text-[#4A90E2]'}`}
                               title="길게 눌러 순서 변경"
                             >
                               <GripVertical className="w-5 h-5" />
                             </div>
 
-                            {/* 🌟 순번 뱃지: 선명한 소프트 블루 적용 🌟 */}
-                            <div className="w-7 h-7 rounded-xl bg-[#EBF3FB] dark:bg-blue-950/60 text-[#2563EB] dark:text-blue-300 flex items-center justify-center font-bold text-xs shrink-0 border border-[#DBEAFE] dark:border-blue-900/50 shadow-xs">
+                            {/* 🌟 순번 뱃지: 선명한 대비 🌟 */}
+                            <div className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border shadow-xs ${
+                              isDark
+                                ? 'bg-[#0F2D54] border-[#1D4ED8]/60 text-[#93C5FD]'
+                                : 'bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]'
+                            }`}>
                               {idx + 1}
                             </div>
 
                             <div className="min-w-0 flex-1 space-y-0.5">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                {/* 🌟 순서 태그: 밝고 맑은 파스텔 톤 🌟 */}
+                                {/* 🌟 순서 태그 🌟 */}
                                 {song.headerTag && tagStyle && (
                                   <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${tagStyle.bg} ${tagStyle.text} ${tagStyle.border}`}>
                                     {song.headerTag}
                                   </span>
                                 )}
 
-                                {/* 🌟 곡 제목: 명확한 명도 대비 보장 🌟 */}
+                                {/* 🌟 곡 제목 🌟 */}
                                 <h3 className={`text-sm sm:text-base font-bold truncate transition group-hover:text-[#4A90E2] ${textTitleClass}`}>
                                   {song.title}
                                 </h3>
 
-                                {/* 🌟 Key 뱃지: 맑은 스카이 블루 톤 🌟 */}
+                                {/* 🌟 Key 뱃지 🌟 */}
                                 {song.key && (
-                                  <span className="px-2 py-0.5 text-xs font-bold bg-[#E0F2FE] dark:bg-sky-950/60 text-[#0284C7] dark:text-sky-300 border border-[#BAE6FD] dark:border-sky-800/40 rounded-lg shrink-0 shadow-xs">
+                                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${
+                                    isDark
+                                      ? 'bg-[#0F2D54] border-[#1D4ED8]/60 text-[#93C5FD]'
+                                      : 'bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]'
+                                  }`}>
                                     {song.key} Key
                                   </span>
                                 )}
+
                                 {song.sheetUrls && song.sheetUrls.length > 1 && (
-                                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-neutral-800 rounded-lg shrink-0 border border-slate-200 dark:border-neutral-700">
+                                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold rounded-lg shrink-0 border ${
+                                    isDark
+                                      ? 'bg-[#2A2A30] border-[#383842] text-neutral-300'
+                                      : 'bg-slate-100 border-slate-200 text-slate-500'
+                                  }`}>
                                     <Layers className="w-3 h-3" /> {song.sheetUrls.length}p
                                   </span>
                                 )}
@@ -2173,13 +2208,15 @@ export default function Home() {
                               </div>
                             ) : (
                               <>
-                                {/* 🌟 [가사] 버튼: 세련된 소프트 라벤더 톤 🌟 */}
+                                {/* 🌟 [가사] 버튼 🌟 */}
                                 <button
                                   onClick={() => handleToggleLyricsExpand(song.id)}
                                   className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
                                     isLyricsExpanded
                                       ? 'bg-[#8E74AE] border-[#8E74AE] text-white shadow-sm'
-                                      : 'bg-[#F3E8FF] dark:bg-purple-950/60 border-[#E9D5FF] dark:border-purple-800/50 text-[#7E22CE] dark:text-purple-300 hover:bg-[#E9D5FF]'
+                                      : isDark
+                                      ? 'bg-[#3B1F54] border-[#6B21A8]/60 text-[#E9D5FF] hover:bg-[#4C286C]'
+                                      : 'bg-[#F3E8FF] border-[#E9D5FF] text-[#7E22CE] hover:bg-[#E9D5FF]'
                                   }`}
                                   title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
                                 >
@@ -2187,12 +2224,12 @@ export default function Home() {
                                   <span>{isLyricsExpanded ? '닫기' : '가사'}</span>
                                 </button>
 
-                                {/* 🌟 [수정/삭제] 버튼: 또렷한 아이콘 대비 🌟 */}
+                                {/* 🌟 [수정/삭제] 버튼 🌟 */}
                                 <button
                                   onClick={() => handleOpenModal(song)}
-                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${
+                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs ${
                                     isDark
-                                      ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-300 hover:text-white'
+                                      ? 'bg-[#2A2A30] border-[#383842] text-neutral-200 hover:text-white hover:bg-[#34343C]'
                                       : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                   }`}
                                   title="곡 수정"
@@ -2201,10 +2238,10 @@ export default function Home() {
                                 </button>
                                 <button
                                   onClick={() => handleDeleteSong(song.id)}
-                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${
+                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs ${
                                     isDark
-                                      ? 'bg-[#2C2C2E] border-neutral-700 text-rose-400 hover:text-rose-300'
-                                      : 'bg-rose-50/70 border-rose-200 text-rose-600 hover:bg-rose-100'
+                                      ? 'bg-rose-950/50 border-rose-900/60 text-rose-300 hover:bg-rose-900/60'
+                                      : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
                                   }`}
                                   title="곡 삭제"
                                 >
@@ -2215,33 +2252,33 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* 단일화된 깔끔한 가사 패널 */}
+                        {/* 가사 패널 */}
                         {isLyricsExpanded && (
                           <div className={`border-t px-4 py-3.5 space-y-3 ${
-                            isDark ? 'bg-black/40 border-white/5' : 'bg-[#FAF8FF] border-purple-100'
+                            isDark ? 'bg-[#18181B] border-[#2E2E34]' : 'bg-[#FAF8FF] border-purple-100'
                           }`}>
                             <div className="flex items-center justify-between flex-wrap gap-2">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-[#8E74AE] flex items-center gap-1">
+                                <span className={`text-xs font-bold flex items-center gap-1 ${isDark ? 'text-purple-300' : 'text-[#7E22CE]'}`}>
                                   <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
                                 </span>
 
-                                <div className="flex items-center rounded-xl bg-purple-100/60 dark:bg-white/10 p-0.5 text-xs font-bold">
+                                <div className={`flex items-center rounded-xl p-0.5 text-xs font-bold border ${isDark ? 'bg-[#2A2A30] border-[#383842]' : 'bg-purple-100/60 border-purple-200/50'}`}>
                                   <button
                                     onClick={() => handleChangeFontSize('sm')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'sm' ? 'bg-[#8E74AE] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'sm' ? 'bg-[#7E22CE] text-white' : textSubClass}`}
                                   >
                                     소
                                   </button>
                                   <button
                                     onClick={() => handleChangeFontSize('base')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'base' ? 'bg-[#8E74AE] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'base' ? 'bg-[#7E22CE] text-white' : textSubClass}`}
                                   >
                                     중
                                   </button>
                                   <button
                                     onClick={() => handleChangeFontSize('lg')}
-                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'lg' ? 'bg-[#8E74AE] text-white' : 'text-slate-600 dark:text-neutral-400'}`}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'lg' ? 'bg-[#7E22CE] text-white' : textSubClass}`}
                                   >
                                     대
                                   </button>
@@ -2252,7 +2289,7 @@ export default function Home() {
                                 <button
                                   type="button"
                                   onClick={() => handlePasteLyricsDirect(song.id)}
-                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#8E74AE] text-white hover:bg-[#7D639D] flex items-center gap-1 shadow-xs transition active:scale-95"
+                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#7E22CE] text-white hover:bg-[#6B21A8] flex items-center gap-1 shadow-xs transition active:scale-95"
                                   title="복사한 가사 원본 공백 그대로 붙여넣기"
                                 >
                                   <ClipboardPaste className="w-3.5 h-3.5 text-white" />
@@ -2264,14 +2301,18 @@ export default function Home() {
                                     onClick={() => handleCopyLyrics(song.lyrics || '')}
                                     className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition active:scale-95 ${subCardBg}`}
                                   >
-                                    <Copy className="w-3.5 h-3.5 text-[#8E74AE]" />
+                                    <Copy className={`w-3.5 h-3.5 ${isDark ? 'text-purple-300' : 'text-[#7E22CE]'}`} />
                                     <span>복사</span>
                                   </button>
                                 )}
                                 <button
                                   type="button"
                                   onClick={() => handleOpenSearchGuide(song.title)}
-                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#E0F2FE] dark:bg-sky-950/60 border border-[#BAE6FD] dark:border-sky-800/40 text-[#0284C7] dark:text-sky-300 hover:bg-[#BAE6FD] flex items-center gap-1 transition active:scale-95 shadow-xs"
+                                  className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition active:scale-95 shadow-xs ${
+                                    isDark
+                                      ? 'bg-sky-950/60 border-sky-800/50 text-sky-300 hover:bg-sky-900/60'
+                                      : 'bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1] hover:bg-[#BAE6FD]'
+                                  }`}
                                 >
                                   <Globe className="w-3.5 h-3.5" />
                                   <span>가사 찾기 ↗</span>
@@ -2284,14 +2325,14 @@ export default function Home() {
                                 style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                                 className={`font-normal leading-relaxed p-4 rounded-2xl border max-h-80 overflow-y-auto font-sans tracking-normal ${
                                   lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-medium' : 'text-sm'
-                                } ${isDark ? 'bg-[#1C1C1E] border-neutral-800 text-neutral-100' : 'bg-white border-purple-100 text-slate-800'}`}
+                                } ${isDark ? 'bg-[#1E1E22] border-[#2E2E34] text-neutral-100' : 'bg-white border-purple-100 text-slate-800'}`}
                               >
                                 {song.lyrics}
                               </div>
                             ) : (
-                              <div className="py-6 text-center rounded-2xl border border-dashed border-purple-200 dark:border-white/10 space-y-2">
-                                <p className="text-xs text-slate-500 dark:text-neutral-400 font-medium">등록된 가사가 없습니다.</p>
-                                <p className="text-[11px] text-slate-400">가사를 복사한 후 상단 <span className="font-bold text-[#8E74AE]">[가사 붙여넣기]</span>를 누르세요.</p>
+                              <div className={`py-6 text-center rounded-2xl border border-dashed space-y-2 ${isDark ? 'border-neutral-700 bg-[#1E1E22]' : 'border-purple-200 bg-white'}`}>
+                                <p className={`text-xs font-medium ${textSubClass}`}>등록된 가사가 없습니다.</p>
+                                <p className="text-[11px] text-slate-400">가사를 복사한 후 상단 <span className="font-bold text-[#7E22CE] dark:text-purple-400">[가사 붙여넣기]</span>를 누르세요.</p>
                               </div>
                             )}
                           </div>
@@ -2356,7 +2397,9 @@ export default function Home() {
                           {libSong.title}
                         </span>
                         {libSong.key && (
-                          <span className="px-2 py-0.5 text-xs font-bold bg-[#E0F2FE] dark:bg-sky-950/60 text-[#0284C7] dark:text-sky-300 border border-[#BAE6FD] dark:border-sky-800/40 rounded-lg">
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border ${
+                            isDark ? 'bg-sky-950/60 border-sky-800/50 text-sky-300' : 'bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]'
+                          }`}>
                             {libSong.key} Key
                           </span>
                         )}
@@ -2370,7 +2413,9 @@ export default function Home() {
                       )}
                     </div>
 
-                    <span className="text-xs font-bold text-[#7E22CE] dark:text-purple-300 px-3 py-1.5 rounded-xl bg-[#F3E8FF] dark:bg-purple-950/60 border border-[#E9D5FF] dark:border-purple-800/50 shrink-0">
+                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border shrink-0 ${
+                      isDark ? 'bg-purple-950/60 border-purple-800/50 text-purple-300' : 'bg-[#F3E8FF] border-[#E9D5FF] text-[#7E22CE]'
+                    }`}>
                       보기
                     </span>
                   </div>
@@ -2385,7 +2430,7 @@ export default function Home() {
       {/* 하단 플로팅 탭바 */}
       <nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
         <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
-          isDark ? 'bg-[#1C1C1E]/90 border-white/10' : 'bg-white/95 border-slate-200'
+          isDark ? 'bg-[#1E1E22]/95 border-[#2E2E34]' : 'bg-white/95 border-slate-200'
         }`}>
           <button
             onClick={() => {
@@ -2395,7 +2440,7 @@ export default function Home() {
             className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
               activeTab === 'conti'
                 ? 'bg-[#4A90E2] text-white shadow-xs'
-                : 'text-slate-600 dark:text-neutral-400 hover:text-black dark:hover:text-white'
+                : textSubClass
             }`}
           >
             <HomeIcon className="w-4 h-4" />
@@ -2407,7 +2452,7 @@ export default function Home() {
             className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
               activeTab === 'library'
                 ? 'bg-[#8E74AE] text-white shadow-xs'
-                : 'text-slate-600 dark:text-neutral-400 hover:text-black dark:hover:text-white'
+                : textSubClass
             }`}
           >
             <Library className="w-4 h-4" />
@@ -2419,11 +2464,9 @@ export default function Home() {
       {/* Safari PWA 안전 가사 검색 안내 모달 */}
       {searchModalTitle && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border space-y-4 ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
-              <h3 className="font-bold text-sm flex items-center gap-2">
+          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border space-y-4 ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-2 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h3 className={`font-bold text-sm flex items-center gap-2 ${textTitleClass}`}>
                 <Globe className="w-4 h-4 text-[#4A90E2]" />
                 가사 검색 안내
               </h3>
@@ -2432,7 +2475,7 @@ export default function Home() {
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-neutral-300 leading-relaxed">
+            <p className={`text-xs leading-relaxed ${textSubClass}`}>
               홈 화면 앱에서 구글로 바로 이동하면 앱이 멈추는 현상을 방지하기 위해 아래 버튼을 눌러 이동해 주세요.
             </p>
 
@@ -2461,11 +2504,9 @@ export default function Home() {
       {/* 모달: 새 콘티 추가 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <h2 className="text-base font-bold flex items-center gap-2">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
                 <Calendar className="w-4 h-4 text-[#4A90E2]" />
                 950 콘티 날짜 선택
               </h2>
@@ -2476,7 +2517,7 @@ export default function Home() {
 
             <form onSubmit={handleConfirmCreateConti} className="mt-3 space-y-3.5">
               <div className="flex items-center justify-between px-1">
-                <span className="font-bold text-sm">
+                <span className={`font-bold text-sm ${textTitleClass}`}>
                   {currentCalMonth.getFullYear()}년 {currentCalMonth.getMonth() + 1}월
                 </span>
                 <div className="flex items-center gap-1">
@@ -2505,7 +2546,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 dark:text-neutral-500">
+              <div className={`grid grid-cols-7 gap-1 text-center text-xs font-bold ${textSubClass}`}>
                 <span className="text-[#E74C3C]">일</span>
                 <span>월</span>
                 <span>화</span>
@@ -2518,7 +2559,7 @@ export default function Home() {
               <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
 
               <div className="pt-1">
-                <label className="block text-xs font-bold text-slate-600 dark:text-neutral-400 mb-1">
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>
                   생성될 콘티 제목
                 </label>
                 <input
@@ -2553,11 +2594,9 @@ export default function Home() {
       {/* 모달: 곡 추가/수정 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <h2 className="text-base font-bold flex items-center gap-2">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
                 <Music className="w-4 h-4 text-[#4A90E2]" />
                 {editingSongId ? '찬양 곡 수정' : '찬양 곡 추가'}
               </h2>
@@ -2569,7 +2608,7 @@ export default function Home() {
             <form onSubmit={handleSaveModal} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1.5">
+                  <label className={`text-xs font-bold flex items-center gap-1.5 ${textSubClass}`}>
                     <Tag className="w-3.5 h-3.5 text-[#F39C12]" />
                     예배 순서 태그 (선택)
                   </label>
@@ -2585,7 +2624,8 @@ export default function Home() {
 
                 <div className="flex gap-1.5 mb-2 flex-wrap">
                   {masterTags.map((t) => {
-                    const style = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    const themeObj = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    const style = isDark ? themeObj.dark : themeObj.light;
                     const isSelected = modalHeaderTag === t.name;
 
                     return (
@@ -2623,7 +2663,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">순수 곡 제목 *</label>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>순수 곡 제목 *</label>
                 <input
                   type="text"
                   required
@@ -2636,7 +2676,7 @@ export default function Home() {
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">Key (선택)</label>
+                  <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>Key (선택)</label>
                   <select
                     value={modalKey}
                     onChange={(e) => setModalKey(e.target.value)}
@@ -2651,7 +2691,7 @@ export default function Home() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">BPM (템포, 선택)</label>
+                  <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>BPM (템포, 선택)</label>
                   <input
                     type="number"
                     value={modalBpm}
@@ -2663,7 +2703,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>
                   진행 순서 / 연주 메모 (선택)
                 </label>
                 <input
@@ -2678,7 +2718,7 @@ export default function Home() {
               {/* 가사 입력 및 정돈 버튼 */}
               <div>
                 <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-neutral-300 flex items-center gap-1">
+                  <label className={`text-xs font-bold flex items-center gap-1 ${textSubClass}`}>
                     <BookOpen className="w-3.5 h-3.5 text-[#8E74AE]" /> 찬양 가사 (선택)
                   </label>
                   <div className="flex items-center gap-1">
@@ -2691,7 +2731,9 @@ export default function Home() {
                         }
                         setModalLyrics(formatAndFixLyrics(modalLyrics));
                       }}
-                      className="text-xs font-bold px-2 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 rounded-lg hover:bg-amber-100 flex items-center gap-1 transition active:scale-95"
+                      className={`text-xs font-bold px-2 py-1 border rounded-lg flex items-center gap-1 transition active:scale-95 ${
+                        isDark ? 'bg-amber-950/60 text-amber-300 border-amber-800/50' : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
                       title="한 줄로 붙은 가사를 소절 단위로 줄바꿈"
                     >
                       <Wand2 className="w-3 h-3" />
@@ -2700,7 +2742,9 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => handlePasteLyricsDirect()}
-                      className="text-xs font-bold px-2.5 py-1 bg-[#8E74AE]/15 text-[#8E74AE] border border-[#8E74AE]/30 rounded-lg hover:bg-[#8E74AE]/25 flex items-center gap-1 transition active:scale-95"
+                      className={`text-xs font-bold px-2.5 py-1 border rounded-lg flex items-center gap-1 transition active:scale-95 ${
+                        isDark ? 'bg-purple-950/60 text-purple-300 border-purple-800/50' : 'bg-[#8E74AE]/15 text-[#8E74AE] border-[#8E74AE]/30'
+                      }`}
                     >
                       <ClipboardPaste className="w-3 h-3" />
                       <span>가사 붙여넣기</span>
@@ -2708,7 +2752,9 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => handleOpenSearchGuide(modalTitle)}
-                      className="text-xs font-bold px-2.5 py-1 bg-[#E0F2FE] dark:bg-sky-950/60 border border-[#BAE6FD] dark:border-sky-800/40 text-[#0284C7] dark:text-sky-300 hover:bg-[#BAE6FD] flex items-center gap-1 transition active:scale-95 shadow-xs"
+                      className={`text-xs font-bold px-2.5 py-1 border rounded-lg flex items-center gap-1 transition active:scale-95 shadow-xs ${
+                        isDark ? 'bg-sky-950/60 border-sky-800/50 text-sky-300' : 'bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]'
+                      }`}
                     >
                       <Globe className="w-3.5 h-3.5" />
                       <span>가사 찾기 ↗</span>
@@ -2726,7 +2772,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-2">악보 등록</label>
+                <label className={`block text-xs font-bold mb-2 ${textSubClass}`}>악보 등록</label>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
                     type="button"
@@ -2762,7 +2808,9 @@ export default function Home() {
                         href={googleSearchSheetUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 py-2 px-3 bg-[#EBF3FB] dark:bg-blue-950/50 text-[#2B6CB0] dark:text-blue-300 border border-[#CBD5E0] dark:border-blue-800/40 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#DCEBF9] transition"
+                        className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                          isDark ? 'bg-sky-950/60 border-sky-800/50 text-sky-300' : 'bg-[#EBF3FB] border-[#CBD5E0] text-[#2B6CB0]'
+                        }`}
                       >
                         <Globe className="w-3.5 h-3.5" />
                         <span>구글 악보 찾기 ↗</span>
@@ -2770,7 +2818,9 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={handlePasteClipboardUrl}
-                        className="flex-1 py-2 px-3 bg-[#F3E8FF] dark:bg-purple-950/50 text-[#6B46C1] dark:text-purple-300 border border-[#E9D8FD] dark:border-purple-800/40 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#E9D8FD] transition"
+                        className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                          isDark ? 'bg-purple-950/60 border-purple-800/50 text-purple-300' : 'bg-[#F3E8FF] border-[#E9D8FD] text-[#6B46C1]'
+                        }`}
                       >
                         <ClipboardPaste className="w-3.5 h-3.5" />
                         <span>복사한 주소 넣기</span>
@@ -2797,7 +2847,7 @@ export default function Home() {
 
                     {modalSheetUrls.length > 0 && (
                       <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-2xl max-h-48 overflow-y-auto ${
-                        isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-slate-100 border-slate-200'
+                        isDark ? 'bg-[#18181B] border-[#2E2E34]' : 'bg-slate-100 border-slate-200'
                       }`}>
                         {modalSheetUrls.map((url, index) => (
                           <div key={index} className="relative group border rounded-xl p-1 flex flex-col items-center bg-white shadow-xs">
@@ -2839,7 +2889,7 @@ export default function Home() {
                     </div>
 
                     <div className={`max-h-48 overflow-y-auto space-y-1.5 p-1.5 border rounded-2xl ${
-                      isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-[#FAF8FF] border-purple-100'
+                      isDark ? 'bg-[#18181B] border-[#2E2E34]' : 'bg-[#FAF8FF] border-purple-100'
                     }`}>
                       {filteredLibrary.length === 0 ? (
                         <p className="text-center py-4 text-xs text-slate-400">보관된 곡이 없습니다.</p>
@@ -2893,11 +2943,9 @@ export default function Home() {
       {/* 모달: 태그 관리 */}
       {isTagModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <h2 className="text-base font-bold flex items-center gap-2">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
                 <Palette className="w-4 h-4 text-[#4A90E2]" />
                 예배 순서 태그 & 색상 관리
               </h2>
@@ -2907,8 +2955,8 @@ export default function Home() {
             </div>
 
             <div className="mt-3.5 space-y-4 text-xs sm:text-sm">
-              <form onSubmit={handleAddTag} className="space-y-3 p-3.5 rounded-2xl border bg-[#F8FAFC] dark:bg-[#2C2C2E] border-slate-200 dark:border-neutral-700">
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300">
+              <form onSubmit={handleAddTag} className={`space-y-3 p-3.5 rounded-2xl border ${isDark ? 'bg-[#18181B] border-[#2E2E34]' : 'bg-[#F8FAFC] border-slate-200'}`}>
+                <label className={`block text-xs font-bold ${textSubClass}`}>
                   새 태그 추가 (괄호 없이 자유롭게 입력)
                 </label>
                 
@@ -2921,21 +2969,24 @@ export default function Home() {
                 />
 
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 block">태그 색상 선택:</span>
+                  <span className={`text-[11px] font-bold block ${textSubClass}`}>태그 색상 선택:</span>
                   <div className="grid grid-cols-3 gap-1.5">
-                    {Object.entries(TAG_COLOR_THEMES).map(([colorKey, themeObj]) => (
-                      <button
-                        key={colorKey}
-                        type="button"
-                        onClick={() => setNewTagColor(colorKey)}
-                        className={`px-2 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition shadow-xs ${themeObj.bg} ${themeObj.text} ${themeObj.border} ${
-                          newTagColor === colorKey ? 'ring-2 ring-blue-500 scale-102' : 'opacity-85 hover:opacity-100'
-                        }`}
-                      >
-                        {newTagColor === colorKey && <Check className="w-3 h-3" />}
-                        <span>{themeObj.label}</span>
-                      </button>
-                    ))}
+                    {Object.entries(TAG_COLOR_THEMES).map(([colorKey, themeObj]) => {
+                      const style = isDark ? themeObj.dark : themeObj.light;
+                      return (
+                        <button
+                          key={colorKey}
+                          type="button"
+                          onClick={() => setNewTagColor(colorKey)}
+                          className={`px-2 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition shadow-xs ${style.bg} ${style.text} ${style.border} ${
+                            newTagColor === colorKey ? 'ring-2 ring-blue-500 scale-102' : 'opacity-85 hover:opacity-100'
+                          }`}
+                        >
+                          {newTagColor === colorKey && <Check className="w-3 h-3" />}
+                          <span>{themeObj.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -2948,12 +2999,13 @@ export default function Home() {
               </form>
 
               <div className="space-y-2">
-                <span className="text-xs font-bold text-slate-600 dark:text-neutral-400 block">
+                <span className={`text-xs font-bold block ${textSubClass}`}>
                   등록된 전체 태그 목록 ({masterTags.length}개)
                 </span>
-                <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto p-2 border rounded-2xl bg-white dark:bg-[#1C1C1E] border-slate-200 dark:border-neutral-700">
+                <div className={`flex flex-wrap gap-2 max-h-56 overflow-y-auto p-2 border rounded-2xl ${isDark ? 'bg-[#18181B] border-[#2E2E34]' : 'bg-white border-slate-200'}`}>
                   {masterTags.map((t) => {
-                    const style = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    const themeObj = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    const style = isDark ? themeObj.dark : themeObj.light;
                     return (
                       <span
                         key={t.name}
@@ -2991,11 +3043,9 @@ export default function Home() {
       {/* 모달: 싱어 관리 */}
       {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <h2 className="text-base font-bold flex items-center gap-2">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
                 <Mic className="w-4 h-4 text-[#4A90E2]" />
                 싱어 배정 & 관리
               </h2>
@@ -3006,7 +3056,7 @@ export default function Home() {
 
             <div className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-2">
+                <label className={`block text-xs font-bold mb-2 ${textSubClass}`}>
                   이번 주 찬양 싱어 선택
                 </label>
                 {masterSingers.length === 0 ? (
@@ -3037,8 +3087,8 @@ export default function Home() {
                 )}
               </div>
 
-              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${isDark ? 'bg-[#2C2C2E] border-neutral-700' : 'bg-[#F8FAFC] border-slate-200'}`}>
-                <span className="text-xs font-bold block text-slate-700 dark:text-neutral-300">찬양팀 싱어 명단 추가</span>
+              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${isDark ? 'bg-[#18181B] border-[#2E2E34]' : 'bg-[#F8FAFC] border-slate-200'}`}>
+                <span className={`text-xs font-bold block ${textSubClass}`}>찬양팀 싱어 명단 추가</span>
                 <form onSubmit={handleAddMasterSinger} className="flex gap-2">
                   <input
                     type="text"
@@ -3061,7 +3111,7 @@ export default function Home() {
                       <span
                         key={singer}
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-semibold ${
-                          isDark ? 'bg-[#1C1C1E] border-neutral-700 text-neutral-200' : 'bg-white border-slate-200 text-slate-700'
+                          isDark ? 'bg-[#2A2A30] border-[#383842] text-neutral-200' : 'bg-white border-slate-200 text-slate-700'
                         }`}
                       >
                         <span>{singer}</span>
@@ -3079,7 +3129,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>
                   이번 주 콘티 특이사항 메모
                 </label>
                 <input
@@ -3115,11 +3165,9 @@ export default function Home() {
       {/* 모달: 관리자 인증 */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
-          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <h2 className="text-base font-bold flex items-center gap-2">
+          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
                 <Lock className="w-4 h-4 text-[#4A90E2]" />
                 관리자 인증
               </h2>
@@ -3130,7 +3178,7 @@ export default function Home() {
 
             <form onSubmit={handleLoginAdmin} className="mt-3.5 space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">비밀번호</label>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>비밀번호</label>
                 <input
                   type="password"
                   required
@@ -3165,11 +3213,9 @@ export default function Home() {
       {/* 모달: 앱 설정 */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
-          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <h2 className="text-base font-bold flex items-center gap-2">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
                 <SlidersHorizontal className="w-4 h-4 text-[#4A90E2]" />
                 설정 및 모드
               </h2>
@@ -3213,7 +3259,7 @@ export default function Home() {
                       setIsReordering(!isReordering);
                     }}
                     className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${
-                      isReordering ? 'bg-[#FEF3E2] border-[#F39C12] text-[#D97706]' : cardBgClass
+                      isReordering ? 'bg-[#78350F]/50 border-[#B45309]/50 text-[#FCD34D]' : cardBgClass
                     }`}
                   >
                     <GripVertical className="w-4 h-4" />
@@ -3240,15 +3286,15 @@ export default function Home() {
       {/* 모달: 보관소 미리보기 */}
       {previewLibSong && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-3.5 sm:p-6">
-          <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5 shrink-0">
+          <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'} shrink-0`}>
               <div className="flex items-center gap-2 min-w-0">
                 <Music className="w-4 h-4 text-[#8E74AE] shrink-0" />
                 <h2 className={`text-base font-bold truncate ${textTitleClass}`}>{previewLibSong.title}</h2>
                 {previewLibSong.key && (
-                  <span className="px-2 py-0.5 text-xs font-bold bg-[#E0F2FE] dark:bg-blue-950/60 text-[#0284C7] dark:text-blue-300 rounded-lg">
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border ${
+                    isDark ? 'bg-sky-950/60 border-sky-800/50 text-sky-300' : 'bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]'
+                  }`}>
                     {previewLibSong.key} Key
                   </span>
                 )}
@@ -3276,9 +3322,9 @@ export default function Home() {
                 <p className="text-xs text-slate-400">등록된 악보 이미지가 없습니다.</p>
               )}
 
-              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-white/5">
+              <div className={`space-y-1.5 pt-2 border-t ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#8E74AE] flex items-center gap-1.5">
+                  <span className={`text-xs font-bold flex items-center gap-1.5 ${isDark ? 'text-purple-300' : 'text-[#8E74AE]'}`}>
                     <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
                   </span>
                   {previewLibSong.lyrics && (
@@ -3286,7 +3332,7 @@ export default function Home() {
                       onClick={() => handleCopyLyrics(previewLibSong.lyrics || '')}
                       className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#8E74AE] text-white flex items-center gap-1 shadow-xs"
                     >
-                      <Copy className="w-3.5 h-3.5" /> 복사
+                      <Copy className="w-3 h-3 text-white" /> 복사
                     </button>
                   )}
                 </div>
@@ -3294,7 +3340,7 @@ export default function Home() {
                   <div 
                     style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                     className={`p-3.5 rounded-2xl border text-sm font-normal leading-relaxed ${
-                      isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white' : 'bg-[#FAF8FF] border-purple-100 text-slate-800'
+                      isDark ? 'bg-[#18181B] border-[#2E2E34] text-neutral-100' : 'bg-[#FAF8FF] border-purple-100 text-slate-800'
                     }`}
                   >
                     {previewLibSong.lyrics}
@@ -3305,7 +3351,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex justify-between items-center shrink-0">
+            <div className={`pt-3 border-t flex justify-between items-center shrink-0 ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
               <button
                 onClick={() => {
                   handleDeleteFromLibrary(previewLibSong.id, previewLibSong.title);
@@ -3329,11 +3375,9 @@ export default function Home() {
       {/* 모달: 비밀번호 변경 */}
       {isChangePwModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
-          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <h2 className="text-base font-bold flex items-center gap-2">
+          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
                 <KeyRound className="w-4 h-4 text-[#4A90E2]" />
                 비밀번호 변경
               </h2>
@@ -3344,7 +3388,7 @@ export default function Home() {
 
             <form onSubmit={handleChangeAdminPassword} className="mt-3.5 space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">새 비밀번호</label>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>새 비밀번호</label>
                 <input
                   type="password"
                   required
@@ -3378,11 +3422,9 @@ export default function Home() {
       {/* 모달: 출석 체크 */}
       {isAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
-          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${
-            isDark ? 'bg-[#1C1C1E] border-neutral-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <h2 className="text-base font-bold flex items-center gap-2">
+          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#2E2E34]' : 'border-slate-100'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
                 <Users className="w-4 h-4 text-[#4A90E2]" />
                 예배 참석 여부
               </h2>
@@ -3393,7 +3435,7 @@ export default function Home() {
 
             <div className="mt-3.5 space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1">이름 (또는 직분)</label>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>이름 (또는 직분)</label>
                 <input
                   type="text"
                   value={myAttendanceName}
@@ -3404,7 +3446,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-neutral-300 mb-1.5">참석 상태 선택</label>
+                <label className={`block text-xs font-bold mb-1.5 ${textSubClass}`}>참석 상태 선택</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
