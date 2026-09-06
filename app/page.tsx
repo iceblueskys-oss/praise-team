@@ -23,7 +23,6 @@ import {
   Check,
   Users,
   Mic,
-  PlusCircle,
   Globe,
   Search,
   Lock,
@@ -106,13 +105,14 @@ interface Conti {
   attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
 }
 
+// 🌟 선명하고 세련된 파스텔 태그 색상 테마 팔레트
 const TAG_COLOR_THEMES: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  amber: { bg: 'bg-[#FEF3E2] dark:bg-amber-950/50', text: 'text-[#D97706] dark:text-amber-300', border: 'border-[#F39C12]/40', label: '살구 앰버' },
-  blue: { bg: 'bg-[#EBF3FB] dark:bg-blue-950/50', text: 'text-[#2B6CB0] dark:text-blue-300', border: 'border-[#4A90E2]/40', label: '스카이 블루' },
-  purple: { bg: 'bg-[#F3E8FF] dark:bg-purple-950/50', text: 'text-[#6B46C1] dark:text-purple-300', border: 'border-[#8E74AE]/40', label: '라벤더 퍼플' },
-  emerald: { bg: 'bg-[#E8F7EE] dark:bg-emerald-950/50', text: 'text-[#2E7D32] dark:text-emerald-300', border: 'border-[#52B788]/40', label: '세이지 그린' },
-  rose: { bg: 'bg-[#FEECEC] dark:bg-rose-950/50', text: 'text-[#C53030] dark:text-rose-300', border: 'border-[#EF4444]/40', label: '파스텔 로즈' },
-  indigo: { bg: 'bg-[#EEF2FF] dark:bg-indigo-950/50', text: 'text-[#4F46E5] dark:text-indigo-300', border: 'border-[#6366F1]/40', label: '인디고 블루' },
+  amber: { bg: 'bg-[#FFF3D6] dark:bg-amber-950/60', text: 'text-[#B45309] dark:text-amber-300', border: 'border-[#FDE68A] dark:border-amber-700/50', label: '웜 앰버' },
+  blue: { bg: 'bg-[#E0F2FE] dark:bg-sky-950/60', text: 'text-[#0369A1] dark:text-sky-300', border: 'border-[#BAE6FD] dark:border-sky-700/50', label: '소프트 블루' },
+  purple: { bg: 'bg-[#F3E8FF] dark:bg-purple-950/60', text: 'text-[#7E22CE] dark:text-purple-300', border: 'border-[#E9D5FF] dark:border-purple-700/50', label: '라벤더' },
+  emerald: { bg: 'bg-[#DCFCE7] dark:bg-emerald-950/60', text: 'text-[#15803D] dark:text-emerald-300', border: 'border-[#BBF7D0] dark:border-emerald-700/50', label: '세이지 그린' },
+  rose: { bg: 'bg-[#FFE4E6] dark:bg-rose-950/60', text: 'text-[#BE123C] dark:text-rose-300', border: 'border-[#FECDD3] dark:border-rose-700/50', label: '로즈 핑크' },
+  indigo: { bg: 'bg-[#E0E7FF] dark:bg-indigo-950/60', text: 'text-[#4338CA] dark:text-indigo-300', border: 'border-[#C7D2FE] dark:border-indigo-700/50', label: '로열 인디고' },
 };
 
 const DEFAULT_CUSTOM_TAGS: CustomTag[] = [
@@ -324,7 +324,7 @@ export default function Home() {
         rawText = await navigator.clipboard.readText();
       }
     } catch (e) {
-      console.warn('클립보드 API 차단');
+      console.warn('클립보드 접근 제한');
     }
 
     if (!rawText || !rawText.trim()) {
@@ -943,6 +943,7 @@ export default function Home() {
     }
   };
 
+  // 🌟 태그 스타일 반환 헬퍼 (배경, 글자색, 테두리 매핑)
   const getTagStyle = (tagStr?: string) => {
     if (!tagStr) return null;
     const clean = tagStr.replace(/[<>]/g, '').trim();
@@ -1406,14 +1407,13 @@ export default function Home() {
     );
   }
 
-  // 🌟 색상 클래스: 명확한 다크/라이트 대비 색상 지정
+  // 🌟 색상 클래스
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-neutral-950 text-neutral-100' : 'bg-[#F4F6F9] text-slate-900';
   const cardBgClass = isDark ? 'bg-[#1C1C1E] border-neutral-800/80 shadow-sm' : 'bg-white border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]';
   const subCardBg = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-200 hover:bg-[#38383A]' : 'bg-[#EDF2F7] border-slate-200/60 text-slate-700 hover:bg-[#E2E8F0]';
   const inputBgClass = isDark ? 'bg-[#2C2C2E] border-neutral-700 text-white placeholder-neutral-500' : 'bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder-slate-400';
 
-  // 텍스트 강제 가시성 스타일
   const textTitleClass = isDark ? 'text-white' : 'text-slate-900';
   const textSubClass = isDark ? 'text-neutral-400' : 'text-slate-500';
 
@@ -2006,7 +2006,7 @@ export default function Home() {
             <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="w-4 h-4 text-[#4A90E2] shrink-0" />
+                  <Calendar className="w-4 h-4 text-[#4A90E2]" />
                   <h2 className={`text-base font-bold truncate ${textTitleClass}`}>{currentConti.title}</h2>
                   
                   <div className="flex items-center gap-1 shrink-0">
@@ -2112,30 +2112,33 @@ export default function Home() {
                               <GripVertical className="w-5 h-5" />
                             </div>
 
-                            <div className="w-7 h-7 rounded-xl bg-[#EBF3FB] dark:bg-blue-950/50 text-[#2B6CB0] dark:text-blue-300 flex items-center justify-center font-bold text-xs shrink-0">
+                            {/* 🌟 순번 뱃지: 선명한 소프트 블루 적용 🌟 */}
+                            <div className="w-7 h-7 rounded-xl bg-[#EBF3FB] dark:bg-blue-950/60 text-[#2563EB] dark:text-blue-300 flex items-center justify-center font-bold text-xs shrink-0 border border-[#DBEAFE] dark:border-blue-900/50 shadow-xs">
                               {idx + 1}
                             </div>
 
                             <div className="min-w-0 flex-1 space-y-0.5">
                               <div className="flex items-center gap-1.5 flex-wrap">
+                                {/* 🌟 순서 태그: 밝고 맑은 파스텔 톤 🌟 */}
                                 {song.headerTag && tagStyle && (
-                                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 ${tagStyle.bg} ${tagStyle.text} ${tagStyle.border}`}>
+                                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${tagStyle.bg} ${tagStyle.text} ${tagStyle.border}`}>
                                     {song.headerTag}
                                   </span>
                                 )}
 
-                                {/* 🌟 핵심 수정: isDark에 따른 명확한 대비 텍스트 색상 적용 🌟 */}
+                                {/* 🌟 곡 제목: 명확한 명도 대비 보장 🌟 */}
                                 <h3 className={`text-sm sm:text-base font-bold truncate transition group-hover:text-[#4A90E2] ${textTitleClass}`}>
                                   {song.title}
                                 </h3>
 
+                                {/* 🌟 Key 뱃지: 맑은 스카이 블루 톤 🌟 */}
                                 {song.key && (
-                                  <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] dark:bg-blue-950/50 text-[#2B6CB0] dark:text-blue-300 rounded-lg shrink-0">
+                                  <span className="px-2 py-0.5 text-xs font-bold bg-[#E0F2FE] dark:bg-sky-950/60 text-[#0284C7] dark:text-sky-300 border border-[#BAE6FD] dark:border-sky-800/40 rounded-lg shrink-0 shadow-xs">
                                     {song.key} Key
                                   </span>
                                 )}
                                 {song.sheetUrls && song.sheetUrls.length > 1 && (
-                                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-neutral-800 rounded-lg shrink-0">
+                                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold text-slate-500 dark:text-neutral-400 bg-slate-100 dark:bg-neutral-800 rounded-lg shrink-0 border border-slate-200 dark:border-neutral-700">
                                     <Layers className="w-3 h-3" /> {song.sheetUrls.length}p
                                   </span>
                                 )}
@@ -2170,12 +2173,13 @@ export default function Home() {
                               </div>
                             ) : (
                               <>
+                                {/* 🌟 [가사] 버튼: 세련된 소프트 라벤더 톤 🌟 */}
                                 <button
                                   onClick={() => handleToggleLyricsExpand(song.id)}
-                                  className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 ${
+                                  className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
                                     isLyricsExpanded
-                                      ? 'bg-[#8E74AE] border-[#8E74AE] text-white shadow-xs'
-                                      : 'bg-[#F3E8FF] dark:bg-purple-950/50 border-[#E9D8FD] dark:border-purple-800/40 text-[#6B46C1] dark:text-purple-300 hover:bg-[#E9D8FD]'
+                                      ? 'bg-[#8E74AE] border-[#8E74AE] text-white shadow-sm'
+                                      : 'bg-[#F3E8FF] dark:bg-purple-950/60 border-[#E9D5FF] dark:border-purple-800/50 text-[#7E22CE] dark:text-purple-300 hover:bg-[#E9D5FF]'
                                   }`}
                                   title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
                                 >
@@ -2183,17 +2187,24 @@ export default function Home() {
                                   <span>{isLyricsExpanded ? '닫기' : '가사'}</span>
                                 </button>
 
+                                {/* 🌟 [수정/삭제] 버튼: 또렷한 아이콘 대비 🌟 */}
                                 <button
                                   onClick={() => handleOpenModal(song)}
-                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${subCardBg}`}
+                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${
+                                    isDark
+                                      ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-300 hover:text-white'
+                                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                  }`}
                                   title="곡 수정"
                                 >
-                                  <Edit3 className="w-4 h-4 text-slate-700 dark:text-neutral-300" />
+                                  <Edit3 className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteSong(song.id)}
                                   className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center ${
-                                    isDark ? 'bg-[#2C2C2E] border-neutral-700 text-neutral-400 hover:text-[#FF7675]' : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-[#E74C3C]'
+                                    isDark
+                                      ? 'bg-[#2C2C2E] border-neutral-700 text-rose-400 hover:text-rose-300'
+                                      : 'bg-rose-50/70 border-rose-200 text-rose-600 hover:bg-rose-100'
                                   }`}
                                   title="곡 삭제"
                                 >
@@ -2260,7 +2271,7 @@ export default function Home() {
                                 <button
                                   type="button"
                                   onClick={() => handleOpenSearchGuide(song.title)}
-                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#EBF3FB] dark:bg-blue-950/50 text-[#2B6CB0] dark:text-blue-300 hover:bg-[#DCEBF9] flex items-center gap-1 transition active:scale-95"
+                                  className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#E0F2FE] dark:bg-sky-950/60 border border-[#BAE6FD] dark:border-sky-800/40 text-[#0284C7] dark:text-sky-300 hover:bg-[#BAE6FD] flex items-center gap-1 transition active:scale-95 shadow-xs"
                                 >
                                   <Globe className="w-3.5 h-3.5" />
                                   <span>가사 찾기 ↗</span>
@@ -2345,7 +2356,7 @@ export default function Home() {
                           {libSong.title}
                         </span>
                         {libSong.key && (
-                          <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] dark:bg-blue-950/50 text-[#2B6CB0] dark:text-blue-300 rounded-lg">
+                          <span className="px-2 py-0.5 text-xs font-bold bg-[#E0F2FE] dark:bg-sky-950/60 text-[#0284C7] dark:text-sky-300 border border-[#BAE6FD] dark:border-sky-800/40 rounded-lg">
                             {libSong.key} Key
                           </span>
                         )}
@@ -2359,7 +2370,7 @@ export default function Home() {
                       )}
                     </div>
 
-                    <span className="text-xs font-bold text-[#8E74AE] px-3 py-1.5 rounded-xl bg-[#F3E8FF] dark:bg-purple-950/50 shrink-0">
+                    <span className="text-xs font-bold text-[#7E22CE] dark:text-purple-300 px-3 py-1.5 rounded-xl bg-[#F3E8FF] dark:bg-purple-950/60 border border-[#E9D5FF] dark:border-purple-800/50 shrink-0">
                       보기
                     </span>
                   </div>
@@ -2582,10 +2593,10 @@ export default function Home() {
                         key={t.name}
                         type="button"
                         onClick={() => setModalHeaderTag(t.name)}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition ${
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition shadow-xs ${
                           isSelected
-                            ? 'ring-2 ring-blue-500 scale-105 shadow-sm ' + style.bg + ' ' + style.text + ' ' + style.border
-                            : style.bg + ' ' + style.text + ' ' + style.border + ' opacity-80 hover:opacity-100'
+                            ? 'ring-2 ring-blue-500 scale-105 ' + style.bg + ' ' + style.text + ' ' + style.border
+                            : style.bg + ' ' + style.text + ' ' + style.border + ' opacity-85 hover:opacity-100'
                         }`}
                       >
                         {t.name}
@@ -2697,9 +2708,9 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => handleOpenSearchGuide(modalTitle)}
-                      className="text-xs font-bold px-2.5 py-1 bg-[#4A90E2]/15 text-[#4A90E2] border border-[#4A90E2]/30 rounded-lg hover:bg-[#4A90E2]/25 flex items-center gap-1 transition active:scale-95"
+                      className="text-xs font-bold px-2.5 py-1 bg-[#E0F2FE] dark:bg-sky-950/60 border border-[#BAE6FD] dark:border-sky-800/40 text-[#0284C7] dark:text-sky-300 hover:bg-[#BAE6FD] flex items-center gap-1 transition active:scale-95 shadow-xs"
                     >
-                      <Globe className="w-3 h-3" />
+                      <Globe className="w-3.5 h-3.5" />
                       <span>가사 찾기 ↗</span>
                     </button>
                   </div>
@@ -2917,8 +2928,8 @@ export default function Home() {
                         key={colorKey}
                         type="button"
                         onClick={() => setNewTagColor(colorKey)}
-                        className={`px-2 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition ${themeObj.bg} ${themeObj.text} ${themeObj.border} ${
-                          newTagColor === colorKey ? 'ring-2 ring-blue-500 scale-102 shadow-xs' : 'opacity-70 hover:opacity-100'
+                        className={`px-2 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition shadow-xs ${themeObj.bg} ${themeObj.text} ${themeObj.border} ${
+                          newTagColor === colorKey ? 'ring-2 ring-blue-500 scale-102' : 'opacity-85 hover:opacity-100'
                         }`}
                       >
                         {newTagColor === colorKey && <Check className="w-3 h-3" />}
@@ -3237,7 +3248,7 @@ export default function Home() {
                 <Music className="w-4 h-4 text-[#8E74AE] shrink-0" />
                 <h2 className={`text-base font-bold truncate ${textTitleClass}`}>{previewLibSong.title}</h2>
                 {previewLibSong.key && (
-                  <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] dark:bg-blue-950/50 text-[#2B6CB0] dark:text-blue-300 rounded-lg">
+                  <span className="px-2 py-0.5 text-xs font-bold bg-[#E0F2FE] dark:bg-blue-950/60 text-[#0284C7] dark:text-blue-300 rounded-lg">
                     {previewLibSong.key} Key
                   </span>
                 )}
@@ -3275,7 +3286,7 @@ export default function Home() {
                       onClick={() => handleCopyLyrics(previewLibSong.lyrics || '')}
                       className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#8E74AE] text-white flex items-center gap-1 shadow-xs"
                     >
-                      <Copy className="w-3 h-3 text-white" /> 복사
+                      <Copy className="w-3.5 h-3.5" /> 복사
                     </button>
                   )}
                 </div>
