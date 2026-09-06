@@ -172,13 +172,11 @@ function formatAndFixLyrics(input: string): string {
   if (!input) return '';
   let text = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // 줄바꿈이 이미 3줄 이상이면 사용자가 복사한 원본 줄바꿈 유지
   const lines = text.split('\n').filter((l) => l.trim().length > 0);
   if (lines.length >= 3) {
     return text.trim();
   }
 
-  // 뭉개진 텍스트 복원: 마침표, 절 번호, 찬양 어미 뒤 강제 개행
   text = text
     .replace(/\s*(\([0-9]+\)|\[[0-9]+\]|[0-9]\.|\bV[1-4]\b|\bChorus\b|\[후렴\]|\[Bridge\]|후렴:)\s*/gi, '\n\n$1 ')
     .replace(/([,.~!?])\s+/g, '$1\n')
@@ -292,6 +290,18 @@ export default function Home() {
     });
   }, []);
 
+  // 🌟 최상단 HTML에 다크모드 클래스 실시간 반영
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const root = document.documentElement;
+      if (theme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    }
+  }, [theme]);
+
   useEffect(() => {
     setScale(1.0);
     setPosition({ x: 0, y: 0 });
@@ -311,7 +321,6 @@ export default function Home() {
     setSearchModalTitle(q);
   };
 
-  // 🌟 가사 스마트 붙여넣기 (AI 개요 줄바꿈 복원)
   const handlePasteLyricsDirect = async (targetSongId?: string) => {
     let rawText = '';
 
@@ -320,7 +329,7 @@ export default function Home() {
         rawText = await navigator.clipboard.readText();
       }
     } catch (e) {
-      console.warn('클립보드 API 차단');
+      console.warn('클립보드 접근 제한');
     }
 
     if (!rawText || !rawText.trim()) {
@@ -1889,8 +1898,8 @@ export default function Home() {
                         </div>
 
                         <h3 className="text-base font-bold truncate text-[#4A90E2] dark:text-[#68A5E8]">
-  												{c.title}
-												</h3>
+                          {c.title}
+                        </h3>
 
                         {singers.length > 0 && (
                           <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-neutral-400 truncate">
@@ -1953,12 +1962,9 @@ export default function Home() {
                                 {songCount}곡
                               </span>
                             </div>
-                            </h3>
-
-													// 지난 콘티 제목
-													<h4 className="text-sm font-bold truncate text-slate-700 dark:text-neutral-200">
-  													{c.title}
-													</h4>
+                            <h4 className="text-sm font-bold truncate text-slate-700 dark:text-neutral-200">
+                              {c.title}
+                            </h4>
                           </div>
 
                           <div className="flex items-center gap-1 text-slate-500 font-semibold text-xs shrink-0">
@@ -2118,12 +2124,9 @@ export default function Home() {
                                   </span>
                                 )}
 
-                                
-																	// 수정 후
-																	<h3 className="text-sm sm:text-base font-bold truncate text-slate-800 dark:text-neutral-100 group-hover:text-[#4A90E2] transition">
-  																	{song.title}
-																	</h3>
-
+                                <h3 className="text-sm sm:text-base font-bold truncate text-slate-800 dark:text-neutral-100 group-hover:text-[#4A90E2] transition">
+                                  {song.title}
+                                </h3>
 
                                 {song.key && (
                                   <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] rounded-lg shrink-0">
@@ -2338,8 +2341,8 @@ export default function Home() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-sm sm:text-base truncate text-slate-800 dark:text-neutral-100">
-  												{libSong.title}
-												</span>
+                          {libSong.title}
+                        </span>
                         {libSong.key && (
                           <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] rounded-lg">
                             {libSong.key} Key
