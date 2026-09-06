@@ -1888,9 +1888,9 @@ export default function Home() {
                           </span>
                         </div>
 
-                        <h3 className="text-base font-bold truncate text-[#4A90E2]">
-                          {c.title}
-                        </h3>
+                        <h3 className="text-base font-bold truncate text-[#4A90E2] dark:text-[#68A5E8]">
+  												{c.title}
+												</h3>
 
                         {singers.length > 0 && (
                           <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-neutral-400 truncate">
@@ -1953,9 +1953,12 @@ export default function Home() {
                                 {songCount}곡
                               </span>
                             </div>
-                            <h4 className="text-sm font-bold truncate text-slate-700 dark:text-neutral-300">
-                              {c.title}
-                            </h4>
+                            </h3>
+
+													// 지난 콘티 제목
+													<h4 className="text-sm font-bold truncate text-slate-700 dark:text-neutral-200">
+  													{c.title}
+													</h4>
                           </div>
 
                           <div className="flex items-center gap-1 text-slate-500 font-semibold text-xs shrink-0">
@@ -2115,9 +2118,12 @@ export default function Home() {
                                   </span>
                                 )}
 
-                                <h3 className="text-sm sm:text-base font-bold truncate text-slate-800 dark:text-white group-hover:text-[#4A90E2] transition">
-                                  {song.title}
-                                </h3>
+                                
+																	// 수정 후
+																	<h3 className="text-sm sm:text-base font-bold truncate text-slate-800 dark:text-neutral-100 group-hover:text-[#4A90E2] transition">
+  																	{song.title}
+																	</h3>
+
 
                                 {song.key && (
                                   <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] rounded-lg shrink-0">
@@ -2331,7 +2337,9 @@ export default function Home() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm sm:text-base truncate text-slate-800 dark:text-white">{libSong.title}</span>
+                        <span className="font-bold text-sm sm:text-base truncate text-slate-800 dark:text-neutral-100">
+  												{libSong.title}
+												</span>
                         {libSong.key && (
                           <span className="px-2 py-0.5 text-xs font-bold bg-[#EBF3FB] text-[#2B6CB0] rounded-lg">
                             {libSong.key} Key
