@@ -1652,7 +1652,7 @@ export default function Home() {
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] dark:bg-neutral-950 text-slate-500 dark:text-neutral-400 text-sm font-medium">
-        찬양팀 Hub 불러오는 중...
+        950 찬양팀 Hub 불러오는 중...
       </div>
     );
   }
@@ -2185,11 +2185,23 @@ export default function Home() {
         {/* 헤더 */}
         <header className="flex items-center justify-between gap-2 px-1 pt-1">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#68A5E8] to-[#9B83C5] flex items-center justify-center text-white shadow-md shadow-blue-500/15">
-              <Music className="w-5 h-5" />
-            </div>
+            <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md shadow-blue-500/15 shrink-0 border border-black/5 dark:border-white/10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/apple-touch-icon.png"
+              alt="찬양팀 Hub 아이콘"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // 혹시 GitHub Pages 서브패스(/praise-team) 환경일 경우 자동 fallback
+                const target = e.currentTarget;
+                if (!target.src.includes('/praise-team/')) {
+                  target.src = '/praise-team/apple-touch-icon.png';
+                }
+              }}
+            />
+          </div>
             <div>
-              <h1 className={`text-lg font-bold tracking-tight leading-none ${textTitleClass}`}>찬양팀 Hub</h1>
+              <h1 className={`text-lg font-bold tracking-tight leading-none ${textTitleClass}`}>950 찬양팀</h1>
               <p className={`text-xs mt-1 font-semibold ${textSubClass}`}>Worship Dashboard</p>
             </div>
           </div>
@@ -3678,7 +3690,7 @@ export default function Home() {
                   autoFocus
                   value={authPasswordInput}
                   onChange={(e) => setAuthPasswordInput(e.target.value)}
-                  placeholder="기본 비밀번호: 1234"
+                  placeholder="비밀번호를 입력하세요"
                   className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90E2] ${inputBgClass}`}
                 />
               </div>
