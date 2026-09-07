@@ -52,6 +52,9 @@ import {
   Palette,
   ExternalLink,
   Wand2,
+  Youtube,
+  Minimize2,
+  Maximize2,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -80,6 +83,7 @@ interface SongItem {
   bpm?: number | null;
   comment?: string;
   lyrics?: string;
+  youtubeUrl?: string; // 🌟 유튜브 링크 필드
   sheetUrls: string[];
   order: number;
 }
@@ -91,6 +95,7 @@ interface LibrarySong {
   bpm?: number | null;
   comment?: string;
   lyrics?: string;
+  youtubeUrl?: string;
   sheetUrls: string[];
   updatedAt: number;
 }
@@ -183,6 +188,16 @@ function formatImageUrl(url: string): string {
   return trimmed;
 }
 
+// 🌟 유튜브 비디오 ID 추출 함수
+function extractYouTubeVideoId(url?: string): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  const match =
+    trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/) ||
+    trimmed.match(/youtube\.com\/shorts\/([\w-]{11})/);
+  return match ? match[1] : null;
+}
+
 function getSafeDocId(title: string, key?: string | null): string {
   const cleanTitle = (title || 'untitled').trim();
   const cleanKey = (key || 'NOKEY').trim();
@@ -260,6 +275,14 @@ export default function Home() {
 
   const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 
+  // 🌟 PIP 유튜브 플레이어 상태
+  const [activePipVideoId, setActivePipVideoId] = useState<string | null>(null);
+  const [activePipTitle, setActivePipTitle] = useState<string>('');
+  const [isPipMinimized, setIsPipMinimized] = useState(false);
+  const [pipPosition, setPipPosition] = useState<{ x: number; y: number }>({ x: 20, y: 80 });
+  const isDraggingPip = useRef(false);
+  const pipDragStart = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number }>({ mouseX: 0, mouseY: 0, startX: 0, startY: 0 });
+
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
@@ -273,12 +296,13 @@ export default function Home() {
   const [modalBpm, setModalBpm] = useState('');
   const [modalComment, setModalComment] = useState('');
   const [modalLyrics, setModalLyrics] = useState('');
+  const [modalYoutubeUrl, setModalYoutubeUrl] = useState('');
   const [modalSheetType, setModalSheetType] = useState<'file' | 'library'>('file');
   const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🌟 악보 뷰어 & 핀치 줌 & 숨표 툴 상태
+  // 악보 뷰어 & 핀치 줌 & 숨표 툴 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -297,7 +321,6 @@ export default function Home() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
-  // 🌟 [중요] 제스처 Ref 변수 선언을 useEffect보다 위쪽으로 배치
   const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
   const isPanning = useRef(false);
   const startPanPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -332,7 +355,7 @@ export default function Home() {
     setSheetImgError(false);
   }, [viewingSongId, currentPageIndex]);
 
-  // 🌟 iOS Safari 전용 핀치 줌 & 더블 탭 제스처 리스너
+  // iOS Safari 전용 핀치 줌 & 더블 탭 제스처
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !viewingSongId || viewMode === 'lyrics') return;
@@ -415,6 +438,66 @@ export default function Home() {
     }
     setSearchModalTitle(q);
   };
+
+  // 🌟 PIP 플레이어 열기 트리거
+  const handleOpenPipPlayer = (youtubeUrl?: string, songTitle?: string) => {
+    const videoId = extractYouTubeVideoId(youtubeUrl);
+    if (!videoId) {
+      alert('등록된 올바른 유튜브 영상 링크가 없습니다. 곡 수정에서 링크를 등록해주세요.');
+      return;
+    }
+    setActivePipVideoId(videoId);
+    setActivePipTitle(songTitle || '찬양 영상');
+    setIsPipMinimized(false);
+  };
+
+  // 🌟 PIP 플레이어 드래그 제어
+  const handleStartPipDrag = (clientX: number, clientY: number) => {
+    isDraggingPip.current = true;
+    pipDragStart.current = {
+      mouseX: clientX,
+      mouseY: clientY,
+      startX: pipPosition.x,
+      startY: pipPosition.y,
+    };
+  };
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingPip.current) return;
+      const dx = e.clientX - pipDragStart.current.mouseX;
+      const dy = e.clientY - pipDragStart.current.mouseY;
+      setPipPosition({
+        x: Math.max(10, Math.min(window.innerWidth - 260, pipDragStart.current.startX + dx)),
+        y: Math.max(10, Math.min(window.innerHeight - 180, pipDragStart.current.startY + dy)),
+      });
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDraggingPip.current || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dx = t.clientX - pipDragStart.current.mouseX;
+      const dy = t.clientY - pipDragStart.current.mouseY;
+      setPipPosition({
+        x: Math.max(10, Math.min(window.innerWidth - 260, pipDragStart.current.startX + dx)),
+        y: Math.max(10, Math.min(window.innerHeight - 180, pipDragStart.current.startY + dy)),
+      });
+    };
+    const onEnd = () => {
+      isDraggingPip.current = false;
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, []);
 
   const handlePasteLyricsDirect = async (targetSongId?: string) => {
     let rawText = '';
@@ -507,6 +590,7 @@ export default function Home() {
             bpm: song.bpm || null,
             comment: song.comment || '',
             lyrics: song.lyrics || '',
+            youtubeUrl: song.youtubeUrl || '',
             sheetUrls: song.sheetUrls || [],
             updatedAt: Date.now(),
           },
@@ -604,6 +688,7 @@ export default function Home() {
             bpm: data?.bpm || null,
             comment: data?.comment || '',
             lyrics: data?.lyrics || '',
+            youtubeUrl: data?.youtubeUrl || '',
             sheetUrls: sheets,
             order: data?.order ?? 0,
           });
@@ -629,6 +714,7 @@ export default function Home() {
             bpm: data?.bpm || null,
             comment: data?.comment || '',
             lyrics: data?.lyrics || '',
+            youtubeUrl: data?.youtubeUrl || '',
             sheetUrls: sheets,
             updatedAt: data?.updatedAt || Date.now(),
           });
@@ -1196,6 +1282,7 @@ export default function Home() {
       setModalBpm(song.bpm ? String(song.bpm) : '');
       setModalComment(song.comment || '');
       setModalLyrics(song.lyrics || '');
+      setModalYoutubeUrl(song.youtubeUrl || '');
       setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
       setModalSheetType('file');
     } else {
@@ -1206,6 +1293,7 @@ export default function Home() {
       setModalBpm('');
       setModalComment('');
       setModalLyrics('');
+      setModalYoutubeUrl('');
       setModalSheetType('file');
       setModalSheetUrls([]);
     }
@@ -1220,6 +1308,7 @@ export default function Home() {
     setModalBpm(libSong.bpm ? String(libSong.bpm) : '');
     setModalComment(libSong.comment || '');
     setModalLyrics(libSong.lyrics || '');
+    setModalYoutubeUrl(libSong.youtubeUrl || '');
     setModalSheetUrls(Array.isArray(libSong.sheetUrls) ? libSong.sheetUrls : []);
     alert(`[${libSong.title}] 정보가 불러와졌습니다.`);
   };
@@ -1354,6 +1443,7 @@ export default function Home() {
         bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
         comment: modalComment.trim(),
         lyrics: modalLyrics,
+        youtubeUrl: modalYoutubeUrl.trim(),
         sheetUrls: finalSheets,
         order: songOrder,
       };
@@ -1370,6 +1460,7 @@ export default function Home() {
           bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
           comment: modalComment.trim(),
           lyrics: modalLyrics,
+          youtubeUrl: modalYoutubeUrl.trim(),
           sheetUrls: finalSheets,
           updatedAt: Date.now(),
         },
@@ -1665,8 +1756,20 @@ export default function Home() {
               )}
             </div>
 
-            {/* 우측: 뷰 모드 + 필기 + 줌 컨트롤 */}
+            {/* 우측: 유튜브 PIP + 뷰 모드 + 필기 + 줌 컨트롤 */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* 🌟 악보 뷰어 유튜브 PIP 재생 버튼 */}
+              {viewingSong.youtubeUrl && (
+                <button
+                  onClick={() => handleOpenPipPlayer(viewingSong.youtubeUrl, viewingSong.title)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border shadow-xs bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100"
+                  title="유튜브 미니플레이어 재생"
+                >
+                  <Youtube className="w-4 h-4 text-rose-600" />
+                  <span className="hidden sm:inline">영상</span>
+                </button>
+              )}
+
               <button
                 onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
                 className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border shadow-xs ${
@@ -1748,7 +1851,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 🌟 2. 필기 전용 도구 바 (숨표 V 버튼 포함) */}
+        {/* 필기 전용 도구 바 */}
         {viewMode === 'sheet' && isDrawingMode && (
           <div
             className={`fixed top-16 sm:top-20 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
@@ -1778,7 +1881,6 @@ export default function Home() {
                 >
                   형광펜
                 </button>
-                {/* 🌟 숨표 V 스탬프 버튼 */}
                 <button
                   onClick={() => setCurrentTool('breath')}
                   className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
@@ -1830,7 +1932,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 🌟 3. 악보 메인 영역 */}
+        {/* 악보 메인 영역 */}
         <main
           ref={containerRef}
           onTouchStart={handleTouchStartViewer}
@@ -1993,6 +2095,68 @@ export default function Home() {
             </button>
           </div>
         </footer>
+
+        {/* 🌟 4. 플로팅 PIP 유튜브 플레이어 (뷰어 내부/외부 공통 렌더링) */}
+        {activePipVideoId && (
+          <div
+            style={{
+              transform: `translate3d(${pipPosition.x}px, ${pipPosition.y}px, 0px)`,
+              touchAction: 'none',
+            }}
+            className={`fixed top-0 left-0 z-[100] transition-shadow shadow-2xl rounded-2xl border overflow-hidden backdrop-blur-md ${
+              isDark ? 'bg-[#1C1C1E]/95 border-neutral-700' : 'bg-white/95 border-slate-300'
+            }`}
+          >
+            {/* PIP 헤더 바 (드래그 핸들) */}
+            <div
+              onMouseDown={(e) => handleStartPipDrag(e.clientX, e.clientY)}
+              onTouchStart={(e) => {
+                if (e.touches.length === 1) {
+                  handleStartPipDrag(e.touches[0].clientX, e.touches[0].clientY);
+                }
+              }}
+              className={`flex items-center justify-between px-3 py-2 cursor-grab active:cursor-grabbing border-b ${
+                isDark ? 'bg-[#2A2A30] border-neutral-700 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                <Youtube className="w-4 h-4 text-rose-500 shrink-0" />
+                <span className="text-xs font-bold truncate max-w-[130px]">{activePipTitle}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsPipMinimized(!isPipMinimized)}
+                  className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-500 dark:text-neutral-300"
+                  title={isPipMinimized ? '확대' : '최소화'}
+                >
+                  {isPipMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePipVideoId(null)}
+                  className="p-1 rounded-lg hover:bg-rose-500 hover:text-white text-slate-500 dark:text-neutral-300 transition"
+                  title="닫기"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* 유튜브 iframe 플레이어 */}
+            {!isPipMinimized && (
+              <div className="w-[240px] sm:w-[280px] h-[135px] sm:h-[158px] bg-black">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${activePipVideoId}?autoplay=1&enablejsapi=1`}
+                  title={activePipTitle}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -2405,6 +2569,20 @@ export default function Home() {
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
+                            {/* 🌟 유튜브 영상 PIP 버튼 */}
+                            {song.youtubeUrl && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenPipPlayer(song.youtubeUrl, song.title);
+                                }}
+                                className="p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100"
+                                title="유튜브 미니플레이어 재생"
+                              >
+                                <Youtube className="w-4 h-4 text-rose-600" />
+                              </button>
+                            )}
+
                             {isReordering ? (
                               <div className="flex items-center gap-1">
                                 <button
@@ -2627,11 +2805,26 @@ export default function Home() {
                       )}
                     </div>
 
-                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border shrink-0 ${
-                      isDark ? 'bg-purple-950/60 border-purple-800/50 text-purple-300' : 'bg-[#F3E8FF] border-[#E9D5FF] text-[#7E22CE]'
-                    }`}>
-                      보기
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {libSong.youtubeUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenPipPlayer(libSong.youtubeUrl, libSong.title);
+                          }}
+                          className="p-1.5 border rounded-xl bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100 transition shadow-xs"
+                          title="유튜브 미니플레이어 재생"
+                        >
+                          <Youtube className="w-4 h-4 text-rose-600" />
+                        </button>
+                      )}
+                      <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border shrink-0 ${
+                        isDark ? 'bg-purple-950/60 border-purple-800/50 text-purple-300' : 'bg-[#F3E8FF] border-[#E9D5FF] text-[#7E22CE]'
+                      }`}>
+                        보기
+                      </span>
+                    </div>
                   </div>
                 ))
               )}
@@ -2674,6 +2867,66 @@ export default function Home() {
           </button>
         </div>
       </nav>
+
+      {/* 메인 화면용 플로팅 PIP 플레이어 */}
+      {activePipVideoId && !viewingSongId && (
+        <div
+          style={{
+            transform: `translate3d(${pipPosition.x}px, ${pipPosition.y}px, 0px)`,
+            touchAction: 'none',
+          }}
+          className={`fixed top-0 left-0 z-[100] transition-shadow shadow-2xl rounded-2xl border overflow-hidden backdrop-blur-md ${
+            isDark ? 'bg-[#1C1C1E]/95 border-neutral-700' : 'bg-white/95 border-slate-300'
+          }`}
+        >
+          <div
+            onMouseDown={(e) => handleStartPipDrag(e.clientX, e.clientY)}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) {
+                handleStartPipDrag(e.touches[0].clientX, e.touches[0].clientY);
+              }
+            }}
+            className={`flex items-center justify-between px-3 py-2 cursor-grab active:cursor-grabbing border-b ${
+              isDark ? 'bg-[#2A2A30] border-neutral-700 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 min-w-0 pr-2">
+              <Youtube className="w-4 h-4 text-rose-500 shrink-0" />
+              <span className="text-xs font-bold truncate max-w-[130px]">{activePipTitle}</span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsPipMinimized(!isPipMinimized)}
+                className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-slate-500 dark:text-neutral-300"
+                title={isPipMinimized ? '확대' : '최소화'}
+              >
+                {isPipMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePipVideoId(null)}
+                className="p-1 rounded-lg hover:bg-rose-500 hover:text-white text-slate-500 dark:text-neutral-300 transition"
+                title="닫기"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {!isPipMinimized && (
+            <div className="w-[240px] sm:w-[280px] h-[135px] sm:h-[158px] bg-black">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${activePipVideoId}?autoplay=1&enablejsapi=1`}
+                title={activePipTitle}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Safari PWA 안전 가사 검색 안내 모달 */}
       {searchModalTitle && (
@@ -2929,6 +3182,32 @@ export default function Home() {
                 />
               </div>
 
+              {/* 🌟 유튜브 영상 링크 입력란 (추가) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={`text-xs font-bold flex items-center gap-1 ${textSubClass}`}>
+                    <Youtube className="w-3.5 h-3.5 text-rose-500" /> 유튜브 영상 링크 (선택)
+                  </label>
+                  <a
+                    href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
+                      `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 찬양`.trim()
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-rose-500 hover:underline flex items-center gap-1"
+                  >
+                    <span>유튜브 검색 ↗</span>
+                  </a>
+                </div>
+                <input
+                  type="url"
+                  value={modalYoutubeUrl}
+                  onChange={(e) => setModalYoutubeUrl(e.target.value)}
+                  placeholder="예: https://www.youtube.com/watch?v=... 또는 공유 링크"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500 ${inputBgClass}`}
+                />
+              </div>
+
               {/* 가사 입력 및 정돈 버튼 */}
               <div>
                 <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
@@ -2960,7 +3239,7 @@ export default function Home() {
                         isDark ? 'bg-purple-950/60 text-purple-300 border-purple-800/50' : 'bg-[#8E74AE]/15 text-[#8E74AE] border-[#8E74AE]/30'
                       }`}
                     >
-                      <ClipboardPaste className="w-3.5 h-3.5" />
+                      <ClipboardPaste className="w-3 h-3" />
                       <span>가사 붙여넣기</span>
                     </button>
                     <button
