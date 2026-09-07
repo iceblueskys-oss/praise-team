@@ -296,7 +296,84 @@ export default function Home() {
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
-
+  
+  // 🌟 iOS Safari 전용 핀치 줌 & 더블 탭 이벤트 바인딩
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !viewingSong || viewMode === 'lyrics') return;
+  
+    let startDist = 0;
+    let startScale = scale;
+    let lastTap = 0;
+  
+    // 1. 사파리 자체 뷰포트 확대 제스처 원천 차단
+    const onGestureStart = (e: any) => e.preventDefault();
+    const onGestureChange = (e: any) => e.preventDefault();
+  
+    // 2. 터치 시작 (두 손가락 거리 측정 & 더블탭 감지)
+    const onTouchStartNative = (e: TouchEvent) => {
+      if (isDrawingMode) return;
+  
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        startDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        startScale = scale;
+        return;
+      }
+  
+      if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+          e.preventDefault();
+          // 더블 탭: 확대 상태면 원본 복귀, 1배율이면 1.8배 확대
+          setScale((prev) => (prev > 1.05 ? 1.0 : 1.8));
+          setPosition({ x: 0, y: 0 });
+          lastTap = 0;
+          return;
+        }
+        lastTap = now;
+      }
+    };
+  
+    // 3. 터치 이동 (사파리 브라우저 확대 차단 및 자체 확대 비율 계산)
+    const onTouchMoveNative = (e: TouchEvent) => {
+      if (isDrawingMode) return;
+  
+      if (e.touches.length === 2 && startDist > 0) {
+        e.preventDefault(); // 사파리 전체 줌 방지 (핵심)
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const factor = dist / startDist;
+        const nextScale = Math.max(0.8, Math.min(3.5, startScale * factor));
+        setScale(nextScale);
+        if (nextScale <= 1.0) setPosition({ x: 0, y: 0 });
+      }
+    };
+  
+    // 4. 터치 종료
+    const onTouchEndNative = (e: TouchEvent) => {
+      if (e.touches.length < 2) startDist = 0;
+    };
+  
+    // non-passive 리스너 등록 (사파리 필수)
+    container.addEventListener('touchstart', onTouchStartNative, { passive: false });
+    container.addEventListener('touchmove', onTouchMoveNative, { passive: false });
+    container.addEventListener('touchend', onTouchEndNative);
+    container.addEventListener('gesturestart', onGestureStart, { passive: false });
+    container.addEventListener('gesturechange', onGestureChange, { passive: false });
+  
+    return () => {
+      container.removeEventListener('touchstart', onTouchStartNative);
+      container.removeEventListener('touchmove', onTouchMoveNative);
+      container.removeEventListener('touchend', onTouchEndNative);
+      container.removeEventListener('gesturestart', onGestureStart);
+      container.removeEventListener('gesturechange', onGestureChange);
+    };
+  }, [viewingSong, viewMode, isDrawingMode, scale]);
+    
   // 핀치 줌 & 패닝 제스처 Ref
   const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
   const isPanning = useRef(false);
