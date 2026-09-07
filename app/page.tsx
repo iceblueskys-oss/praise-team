@@ -278,7 +278,7 @@ export default function Home() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🌟 악보 뷰어 & 핀치 줌 & 숨표 툴 상태 🌟
+  // 🌟 악보 뷰어 & 핀치 줌 & 숨표 툴 상태
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -296,85 +296,8 @@ export default function Home() {
   const isDrawing = useRef(false);
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
-  
-  // 🌟 iOS Safari 전용 핀치 줌 & 더블 탭 이벤트 바인딩
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !viewingSong || viewMode === 'lyrics') return;
-  
-    let startDist = 0;
-    let startScale = scale;
-    let lastTap = 0;
-  
-    // 1. 사파리 자체 뷰포트 확대 제스처 원천 차단
-    const onGestureStart = (e: any) => e.preventDefault();
-    const onGestureChange = (e: any) => e.preventDefault();
-  
-    // 2. 터치 시작 (두 손가락 거리 측정 & 더블탭 감지)
-    const onTouchStartNative = (e: TouchEvent) => {
-      if (isDrawingMode) return;
-  
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        startDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        startScale = scale;
-        return;
-      }
-  
-      if (e.touches.length === 1) {
-        const now = Date.now();
-        if (now - lastTap < 300) {
-          e.preventDefault();
-          // 더블 탭: 확대 상태면 원본 복귀, 1배율이면 1.8배 확대
-          setScale((prev) => (prev > 1.05 ? 1.0 : 1.8));
-          setPosition({ x: 0, y: 0 });
-          lastTap = 0;
-          return;
-        }
-        lastTap = now;
-      }
-    };
-  
-    // 3. 터치 이동 (사파리 브라우저 확대 차단 및 자체 확대 비율 계산)
-    const onTouchMoveNative = (e: TouchEvent) => {
-      if (isDrawingMode) return;
-  
-      if (e.touches.length === 2 && startDist > 0) {
-        e.preventDefault(); // 사파리 전체 줌 방지 (핵심)
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        const factor = dist / startDist;
-        const nextScale = Math.max(0.8, Math.min(3.5, startScale * factor));
-        setScale(nextScale);
-        if (nextScale <= 1.0) setPosition({ x: 0, y: 0 });
-      }
-    };
-  
-    // 4. 터치 종료
-    const onTouchEndNative = (e: TouchEvent) => {
-      if (e.touches.length < 2) startDist = 0;
-    };
-  
-    // non-passive 리스너 등록 (사파리 필수)
-    container.addEventListener('touchstart', onTouchStartNative, { passive: false });
-    container.addEventListener('touchmove', onTouchMoveNative, { passive: false });
-    container.addEventListener('touchend', onTouchEndNative);
-    container.addEventListener('gesturestart', onGestureStart, { passive: false });
-    container.addEventListener('gesturechange', onGestureChange, { passive: false });
-  
-    return () => {
-      container.removeEventListener('touchstart', onTouchStartNative);
-      container.removeEventListener('touchmove', onTouchMoveNative);
-      container.removeEventListener('touchend', onTouchEndNative);
-      container.removeEventListener('gesturestart', onGestureStart);
-      container.removeEventListener('gesturechange', onGestureChange);
-    };
-  }, [viewingSong, viewMode, isDrawingMode, scale]);
-    
-  // 핀치 줌 & 패닝 제스처 Ref
+
+  // 🌟 [중요] 제스처 Ref 변수 선언을 useEffect보다 위쪽으로 배치
   const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
   const isPanning = useRef(false);
   const startPanPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -408,6 +331,77 @@ export default function Home() {
     setPosition({ x: 0, y: 0 });
     setSheetImgError(false);
   }, [viewingSongId, currentPageIndex]);
+
+  // 🌟 iOS Safari 전용 핀치 줌 & 더블 탭 제스처 리스너
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !viewingSongId || viewMode === 'lyrics') return;
+
+    let startDist = 0;
+    let startScale = 1.0;
+    let lastTap = 0;
+
+    const onGestureStart = (e: any) => e.preventDefault();
+    const onGestureChange = (e: any) => e.preventDefault();
+
+    const onTouchStartNative = (e: TouchEvent) => {
+      if (isDrawingMode) return;
+
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        startDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        startScale = scale;
+        return;
+      }
+
+      if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+          e.preventDefault();
+          setScale((prev) => (prev > 1.05 ? 1.0 : 1.8));
+          setPosition({ x: 0, y: 0 });
+          lastTap = 0;
+          return;
+        }
+        lastTap = now;
+      }
+    };
+
+    const onTouchMoveNative = (e: TouchEvent) => {
+      if (isDrawingMode) return;
+
+      if (e.touches.length === 2 && startDist > 0) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const factor = dist / startDist;
+        const nextScale = Math.max(0.8, Math.min(3.5, startScale * factor));
+        setScale(nextScale);
+        if (nextScale <= 1.0) setPosition({ x: 0, y: 0 });
+      }
+    };
+
+    const onTouchEndNative = (e: TouchEvent) => {
+      if (e.touches.length < 2) startDist = 0;
+    };
+
+    container.addEventListener('touchstart', onTouchStartNative, { passive: false });
+    container.addEventListener('touchmove', onTouchMoveNative, { passive: false });
+    container.addEventListener('touchend', onTouchEndNative);
+    container.addEventListener('gesturestart', onGestureStart, { passive: false });
+    container.addEventListener('gesturechange', onGestureChange, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStartNative);
+      container.removeEventListener('touchmove', onTouchMoveNative);
+      container.removeEventListener('touchend', onTouchEndNative);
+      container.removeEventListener('gesturestart', onGestureStart);
+      container.removeEventListener('gesturechange', onGestureChange);
+    };
+  }, [viewingSongId, viewMode, isDrawingMode, scale]);
 
   const handleToggleLyricsExpand = (songId: string) => {
     setExpandedLyricsSongId((prev) => (prev === songId ? null : songId));
@@ -741,33 +735,23 @@ export default function Home() {
     }
   };
 
-  // 🌟 핀치 줌 거리 계산 함수
-  const getPinchDistance = (touches: React.TouchList) => {
-    if (touches.length < 2) return 0;
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  // 🌟 핀치 줌 & 패닝 & 스와이프 통합 터치 핸들러
   const handleTouchStartViewer = (e: React.TouchEvent) => {
     if (viewMode === 'lyrics') return;
 
-    // 1. 두 손가락 핀치 줌 시작
     if (e.touches.length === 2) {
-      initialPinchDist.current = getPinchDistance(e.touches);
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialPinchDist.current = Math.hypot(dx, dy);
       initialScaleOnPinch.current = scale;
       isPanning.current = false;
       touchStartPos.current = null;
       return;
     }
 
-    // 2. 한 손가락 터치 (패닝 / 스와이프 / 더블탭 리셋)
     if (e.touches.length === 1 && !isDrawingMode) {
       const touch = e.touches[0];
       const now = Date.now();
 
-      // 더블 탭 감지 (300ms 이내 재터치 시 줌 리셋)
       if (now - lastTapTime.current < 300) {
         if (scale > 1.05) {
           setScale(1.0);
@@ -792,9 +776,10 @@ export default function Home() {
   const handleTouchMoveViewer = (e: React.TouchEvent) => {
     if (viewMode === 'lyrics') return;
 
-    // 1. 핀치 줌 동작 처리
     if (e.touches.length === 2 && initialPinchDist.current) {
-      const currentDist = getPinchDistance(e.touches);
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const currentDist = Math.hypot(dx, dy);
       const ratio = currentDist / initialPinchDist.current;
       const newScale = Math.max(0.8, Math.min(3.0, initialScaleOnPinch.current * ratio));
       setScale(newScale);
@@ -802,7 +787,6 @@ export default function Home() {
       return;
     }
 
-    // 2. 확대된 상태에서 한 손가락 드래그 (Pan)
     if (isPanning.current && scale > 1.0 && e.touches.length === 1 && !isDrawingMode) {
       const touch = e.touches[0];
       const maxLimit = 350 * (scale - 1);
@@ -815,12 +799,10 @@ export default function Home() {
   const handleTouchEndViewer = (e: React.TouchEvent) => {
     if (viewMode === 'lyrics') return;
 
-    // 핀치 줌 종료
     if (e.touches.length < 2) {
       initialPinchDist.current = null;
     }
 
-    // 기본 배율(1.0)일 때 좌우 수평 스와이프 넘김 처리
     if (scale <= 1.05 && touchStartPos.current && !isDrawingMode) {
       const touch = e.changedTouches[0];
       const diffX = touch.clientX - touchStartPos.current.x;
@@ -1440,7 +1422,7 @@ export default function Home() {
     if (!ctx) return;
     const { x, y } = getCanvasCoords(e);
 
-    // 🌟 1. 숨표(V) 원터치 스탬프 도구 🌟
+    // 숨표(V) 스탬프 도구
     if (currentTool === 'breath') {
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = penColor;
@@ -1594,7 +1576,7 @@ export default function Home() {
   const textSubClass = isDark ? 'text-neutral-400' : 'text-slate-500';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (상단바 & 핀치 줌 & 숨표 툴바)
+  // 1. 악보 & 가사 뷰어 화면
   // ==========================================
   if (viewingSong) {
     const validSheets = (viewingSong.sheetUrls || []).map(formatImageUrl).filter(Boolean);
@@ -1766,7 +1748,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 🌟 2. 필기 전용 도구 바 (숨표 V 버튼 포함) 🌟 */}
+        {/* 🌟 2. 필기 전용 도구 바 (숨표 V 버튼 포함) */}
         {viewMode === 'sheet' && isDrawingMode && (
           <div
             className={`fixed top-16 sm:top-20 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
@@ -1796,7 +1778,7 @@ export default function Home() {
                 >
                   형광펜
                 </button>
-                {/* 🌟 숨표 V 스탬프 버튼 🌟 */}
+                {/* 🌟 숨표 V 스탬프 버튼 */}
                 <button
                   onClick={() => setCurrentTool('breath')}
                   className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
@@ -1848,7 +1830,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 🌟 3. 악보 메인 영역 (핀치 줌 제스처 적용) 🌟 */}
+        {/* 🌟 3. 악보 메인 영역 */}
         <main
           ref={containerRef}
           onTouchStart={handleTouchStartViewer}
@@ -2607,7 +2589,7 @@ export default function Home() {
                 value={librarySearchTerm}
                 onChange={(e) => setLibrarySearchTerm(e.target.value)}
                 placeholder="찬양 제목, Key, 가사 본문 검색"
-                className={`w-full border rounded-2xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#8E74AE] ${inputBgClass}`}
+                className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#8E74AE] ${inputBgClass}`}
               />
             </div>
 
@@ -2978,7 +2960,7 @@ export default function Home() {
                         isDark ? 'bg-purple-950/60 text-purple-300 border-purple-800/50' : 'bg-[#8E74AE]/15 text-[#8E74AE] border-[#8E74AE]/30'
                       }`}
                     >
-                      <ClipboardPaste className="w-3 h-3" />
+                      <ClipboardPaste className="w-3.5 h-3.5" />
                       <span>가사 붙여넣기</span>
                     </button>
                     <button
@@ -3564,7 +3546,8 @@ export default function Home() {
                       onClick={() => handleCopyLyrics(previewLibSong.lyrics || '')}
                       className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#8E74AE] text-white flex items-center gap-1 shadow-xs"
                     >
-                      <Copy className="w-3 h-3 text-white" /> 복사
+                      <Copy className={`w-3.5 h-3.5 ${isDark ? 'text-purple-300' : 'text-[#7E22CE]'}`} />
+                      <span>복사</span>
                     </button>
                   )}
                 </div>
