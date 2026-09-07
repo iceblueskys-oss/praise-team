@@ -285,7 +285,8 @@ export default function Home() {
   const [scale, setScale] = useState(1.0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser'>('pen');
+  // 악보 뷰어 상태 선언 부근
+  const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser' | 'breath'>('pen');
   const [penColor, setPenColor] = useState('#EF4444');
   const [showViewerControls, setShowViewerControls] = useState(true);
   const [sheetImgError, setSheetImgError] = useState(false);
@@ -1306,9 +1307,33 @@ export default function Home() {
     if (!isDrawingMode || viewMode === 'lyrics') return;
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
+    const { x, y } = getCanvasCoords(e);
+
+    // 🌟 1. 숨표(V) 원터치 스탬프 도구
+    if (currentTool === 'breath') {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = penColor;
+      ctx.strokeStyle = penColor;
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // 정갈한 V 형태의 숨표(체크마크) 각인
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y - 10);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + 9, y - 14);
+      ctx.stroke();
+
+      // 필기 히스토리 저장 및 Firebase 동기화 트리거
+      isDrawing.current = true;
+      stopDraw();
+      return;
+    }
+
+    // 기존 펜, 형광펜, 지우개 로직
     isDrawing.current = true;
     isLocalDrawing.current = true;
-    const { x, y } = getCanvasCoords(e);
     ctx.beginPath();
     ctx.moveTo(x, y);
 
@@ -1615,7 +1640,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 🌟 2. 필기 전용 도구 바 (독립 플로팅 바: 코멘트와 겹침 원천 차단) 🌟 */}
+        {/* 🌟 2. 필기 전용 도구 바 🌟 */}
         {viewMode === 'sheet' && isDrawingMode && (
           <div
             className={`fixed top-16 sm:top-20 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
@@ -1645,6 +1670,16 @@ export default function Home() {
                 >
                   형광펜
                 </button>
+                {/* 🌟 숨표(V) 버튼 추가 */}
+                <button
+                  onClick={() => setCurrentTool('breath')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                    currentTool === 'breath' ? 'bg-[#10B981] text-white shadow-xs' : textSubClass
+                  }`}
+                  title="터치한 자리에 숨표(V) 표시"
+                >
+                  <span>숨표 V</span>
+                </button>
                 <button
                   onClick={() => setCurrentTool('eraser')}
                   className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
@@ -1654,7 +1689,7 @@ export default function Home() {
                   지우개
                 </button>
               </div>
-
+        
               {/* 컬러 팔레트 */}
               <div className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border ${
                 isDark ? 'bg-[#2A2A30] border-[#383842]' : 'bg-slate-100 border-slate-200'
@@ -1670,7 +1705,7 @@ export default function Home() {
                   />
                 ))}
               </div>
-
+        
               {/* 지우기 리셋 버튼 */}
               <button
                 onClick={handleClearDrawing}
