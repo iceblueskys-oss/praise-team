@@ -105,7 +105,6 @@ interface Conti {
   attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
 }
 
-// 🌟 다크모드/라이트모드 수동 스타일 매핑 (Tailwind darkMode: 'class' 의존성 제거)
 const TAG_COLOR_THEMES: Record<string, { light: { bg: string; text: string; border: string }; dark: { bg: string; text: string; border: string }; label: string }> = {
   amber: {
     light: { bg: 'bg-[#FFF3D6]', text: 'text-[#B45309]', border: 'border-[#FDE68A]' },
@@ -279,14 +278,14 @@ export default function Home() {
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // 🌟 악보 뷰어 & 핀치 줌 & 숨표 툴 상태 🌟
   const [viewingSongId, setViewingSongId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [scale, setScale] = useState(1.0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDrawingMode, setIsDrawingMode] = useState(false);
-  // 악보 뷰어 상태 선언 부근
-  const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'eraser' | 'breath'>('pen');
+  const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'breath' | 'eraser'>('pen');
   const [penColor, setPenColor] = useState('#EF4444');
   const [showViewerControls, setShowViewerControls] = useState(true);
   const [sheetImgError, setSheetImgError] = useState(false);
@@ -298,9 +297,13 @@ export default function Home() {
   const history = useRef<ImageData[]>([]);
   const isLocalDrawing = useRef(false);
 
+  // 핀치 줌 & 패닝 제스처 Ref
   const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
   const isPanning = useRef(false);
   const startPanPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const initialPinchDist = useRef<number | null>(null);
+  const initialScaleOnPinch = useRef<number>(1.0);
+  const lastTapTime = useRef<number>(0);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -661,12 +664,46 @@ export default function Home() {
     }
   };
 
-  const handleTouchStartViewer = (e: React.TouchEvent) => {
-    if (isDrawingMode || viewMode === 'lyrics') return;
+  // 🌟 핀치 줌 거리 계산 함수
+  const getPinchDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
 
-    if (e.touches.length === 1) {
+  // 🌟 핀치 줌 & 패닝 & 스와이프 통합 터치 핸들러
+  const handleTouchStartViewer = (e: React.TouchEvent) => {
+    if (viewMode === 'lyrics') return;
+
+    // 1. 두 손가락 핀치 줌 시작
+    if (e.touches.length === 2) {
+      initialPinchDist.current = getPinchDistance(e.touches);
+      initialScaleOnPinch.current = scale;
+      isPanning.current = false;
+      touchStartPos.current = null;
+      return;
+    }
+
+    // 2. 한 손가락 터치 (패닝 / 스와이프 / 더블탭 리셋)
+    if (e.touches.length === 1 && !isDrawingMode) {
       const touch = e.touches[0];
-      touchStartPos.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      const now = Date.now();
+
+      // 더블 탭 감지 (300ms 이내 재터치 시 줌 리셋)
+      if (now - lastTapTime.current < 300) {
+        if (scale > 1.05) {
+          setScale(1.0);
+          setPosition({ x: 0, y: 0 });
+        } else {
+          setScale(1.8);
+        }
+        lastTapTime.current = 0;
+        return;
+      }
+      lastTapTime.current = now;
+
+      touchStartPos.current = { x: touch.clientX, y: touch.clientY, time: now };
 
       if (scale > 1.0) {
         isPanning.current = true;
@@ -676,9 +713,20 @@ export default function Home() {
   };
 
   const handleTouchMoveViewer = (e: React.TouchEvent) => {
-    if (isDrawingMode || viewMode === 'lyrics') return;
+    if (viewMode === 'lyrics') return;
 
-    if (isPanning.current && scale > 1.0 && e.touches.length === 1) {
+    // 1. 핀치 줌 동작 처리
+    if (e.touches.length === 2 && initialPinchDist.current) {
+      const currentDist = getPinchDistance(e.touches);
+      const ratio = currentDist / initialPinchDist.current;
+      const newScale = Math.max(0.8, Math.min(3.0, initialScaleOnPinch.current * ratio));
+      setScale(newScale);
+      if (newScale <= 1.0) setPosition({ x: 0, y: 0 });
+      return;
+    }
+
+    // 2. 확대된 상태에서 한 손가락 드래그 (Pan)
+    if (isPanning.current && scale > 1.0 && e.touches.length === 1 && !isDrawingMode) {
       const touch = e.touches[0];
       const maxLimit = 350 * (scale - 1);
       const newX = Math.max(-maxLimit, Math.min(maxLimit, touch.clientX - startPanPos.current.x));
@@ -688,9 +736,15 @@ export default function Home() {
   };
 
   const handleTouchEndViewer = (e: React.TouchEvent) => {
-    if (isDrawingMode || viewMode === 'lyrics') return;
+    if (viewMode === 'lyrics') return;
 
-    if (scale <= 1.05 && touchStartPos.current) {
+    // 핀치 줌 종료
+    if (e.touches.length < 2) {
+      initialPinchDist.current = null;
+    }
+
+    // 기본 배율(1.0)일 때 좌우 수평 스와이프 넘김 처리
+    if (scale <= 1.05 && touchStartPos.current && !isDrawingMode) {
       const touch = e.changedTouches[0];
       const diffX = touch.clientX - touchStartPos.current.x;
       const diffY = touch.clientY - touchStartPos.current.y;
@@ -1309,7 +1363,7 @@ export default function Home() {
     if (!ctx) return;
     const { x, y } = getCanvasCoords(e);
 
-    // 🌟 1. 숨표(V) 원터치 스탬프 도구
+    // 🌟 1. 숨표(V) 원터치 스탬프 도구 🌟
     if (currentTool === 'breath') {
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = penColor;
@@ -1318,20 +1372,17 @@ export default function Home() {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      // 정갈한 V 형태의 숨표(체크마크) 각인
       ctx.beginPath();
       ctx.moveTo(x - 6, y - 10);
       ctx.lineTo(x, y);
       ctx.lineTo(x + 9, y - 14);
       ctx.stroke();
 
-      // 필기 히스토리 저장 및 Firebase 동기화 트리거
       isDrawing.current = true;
       stopDraw();
       return;
     }
 
-    // 기존 펜, 형광펜, 지우개 로직
     isDrawing.current = true;
     isLocalDrawing.current = true;
     ctx.beginPath();
@@ -1355,7 +1406,7 @@ export default function Home() {
   };
 
   const onDraw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawingMode || !isDrawing.current || viewMode === 'lyrics') return;
+    if (!isDrawingMode || !isDrawing.current || viewMode === 'lyrics' || currentTool === 'breath') return;
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
     const { x, y } = getCanvasCoords(e);
@@ -1456,7 +1507,6 @@ export default function Home() {
     );
   }
 
-  // 🌟 완벽한 명암 분기 (인라인 클래스로 Tailwind dark: 클래스 미적용 문제 원천 차단)
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-[#121214] text-white' : 'bg-[#F4F6F9] text-slate-900';
   const cardBgClass = isDark ? 'bg-[#1E1E22] border-[#2E2E34] shadow-md' : 'bg-white border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)]';
@@ -1467,7 +1517,7 @@ export default function Home() {
   const textSubClass = isDark ? 'text-neutral-400' : 'text-slate-500';
 
   // ==========================================
-  // 1. 악보 & 가사 뷰어 화면 (개선된 프리미엄 상단바)
+  // 1. 악보 & 가사 뷰어 화면 (상단바 & 핀치 줌 & 숨표 툴바)
   // ==========================================
   if (viewingSong) {
     const validSheets = (viewingSong.sheetUrls || []).map(formatImageUrl).filter(Boolean);
@@ -1481,7 +1531,7 @@ export default function Home() {
           isDark ? 'bg-[#121214] text-white' : 'bg-[#F4F6F9] text-slate-900'
         }`}
       >
-        {/* 🌟 1. 프리미엄 상단 일체형 헤더 바 🌟 */}
+        {/* 상단 일체형 헤더 바 */}
         <header
           className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
@@ -1494,7 +1544,7 @@ export default function Home() {
         >
           <div className="max-w-4xl mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2">
             
-            {/* [좌측] 뒤로가기 + Key / BPM */}
+            {/* 좌측: 뒤로가기 + Key / BPM */}
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => {
@@ -1517,7 +1567,7 @@ export default function Home() {
               {viewingSong.key && (
                 <span className={`px-2 py-1 text-xs font-bold rounded-lg border shadow-xs ${
                   isDark
-                    ? 'bg-blue-950/60 border-blue-800/60 text-blue-300'
+                    ? 'bg-[#0F2D54] border-[#1D4ED8]/60 text-[#93C5FD]'
                     : 'bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]'
                 }`}>
                   {viewingSong.key} Key
@@ -1533,7 +1583,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* [중앙] 곡 제목 + 진행 순서 코멘트 (빈 공간 완벽 해소) */}
+            {/* 중앙: 곡 제목 + 진행 순서 코멘트 */}
             <div className="min-w-0 flex-1 px-2 text-center flex flex-col items-center justify-center">
               <div className="flex items-center justify-center gap-1.5 max-w-full">
                 {currentSongs.length > 0 && currentSongIndex !== -1 && (
@@ -1548,7 +1598,6 @@ export default function Home() {
                 </h2>
               </div>
 
-              {/* 진행 순서 코멘트를 플로팅이 아닌 헤더 내부 서브라인으로 깔끔하게 통합 */}
               {viewingSong.comment && (
                 <p className="text-[11px] sm:text-xs font-medium text-[#4A90E2] truncate max-w-sm mt-0.5 flex items-center gap-1">
                   <MessageSquare className="w-3 h-3 shrink-0" />
@@ -1557,7 +1606,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* [우측] 뷰 모드 + 필기 + 줌 컨트롤 */}
+            {/* 우측: 뷰 모드 + 필기 + 줌 컨트롤 */}
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
@@ -1565,7 +1614,7 @@ export default function Home() {
                   viewMode === 'lyrics'
                     ? 'bg-[#7E22CE] border-[#7E22CE] text-white'
                     : isDark
-                    ? 'bg-purple-950/60 border-purple-800/50 text-purple-300 hover:bg-purple-900/60'
+                    ? 'bg-[#3B1F54] border-[#6B21A8]/60 text-[#E9D5FF] hover:bg-[#4C286C]'
                     : 'bg-[#F3E8FF] border-[#E9D5FF] text-[#7E22CE] hover:bg-[#E9D5FF]'
                 }`}
               >
@@ -1626,7 +1675,7 @@ export default function Home() {
                     </button>
                   )}
                   <button
-                    onClick={() => setScale((s) => Math.min(s + 0.2, 2.2))}
+                    onClick={() => setScale((s) => Math.min(s + 0.2, 3.0))}
                     className={`w-7 h-7 flex items-center justify-center text-xs font-bold transition ${
                       isDark ? 'text-neutral-300 hover:text-white' : 'text-slate-700 hover:text-black'
                     }`}
@@ -1640,7 +1689,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 🌟 2. 필기 전용 도구 바 🌟 */}
+        {/* 🌟 2. 필기 전용 도구 바 (숨표 V 버튼 포함) 🌟 */}
         {viewMode === 'sheet' && isDrawingMode && (
           <div
             className={`fixed top-16 sm:top-20 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
@@ -1670,7 +1719,7 @@ export default function Home() {
                 >
                   형광펜
                 </button>
-                {/* 🌟 숨표(V) 버튼 추가 */}
+                {/* 🌟 숨표 V 스탬프 버튼 🌟 */}
                 <button
                   onClick={() => setCurrentTool('breath')}
                   className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
@@ -1689,7 +1738,7 @@ export default function Home() {
                   지우개
                 </button>
               </div>
-        
+
               {/* 컬러 팔레트 */}
               <div className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border ${
                 isDark ? 'bg-[#2A2A30] border-[#383842]' : 'bg-slate-100 border-slate-200'
@@ -1705,7 +1754,7 @@ export default function Home() {
                   />
                 ))}
               </div>
-        
+
               {/* 지우기 리셋 버튼 */}
               <button
                 onClick={handleClearDrawing}
@@ -1722,7 +1771,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 🌟 3. 악보 및 캔버스 메인 영역 (상단 패딩 여유 확보) 🌟 */}
+        {/* 🌟 3. 악보 메인 영역 (핀치 줌 제스처 적용) 🌟 */}
         <main
           ref={containerRef}
           onTouchStart={handleTouchStartViewer}
@@ -1731,7 +1780,7 @@ export default function Home() {
           onClick={() => {
             if (!isDrawingMode && !isPanning.current) setShowViewerControls(!showViewerControls);
           }}
-          style={{ overscrollBehavior: 'contain', touchAction: isDrawingMode ? 'none' : 'pan-x pan-y' }}
+          style={{ overscrollBehavior: 'contain', touchAction: isDrawingMode ? 'none' : 'none' }}
           className={`flex-1 overflow-hidden flex items-center justify-center p-3 pb-24 relative ${
             isDrawingMode ? 'pt-36 sm:pt-40' : 'pt-24 sm:pt-28'
           } ${isDark ? 'bg-[#121214]' : 'bg-[#F8F9FA]'}`}
@@ -1830,7 +1879,7 @@ export default function Home() {
           )}
         </main>
 
-        {/* 🌟 4. 뷰어 하단 곡/페이지 전환 네비게이션 툴바 🌟 */}
+        {/* 뷰어 하단 네비게이션 툴바 */}
         <footer
           className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
@@ -2246,7 +2295,6 @@ export default function Home() {
                               <GripVertical className="w-5 h-5" />
                             </div>
 
-                            {/* 🌟 순번 뱃지: 선명한 대비 🌟 */}
                             <div className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border shadow-xs ${
                               isDark
                                 ? 'bg-[#0F2D54] border-[#1D4ED8]/60 text-[#93C5FD]'
@@ -2257,19 +2305,16 @@ export default function Home() {
 
                             <div className="min-w-0 flex-1 space-y-0.5">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                {/* 🌟 순서 태그 🌟 */}
                                 {song.headerTag && tagStyle && (
                                   <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${tagStyle.bg} ${tagStyle.text} ${tagStyle.border}`}>
                                     {song.headerTag}
                                   </span>
                                 )}
 
-                                {/* 🌟 곡 제목 🌟 */}
                                 <h3 className={`text-sm sm:text-base font-bold truncate transition group-hover:text-[#4A90E2] ${textTitleClass}`}>
                                   {song.title}
                                 </h3>
 
-                                {/* 🌟 Key 뱃지 🌟 */}
                                 {song.key && (
                                   <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${
                                     isDark
@@ -2320,7 +2365,6 @@ export default function Home() {
                               </div>
                             ) : (
                               <>
-                                {/* 🌟 [가사] 버튼 🌟 */}
                                 <button
                                   onClick={() => handleToggleLyricsExpand(song.id)}
                                   className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
@@ -2336,7 +2380,6 @@ export default function Home() {
                                   <span>{isLyricsExpanded ? '닫기' : '가사'}</span>
                                 </button>
 
-                                {/* 🌟 [수정/삭제] 버튼 🌟 */}
                                 <button
                                   onClick={() => handleOpenModal(song)}
                                   className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs ${
