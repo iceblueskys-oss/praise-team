@@ -1,4 +1,7 @@
-<!DOCTYPE html>
+'use client';
+
+export default function Page() {
+  const htmlContent = `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -1230,7 +1233,7 @@
         if (calcBpm >= 40 && calcBpm <= 240) {
           metroBpm = calcBpm;
           document.getElementById('bpmSlider').value = calcBpm;
-          document.getElementById('modalBpmDisplay').textContent = `${calcBpm} BPM`;
+          document.getElementById('modalBpmDisplay').textContent = \`\${calcBpm} BPM\`;
           document.getElementById('metroBpmLabel').textContent = calcBpm;
           if (isMetroRunning) { stopMetro(); startMetro(); }
         }
@@ -1239,25 +1242,25 @@
 
     document.getElementById('bpmSlider').oninput = (e) => {
       metroBpm = Number(e.target.value);
-      document.getElementById('modalBpmDisplay').textContent = `${metroBpm} BPM`;
+      document.getElementById('modalBpmDisplay').textContent = \`\${metroBpm} BPM\`;
       document.getElementById('metroBpmLabel').textContent = metroBpm;
       if (isMetroRunning) { stopMetro(); startMetro(); }
     };
 
     document.getElementById('metroSoundToggleBtn').onclick = (e) => {
       isMetroSoundOn = !isMetroSoundOn;
-      e.target.textContent = `오디오: ${isMetroSoundOn ? '켜짐' : '무음'}`;
+      e.target.textContent = \`오디오: \${isMetroSoundOn ? '켜짐' : '무음'}\`;
     };
 
     function extractDriveFileId(url) {
       if (!url) return null;
-      const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+      const match = url.match(/\\/d\\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
       return match ? match[1] : null;
     }
 
     function extractYouTubeId(url) {
       if (!url) return null;
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+      const regExp = /^.*(youtu.be\\/|v\\/|u\\/\\w\\/|embed\\/|watch\\?v=|&v=)([^#&?]*).*/;
       const match = url.match(regExp);
       return (match && match[2].length === 11) ? match[2] : null;
     }
@@ -1266,14 +1269,14 @@
       if (!rawUrl) return "";
       const driveId = extractDriveFileId(rawUrl);
       if (driveId && GOOGLE_API_KEY) {
-        return `https://www.googleapis.com/drive/v3/files/${driveId}?alt=media&key=${GOOGLE_API_KEY}`;
+        return \`https://www.googleapis.com/drive/v3/files/\${driveId}?alt=media&key=\${GOOGLE_API_KEY}\`;
       }
       return rawUrl;
     }
 
     function parseFileName(name) {
-      const cleanName = name.replace(/\.(pdf|png|jpe?g|webp)$/i, '').trim();
-      const match = cleanName.match(/^(.*?)\s*\[(.*?)\]$/);
+      const cleanName = name.replace(/\\.(pdf|png|jpe?g|webp)$/i, '').trim();
+      const match = cleanName.match(/^(.*?)\\s*\\[(.*?)\\]$/);
       if (!match) return { title: cleanName, notes: {} };
 
       const title = match[1].trim();
@@ -1290,7 +1293,7 @@
     }
 
     function parsePartFromAudioName(name) {
-      const cleanName = name.replace(/\.(mp3|wav|m4a|aac|ogg|flac)$/i, '').trim().toUpperCase();
+      const cleanName = name.replace(/\\.(mp3|wav|m4a|aac|ogg|flac)$/i, '').trim().toUpperCase();
       const lastSep = Math.max(cleanName.lastIndexOf('_'), cleanName.lastIndexOf('-'));
       const token = (lastSep !== -1) ? cleanName.substring(lastSep + 1).trim() : cleanName;
 
@@ -1312,14 +1315,14 @@
       return (
         mime === 'application/pdf' ||
         mime.startsWith('image/') ||
-        /\.(pdf|png|jpe?g|webp)$/i.test(name)
+        /\\.(pdf|png|jpe?g|webp)$/i.test(name)
       );
     }
 
     function isImageScore(file) {
       const name = file.name || '';
       const mime = file.mimeType || '';
-      return mime.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(name);
+      return mime.startsWith('image/') || /\\.(png|jpe?g|webp)$/i.test(name);
     }
 
     let allSongs = [];
@@ -1347,7 +1350,7 @@
     const zoomLevelText = document.getElementById('zoomLevelText');
 
     async function fetchFileBuffer(fileId, fallbackUrl) {
-      const cacheKey = `file_${fileId || fallbackUrl}`;
+      const cacheKey = \`file_\${fileId || fallbackUrl}\`;
       const cached = await getStoredItem('pdf_cache', cacheKey);
       if (cached && cached.data) return cached.data;
 
@@ -1357,13 +1360,13 @@
       }
 
       const apiUrl = driveId 
-        ? `https://www.googleapis.com/drive/v3/files/${driveId}?alt=media&key=${GOOGLE_API_KEY}` 
+        ? \`https://www.googleapis.com/drive/v3/files/\${driveId}?alt=media&key=\${GOOGLE_API_KEY}\` 
         : fallbackUrl;
 
       let arrayBuffer = null;
       try {
         const res = await fetch(apiUrl);
-        if (!res.ok) throw new Error(`HTTP 에러 상태 코드: ${res.status}`);
+        if (!res.ok) throw new Error(\`HTTP 에러 상태 코드: \${res.status}\`);
         
         const buf = await res.arrayBuffer();
         if (!buf || buf.byteLength < 50) throw new Error("파일 데이터가 비어 있습니다.");
@@ -1408,8 +1411,8 @@
 
       if (GOOGLE_API_KEY && DRIVE_FOLDER_ID) {
         try {
-          const q = `'${DRIVE_FOLDER_ID}' in parents and trashed = false`;
-          const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,description)&orderBy=name&key=${GOOGLE_API_KEY}`;
+          const q = \`'\${DRIVE_FOLDER_ID}' in parents and trashed = false\`;
+          const url = \`https://www.googleapis.com/drive/v3/files?q=\${encodeURIComponent(q)}&fields=files(id,name,mimeType,description)&orderBy=name&key=\${GOOGLE_API_KEY}\`;
           const res = await fetch(url);
 
           if (res.ok) {
@@ -1421,15 +1424,15 @@
 
             const folderPromises = subFolders.map(async (folder) => {
               try {
-                const subQ = `'${folder.id}' in parents and trashed = false`;
-                const subUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(subQ)}&fields=files(id,name,mimeType,description)&key=${GOOGLE_API_KEY}`;
+                const subQ = \`'\${folder.id}' in parents and trashed = false\`;
+                const subUrl = \`https://www.googleapis.com/drive/v3/files?q=\${encodeURIComponent(subQ)}&fields=files(id,name,mimeType,description)&key=\${GOOGLE_API_KEY}\`;
                 const subRes = await fetch(subUrl);
                 if (!subRes.ok) return null;
 
                 const subData = await subRes.json();
                 const subFiles = subData.files || [];
 
-                const pdfFile = subFiles.find(f => f.mimeType === 'application/pdf' || /\.pdf$/i.test(f.name));
+                const pdfFile = subFiles.find(f => f.mimeType === 'application/pdf' || /\\.pdf$/i.test(f.name));
                 const imageFiles = subFiles
                   .filter(f => isImageScore(f))
                   .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
@@ -1442,23 +1445,23 @@
 
                 subFiles.forEach(f => {
                   const isAudio = (f.mimeType && f.mimeType.startsWith('audio/')) ||
-                                  /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(f.name);
+                                  /\\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(f.name);
                   if (isAudio) {
                     const part = parsePartFromAudioName(f.name);
                     if (part) {
-                      partAudios[part] = `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&key=${GOOGLE_API_KEY}`;
+                      partAudios[part] = \`https://www.googleapis.com/drive/v3/files/\${f.id}?alt=media&key=\${GOOGLE_API_KEY}\`;
                     }
                   }
                   if (!youtubeUrl && (f.name.toLowerCase().includes('youtube') || f.name.toLowerCase().includes('youtu.be'))) {
                     const yid = extractYouTubeId(f.name);
-                    if (yid) youtubeUrl = `https://www.youtube.com/watch?v=${yid}`;
+                    if (yid) youtubeUrl = \`https://www.youtube.com/watch?v=\${yid}\`;
                   }
                 });
 
                 if (pdfFile) {
                   const pdfMeta = parseFileName(pdfFile.name);
                   return {
-                    id: `drive_${pdfFile.id}`,
+                    id: \`drive_\${pdfFile.id}\`,
                     driveId: pdfFile.id,
                     type: 'drive',
                     fileType: 'pdf',
@@ -1470,7 +1473,7 @@
                   };
                 } else {
                   return {
-                    id: `drive_img_${folder.id}`,
+                    id: \`drive_img_\${folder.id}\`,
                     type: 'drive',
                     fileType: 'image',
                     isFolder: true,
@@ -1482,7 +1485,7 @@
                   };
                 }
               } catch (err) {
-                console.warn(`폴더 [${folder.name}] 스캔 실패:`, err);
+                console.warn(\`폴더 [\${folder.name}] 스캔 실패:\`, err);
                 return null;
               }
             });
@@ -1494,7 +1497,7 @@
               const meta = parseFileName(f.name);
               const isImg = isImageScore(f);
               driveItems.push({
-                id: `drive_${f.id}`,
+                id: \`drive_\${f.id}\`,
                 driveId: f.id,
                 type: 'drive',
                 fileType: isImg ? 'image' : 'pdf',
@@ -1550,11 +1553,11 @@
       );
 
       if (filtered.length === 0) {
-        container.innerHTML = `
+        container.innerHTML = \`
           <div style="text-align:center; padding:50px 10px; color:var(--text-secondary); font-size:13px; font-weight:600;">
             등록된 악보가 없습니다.<br>구글 드라이브 폴더를 확인하거나 <b>[+ 새 악보]</b>를 등록해보세요.
           </div>
-        `;
+        \`;
         return;
       }
 
@@ -1566,7 +1569,7 @@
         const partsOrder = ['S', 'A', 'T', 'BAR', 'B'];
         const pitchText = partsOrder
           .filter(p => notes[p])
-          .map(p => `${p}:${notes[p]}`)
+          .map(p => \`\${p}:\${notes[p]}\`)
           .join(' · ') || '첫 음 미지정';
 
         const audioParts = Object.keys(song.partAudioUrls || {});
@@ -1574,25 +1577,25 @@
         const hasYt = !!song.youtubeUrl;
         const formatLabel = song.fileType === 'image' ? 'IMAGE' : 'PDF';
 
-        card.innerHTML = `
+        card.innerHTML = \`
           <div class="song-main-info">
             <div class="song-title-text">
-              ${song.isFolder ? `
+              \${song.isFolder ? \`
                 <svg class="folder-tag-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              ` : ''}
-              <span>${song.title}</span>
+              \` : ''}
+              <span>\${song.title}</span>
             </div>
             <div class="song-meta-row">
-              <span class="meta-chip">${formatLabel}</span>
-              <span class="meta-chip">${pitchText}</span>
-              ${hasAudio ? `<span class="meta-chip audio-chip">PART AUDIO (${audioParts.join(',')})</span>` : ''}
-              ${hasYt ? `<span class="meta-chip yt-chip">YOUTUBE</span>` : ''}
+              <span class="meta-chip">\${formatLabel}</span>
+              <span class="meta-chip">\${pitchText}</span>
+              \${hasAudio ? \`<span class="meta-chip audio-chip">PART AUDIO (\${audioParts.join(',')})</span>\` : ''}
+              \${hasYt ? \`<span class="meta-chip yt-chip">YOUTUBE</span>\` : ''}
             </div>
           </div>
           <div class="song-action-cue">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
           </div>
-        `;
+        \`;
 
         card.onclick = () => openSongInViewer(song.id);
         container.appendChild(card);
@@ -1613,7 +1616,7 @@
     function openYouTubePlayer(url) {
       const vid = extractYouTubeId(url);
       if (!vid) return;
-      ytIframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1&enablejsapi=1`;
+      ytIframe.src = \`https://www.youtube.com/embed/\${vid}?autoplay=1&enablejsapi=1\`;
       ytFloatingContainer.classList.add('show');
       guideAudio.pause();
     }
@@ -1659,8 +1662,8 @@
       const dy = clientY - dragStartY;
       const maxX = window.innerWidth - ytFloatingContainer.offsetWidth - 8;
       const maxY = window.innerHeight - ytFloatingContainer.offsetHeight - 8;
-      ytFloatingContainer.style.left = `${Math.max(8, Math.min(maxX, initialLeft + dx))}px`;
-      ytFloatingContainer.style.top = `${Math.max(8, Math.min(maxY, initialTop + dy))}px`;
+      ytFloatingContainer.style.left = \`\${Math.max(8, Math.min(maxX, initialLeft + dx))}px\`;
+      ytFloatingContainer.style.top = \`\${Math.max(8, Math.min(maxY, initialTop + dy))}px\`;
       ytFloatingContainer.style.right = 'auto';
       ytFloatingContainer.style.bottom = 'auto';
     }
@@ -1715,11 +1718,11 @@
         if (note) {
           hasAnyPitch = true;
           const btn = document.createElement('button');
-          btn.className = `pitch-capsule ${partClassMap[p] || ''}`;
-          btn.innerHTML = `
-            <span class="pitch-badge">${partFullMap[p]}</span>
-            <span class="pitch-val">${note}</span>
-          `;
+          btn.className = \`pitch-capsule \${partClassMap[p] || ''}\`;
+          btn.innerHTML = \`
+            <span class="pitch-badge">\${partFullMap[p]}</span>
+            <span class="pitch-val">\${note}</span>
+          \`;
           btn.onclick = () => playNote(note);
           pitchBar.appendChild(btn);
         }
@@ -1735,7 +1738,7 @@
       statusView.style.display = 'block';
       sheetCard.style.display = 'none';
       spinner.style.display = 'block';
-      statusText.innerHTML = `'${song.title}' 악보 로딩 중...`;
+      statusText.innerHTML = \`'\${song.title}' 악보 로딩 중...\`;
 
       try {
         currentPageNum = 1;
@@ -1789,7 +1792,7 @@
       } catch (err) {
         console.error("악보 로드 실패:", err);
         spinner.style.display = 'none';
-        statusText.innerHTML = `악보를 불러올 수 없습니다.<br><small style="color:var(--yt-accent);">(${err.message})</small>`;
+        statusText.innerHTML = \`악보를 불러올 수 없습니다.<br><small style="color:var(--yt-accent);">(\${err.message})</small>\`;
       }
     }
 
@@ -1814,15 +1817,15 @@
 
         pdfCanvas.width = viewport.width;
         pdfCanvas.height = viewport.height;
-        pdfCanvas.style.width = `${targetWidth}px`;
-        pdfCanvas.style.height = `${(viewport.height / dpr)}px`;
+        pdfCanvas.style.width = \`\${targetWidth}px\`;
+        pdfCanvas.style.height = \`\${(viewport.height / dpr)}px\`;
 
         drawCanvas.width = viewport.width;
         drawCanvas.height = viewport.height;
-        drawCanvas.style.width = `${targetWidth}px`;
-        drawCanvas.style.height = `${(viewport.height / dpr)}px`;
+        drawCanvas.style.width = \`\${targetWidth}px\`;
+        drawCanvas.style.height = \`\${(viewport.height / dpr)}px\`;
 
-        sheetCard.style.width = `${targetWidth}px`;
+        sheetCard.style.width = \`\${targetWidth}px\`;
 
         const renderContext = {
           canvasContext: pdfCtx,
@@ -1836,7 +1839,7 @@
           if (err.name !== 'RenderingCancelledException') console.error(err);
         });
 
-        pageIndicator.textContent = `${num} / ${totalPageCount}`;
+        pageIndicator.textContent = \`\${num} / \${totalPageCount}\`;
         loadPageDrawing(num);
       });
     }
@@ -1858,20 +1861,20 @@
 
       pdfCanvas.width = targetWidth * dpr;
       pdfCanvas.height = targetHeight * dpr;
-      pdfCanvas.style.width = `${targetWidth}px`;
-      pdfCanvas.style.height = `${targetHeight}px`;
+      pdfCanvas.style.width = \`\${targetWidth}px\`;
+      pdfCanvas.style.height = \`\${targetHeight}px\`;
 
       drawCanvas.width = targetWidth * dpr;
       drawCanvas.height = targetHeight * dpr;
-      drawCanvas.style.width = `${targetWidth}px`;
-      drawCanvas.style.height = `${targetHeight}px`;
+      drawCanvas.style.width = \`\${targetWidth}px\`;
+      drawCanvas.style.height = \`\${targetHeight}px\`;
 
-      sheetCard.style.width = `${targetWidth}px`;
+      sheetCard.style.width = \`\${targetWidth}px\`;
 
       pdfCtx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
       pdfCtx.drawImage(img, 0, 0, pdfCanvas.width, pdfCanvas.height);
 
-      pageIndicator.textContent = `${num} / ${totalPageCount}`;
+      pageIndicator.textContent = \`\${num} / \${totalPageCount}\`;
       loadPageDrawing(num);
     }
 
@@ -1884,7 +1887,7 @@
     }
 
     function updateZoomDisplay() {
-      if (zoomLevelText) zoomLevelText.textContent = `${Math.round(zoomScale * 100)}%`;
+      if (zoomLevelText) zoomLevelText.textContent = \`\${Math.round(zoomScale * 100)}%\`;
     }
 
     function setZoom(newScale) {
@@ -2017,7 +2020,7 @@
 
     async function savePageDrawing() {
       if (!currentSong) return;
-      const key = `${currentSong.id}_p${currentPageNum}`;
+      const key = \`\${currentSong.id}_p\${currentPageNum}\`;
       const dataUrl = drawCanvas.toDataURL();
       await putStored('personal_drawings', { id: key, data: dataUrl });
     }
@@ -2025,7 +2028,7 @@
     async function loadPageDrawing(num) {
       if (!currentSong || !drawCtx) return;
       drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-      const key = `${currentSong.id}_p${num}`;
+      const key = \`\${currentSong.id}_p\${num}\`;
       const saved = await getStoredItem('personal_drawings', key);
       if (saved && saved.data) {
         const img = new Image();
@@ -2041,7 +2044,7 @@
       if (confirm('현재 페이지의 메모를 모두 지우시겠습니까?')) {
         if (!drawCtx || !currentSong) return;
         drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-        const key = `${currentSong.id}_p${currentPageNum}`;
+        const key = \`\${currentSong.id}_p\${currentPageNum}\`;
         await deleteStored('personal_drawings', key);
       }
     };
@@ -2124,7 +2127,7 @@
       const cur = Math.floor(guideAudio.currentTime);
       const m = Math.floor(cur / 60);
       const s = String(cur % 60).padStart(2, '0');
-      audioTimeText.textContent = `${m}:${s}`;
+      audioTimeText.textContent = \`\${m}:\${s}\`;
     };
 
     guideAudio.onended = () => {
@@ -2137,7 +2140,7 @@
       rateIdx = (rateIdx + 1) % rates.length;
       const r = rates[rateIdx];
       guideAudio.playbackRate = r;
-      audioRateBtn.textContent = `${r}x`;
+      audioRateBtn.textContent = \`\${r}x\`;
     };
 
     document.getElementById('closeAudioBtn').onclick = () => {
@@ -2223,7 +2226,7 @@
     const currentSongEditModal = document.getElementById('currentSongEditModal');
     document.getElementById('openCurrentSongEditBtn').onclick = () => {
       if (!currentSong) return;
-      document.getElementById('currentSongModalTitle').textContent = `[${currentSong.title}] 악보 설정`;
+      document.getElementById('currentSongModalTitle').textContent = \`[\${currentSong.title}] 악보 설정\`;
       
       document.getElementById('curQuickYtUrl').value = currentSong.youtubeUrl || '';
       document.getElementById('curQuickS').value = currentSong.notes?.S || '';
@@ -2263,7 +2266,7 @@
       const newAudios = {};
       const parts = ['ALL', 'S', 'A', 'T', 'BAR', 'B'];
       parts.forEach(p => {
-        const val = document.getElementById(`editAudio_${p}`).value.trim();
+        const val = document.getElementById(\`editAudio_\${p}\`).value.trim();
         if (val) newAudios[p] = val;
       });
 
@@ -2313,8 +2316,8 @@
       const ytUrl = document.getElementById('newSongYtUrl').value.trim();
       if (!title || !url) { alert('곡 명과 악보 URL을 입력해주세요.'); return; }
 
-      const isImg = /\.(png|jpe?g|webp)$/i.test(url);
-      const newSongId = `custom_${Date.now()}`;
+      const isImg = /\\.(png|jpe?g|webp)$/i.test(url);
+      const newSongId = \`custom_\${Date.now()}\`;
       const newSong = {
         id: newSongId,
         type: 'custom',
@@ -2361,7 +2364,7 @@
     document.getElementById('menuRefreshBtn').onclick = async () => {
       appMenuModal.classList.remove('open');
       if (currentSong) {
-        await deleteStored('pdf_cache', `file_${currentSong.driveId || currentSong.url}`);
+        await deleteStored('pdf_cache', \`file_\${currentSong.driveId || currentSong.url}\`);
       }
       const url = new URL(window.location.href);
       url.searchParams.set('t', Date.now());
@@ -2372,10 +2375,10 @@
 
     deleteLocalBtn.onclick = async () => {
       if (!currentSong || currentSong.type !== 'custom') return;
-      if (confirm(`'${currentSong.title}' 트랙을 삭제하시겠습니까?`)) {
+      if (confirm(\`'\${currentSong.title}' 트랙을 삭제하시겠습니까?\`)) {
         await deleteStored('custom_songs', currentSong.id);
         await deleteStored('pitch_overrides', currentSong.id);
-        await deleteStored('pdf_cache', `file_${currentSong.driveId || currentSong.url}`);
+        await deleteStored('pdf_cache', \`file_\${currentSong.driveId || currentSong.url}\`);
         if (firestoreDb) {
           try { await firestoreDb.collection('song_settings').doc(currentSong.id).delete(); } catch(e){}
         }
@@ -2424,4 +2427,23 @@
     startApp();
   </script>
 </body>
-</html>
+</html>`;
+
+  return (
+    <iframe
+      srcDoc={htmlContent}
+      style={{
+        width: '100vw',
+        height: '100dvh',
+        border: 'none',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        margin: 0,
+        padding: 0,
+        overflow: 'hidden',
+      }}
+      title="Acappella Studio"
+    />
+  );
+}
