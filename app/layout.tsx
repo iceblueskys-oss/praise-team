@@ -14,8 +14,8 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        <link rel="icon" href="/praise-team/favicon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/praise-team/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=4" />
+        <link rel="icon" href="/apple-touch-icon.png?v=4" />
       </head>
       <body>{children}</body>
     </html>
