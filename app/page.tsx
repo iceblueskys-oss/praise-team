@@ -2181,13 +2181,13 @@ export default function Home() {
             <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md shadow-[#B89C70]/15 shrink-0 border border-[#DEC8A2]/50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/apple-touch-icon.png"
+                src="/apple-touch-icon.png?v=3"
                 alt="찬양팀 Hub 아이콘"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   const target = e.currentTarget;
                   if (!target.src.includes('/praise-team/')) {
-                    target.src = '/praise-team/apple-touch-icon.png';
+                    target.src = '/praise-team/apple-touch-icon.png?v=3';
                   }
                 }}
               />
