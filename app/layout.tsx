@@ -14,10 +14,10 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        {/* GitHub Pages 서브경로(/praise-team/)를 포함한 명시적 경로 */}
-        <link rel="icon" type="image/png" sizes="180x180" href="/praise-team/apple-touch-icon.png?v=5" />
-        <link rel="shortcut icon" href="/praise-team/apple-touch-icon.png?v=5" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/praise-team/apple-touch-icon.png?v=5" />
+        {/* public 단어를 빼고 저장소 경로(/praise-team/)로 바로 연결 */}
+        <link rel="icon" type="image/png" sizes="180x180" href="/praise-team/apple-touch-icon.png?v=10" />
+        <link rel="shortcut icon" href="/praise-team/apple-touch-icon.png?v=10" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/praise-team/apple-touch-icon.png?v=10" />
       </head>
       <body>{children}</body>
     </html>
