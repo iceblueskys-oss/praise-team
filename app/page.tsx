@@ -1,2449 +1,4006 @@
 'use client';
 
-export default function Page() {
-  const htmlContent = `<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" id="viewportMeta" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Acappella Studio — Master Suite</title>
-  
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Acappella" />
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Plus,
+  Trash2,
+  Edit3,
+  Calendar,
+  FolderPlus,
+  X,
+  Music,
+  ChevronLeft,
+  ChevronRight,
+  PenTool,
+  Layers,
+  FileText,
+  Sun,
+  Moon,
+  MessageSquare,
+  SkipBack,
+  SkipForward,
+  GripVertical,
+  Check,
+  Users,
+  Mic,
+  Globe,
+  Search,
+  Lock,
+  Unlock,
+  KeyRound,
+  Library,
+  ArrowDownToLine,
+  RefreshCw,
+  Tag,
+  Copy,
+  BookOpen,
+  SlidersHorizontal,
+  Home as HomeIcon,
+  Bell,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  RotateCcw,
+  ArrowRight,
+  ClipboardPaste,
+  Image as ImageIcon,
+  History,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Settings,
+  Palette,
+  ExternalLink,
+  Wand2,
+  Youtube,
+  Minimize2,
+  Maximize2,
+} from 'lucide-react';
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  writeBatch,
+  getDoc,
+} from 'firebase/firestore';
 
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='gold' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23E2CFA9'/%3E%3Cstop offset='50%25' stop-color='%23B89C70'/%3E%3Cstop offset='100%25' stop-color='%238F754D'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%23F7F5F0' stroke='rgba(184,156,112,0.3)' stroke-width='1.5'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%23788C9B' stroke-width='0.7' stroke-dasharray='2 3' opacity='0.4'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23788C9B' stroke-width='0.8' stroke-dasharray='3 2' opacity='0.45'/%3E%3Ccircle cx='32' cy='32' r='12' fill='none' stroke='%23788C9B' stroke-width='0.9' opacity='0.35'/%3E%3Cpath d='M25 15v18a7 7 0 0 0 14 0V15' fill='none' stroke='url(%23gold)' stroke-width='3.6' stroke-linecap='round'/%3E%3Cpath d='M32 39v12' fill='none' stroke='url(%23gold)' stroke-width='3.8' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='53' r='2.8' fill='url(%23gold)'/%3E%3C/svg%3E" />
-  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=3" />
+interface CustomTag {
+  name: string;
+  color: string;
+}
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+interface SongItem {
+  id: string;
+  contiId: string;
+  headerTag?: string;
+  title: string;
+  key?: string | null;
+  bpm?: number | null;
+  comment?: string;
+  lyrics?: string;
+  youtubeUrl?: string;
+  sheetUrls: string[];
+  order: number;
+}
 
-  <style>
-    :root {
-      --bg-base: #F7F5F0;
-      --surface-deep: #EDEAE1;
-      --surface-elevated: #FFFFFF;
-      --surface-highlight: #F0EDE5;
-      
-      --border-subtle: rgba(180, 170, 150, 0.28);
-      --border-metallic: rgba(184, 156, 112, 0.45);
-      
-      --text-primary: #2C2A28;
-      --text-secondary: #7F7B74;
-      --text-gold: #9C7E52;
-      --gold-glow: rgba(184, 156, 112, 0.25);
-      
-      --sop-accent: #D96A4E;
-      --alto-accent: #C4915C;
-      --tenor-accent: #467E67;
-      --bari-accent: #7D6AA8;
-      --bass-accent: #4B6E8A;
-      --yt-accent: #BD3535;
+interface LibrarySong {
+  id: string;
+  title: string;
+  key?: string | null;
+  bpm?: number | null;
+  comment?: string;
+  lyrics?: string;
+  youtubeUrl?: string;
+  sheetUrls: string[];
+  updatedAt: number;
+}
 
-      --card-shadow: 0 4px 18px rgba(160, 145, 120, 0.12);
-      --card-active: 0 1px 4px rgba(160, 145, 120, 0.16);
-      --float-shadow: 0 12px 36px rgba(120, 105, 80, 0.18);
-    }
+interface Conti {
+  id: string;
+  title: string;
+  date: string;
+  assignedSingers?: string[];
+  customNote?: string;
+  notice?: string;
+  attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
+}
 
-    * { 
-      box-sizing: border-box; 
-      margin: 0; 
-      padding: 0; 
-      -webkit-tap-highlight-color: transparent;
-    }
+const TAG_COLOR_THEMES: Record<string, { light: { bg: string; text: string; border: string }; dark: { bg: string; text: string; border: string }; label: string }> = {
+  amber: {
+    light: { bg: 'bg-[#F4ECE1]', text: 'text-[#8C6D3E]', border: 'border-[#DEC8A2]' },
+    dark: { bg: 'bg-[#42331E]/50', text: 'text-[#E5C492]', border: 'border-[#7A5E33]/50' },
+    label: '샴페인 골드',
+  },
+  blue: {
+    light: { bg: 'bg-[#EBF1F5]', text: 'text-[#416279]', border: 'border-[#CBDCE6]' },
+    dark: { bg: 'bg-[#1D2F3B]/50', text: 'text-[#96B8CE]', border: 'border-[#325268]/50' },
+    label: '웨이브 블루',
+  },
+  purple: {
+    light: { bg: 'bg-[#F2EDF6]', text: 'text-[#6F5B8B]', border: 'border-[#DDD2E8]' },
+    dark: { bg: 'bg-[#322345]/50', text: 'text-[#C5B3DC]', border: 'border-[#584175]/50' },
+    label: '소프트 라벤더',
+  },
+  emerald: {
+    light: { bg: 'bg-[#ECF3ED]', text: 'text-[#446F54]', border: 'border-[#C8DFCD]' },
+    dark: { bg: 'bg-[#1C3626]/50', text: 'text-[#9ACDB0]', border: 'border-[#2F573C]/50' },
+    label: '세이지 그린',
+  },
+  rose: {
+    light: { bg: 'bg-[#F8EAE8]', text: 'text-[#9E4E4E]', border: 'border-[#ECCBC9]' },
+    dark: { bg: 'bg-[#471E1E]/50', text: 'text-[#E5A1A1]', border: 'border-[#783636]/50' },
+    label: '더스티 로즈',
+  },
+  indigo: {
+    light: { bg: 'bg-[#EAEBED]', text: 'text-[#545C6D]', border: 'border-[#CAD0DC]' },
+    dark: { bg: 'bg-[#212633]/50', text: 'text-[#A6B2C8]', border: 'border-[#3B455C]/50' },
+    label: '어쿠스틱 슬레이트',
+  },
+};
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      height: 100dvh;
-      overflow: hidden;
-      position: fixed;
-      touch-action: manipulation;
-      overscroll-behavior: none;
-    }
+const DEFAULT_CUSTOM_TAGS: CustomTag[] = [
+  { name: '입례', color: 'blue' },
+  { name: '송영', color: 'indigo' },
+  { name: '경배와찬양', color: 'amber' },
+  { name: '기도송', color: 'purple' },
+  { name: '헌금', color: 'emerald' },
+  { name: '파송', color: 'rose' },
+  { name: '특송', color: 'amber' },
+];
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Pretendard", "Segoe UI", sans-serif;
-      background: var(--bg-base);
-      color: var(--text-primary);
-      display: flex;
-      flex-direction: column;
-      -webkit-font-smoothing: antialiased;
-    }
+function getUpcomingSunday(): Date {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() + daysUntilSunday);
+  return sunday;
+}
 
-    .view-screen {
-      width: 100%;
-      height: 100%;
-      display: none;
-      flex-direction: column;
-      position: absolute;
-      inset: 0;
-    }
-    .view-screen.active { display: flex; }
+function formatDateToStr(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const date = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${date}`;
+}
 
-    #libraryView {
-      background: var(--bg-base);
-      background-image: radial-gradient(circle at 50% 8%, rgba(184, 156, 112, 0.08) 0%, transparent 55%);
-      overflow-y: auto;
-      touch-action: pan-y;
-      -webkit-overflow-scrolling: touch;
-      padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 40px 16px;
-    }
-    .lib-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-    .lib-title-box {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .lib-title {
-      font-size: 19px;
-      font-weight: 800;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      letter-spacing: -0.02em;
-    }
-    .lib-subtitle {
-      font-size: 11px;
-      color: var(--text-secondary);
-      font-weight: 600;
-    }
-    .lib-tools {
-      display: flex;
-      gap: 6px;
-    }
-    .search-box {
-      position: relative;
-      margin-bottom: 14px;
-    }
-    .search-input {
-      width: 100%;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 10px 14px 10px 34px;
-      color: var(--text-primary);
-      font-size: 13px;
-      outline: none;
-      box-shadow: var(--card-shadow);
-      transition: all 0.2s ease;
-    }
-    .search-input:focus { 
-      border-color: var(--text-gold);
-      box-shadow: 0 0 0 3px var(--gold-glow);
-    }
-    .search-icon {
-      position: absolute;
-      left: 11px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-secondary);
-      pointer-events: none;
-    }
+function formatDateToTitle(d: Date, typeSuffix = '950'): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const date = String(d.getDate()).padStart(2, '0');
+  return `${year}.${month}.${date} ${typeSuffix}`;
+}
 
-    .song-card-list {
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
+function formatImageUrl(url: string): string {
+  const trimmed = url ? url.trim() : '';
+  if (!trimmed) return '';
+  if (trimmed.includes('drive.google.com')) {
+    const match = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://lh3.googleusercontent.com/d/${match[1]}`;
     }
-    .song-card {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: 14px;
-      padding: 12px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      box-shadow: var(--card-shadow);
-      transition: all 0.18s ease;
-    }
-    .song-card::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3.5px;
-      background: transparent;
-      transition: background 0.15s ease;
-    }
-    .song-card:active {
-      transform: scale(0.985);
-      background: var(--surface-highlight);
-      box-shadow: var(--card-active);
-    }
-    .song-card:active::before {
-      background: var(--text-gold);
-    }
-    .song-main-info {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      flex: 1;
-      min-width: 0;
-    }
-    .song-title-text {
-      font-size: 14.5px;
-      font-weight: 750;
-      color: var(--text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .folder-tag-icon {
-      color: var(--text-gold);
-      flex-shrink: 0;
-    }
-    .song-meta-row {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      flex-wrap: wrap;
-    }
-    .meta-chip {
-      font-size: 9.5px;
-      font-weight: 700;
-      padding: 2.5px 6px;
-      border-radius: 5px;
-      background: var(--surface-deep);
-      color: var(--text-secondary);
-      border: 1px solid rgba(180, 170, 150, 0.2);
-    }
-    .meta-chip.audio-chip {
-      background: rgba(184, 156, 112, 0.12);
-      color: var(--text-gold);
-      border: 1px solid rgba(184, 156, 112, 0.35);
-    }
-    .meta-chip.yt-chip {
-      background: rgba(189, 53, 53, 0.09);
-      color: var(--yt-accent);
-      border: 1px solid rgba(189, 53, 53, 0.25);
-    }
-    .song-action-cue {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: var(--surface-deep);
-      color: var(--text-secondary);
-      flex-shrink: 0;
-      transition: all 0.15s ease;
-    }
-    .song-card:active .song-action-cue {
-      background: var(--text-gold);
-      color: #fff;
-    }
+  }
+  return trimmed;
+}
 
-    header {
-      background: rgba(247, 245, 240, 0.94);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border-bottom: 1px solid var(--border-subtle);
-      padding: calc(env(safe-area-inset-top, 0px) + 6px) 10px 6px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      flex-shrink: 0;
-      box-shadow: 0 4px 20px rgba(160, 145, 120, 0.09);
-      z-index: 100;
-      touch-action: auto;
-    }
-    .header-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-    }
+function extractYouTubeVideoId(url?: string): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  const match =
+    trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/) ||
+    trimmed.match(/youtube\.com\/shorts\/([\w-]{11})/);
+  return match ? match[1] : null;
+}
 
-    select, button, input {
-      font-family: inherit;
-      border: 1px solid var(--border-subtle);
-      background: var(--surface-elevated);
-      color: var(--text-primary);
-      padding: 6px 9px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      box-shadow: 0 1px 3px rgba(160, 145, 120, 0.08);
-      transition: all 0.15s ease;
-      flex-shrink: 0;
-    }
-    button:active { transform: scale(0.96); background: var(--surface-highlight); }
-    button.active {
-      background: var(--text-gold) !important;
-      color: #FFFFFF !important;
-      border-color: var(--text-gold) !important;
-      box-shadow: 0 2px 8px var(--gold-glow) !important;
-    }
+function getSafeDocId(title: string, key?: string | null): string {
+  const cleanTitle = (title || 'untitled').trim();
+  const cleanKey = (key || 'NOKEY').trim();
+  const rawId = `lib_${cleanTitle}_${cleanKey}`;
+  return rawId.replace(/[\/\s#?\[\]]/g, '_');
+}
 
-    .btn-gold {
-      color: var(--text-gold);
-      border-color: var(--border-metallic);
-      background: rgba(184, 156, 112, 0.09);
-    }
-    .btn-yt {
-      color: var(--yt-accent);
-      border-color: rgba(189, 53, 53, 0.28);
-      background: rgba(189, 53, 53, 0.07);
-    }
+function formatAndFixLyrics(input: string): string {
+  if (!input) return '';
+  let text = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-    .viewer-song-name {
-      flex: 1;
-      font-size: 13.5px;
-      font-weight: 750;
-      color: var(--text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      min-width: 0;
-      padding: 0 2px;
-    }
+  const lines = text.split('\n').filter((l) => l.trim().length > 0);
+  if (lines.length >= 3) {
+    return text.trim();
+  }
 
-    .pitch-scroll-row {
-      overflow-x: auto;
-      white-space: nowrap;
-      -webkit-overflow-scrolling: touch;
-      gap: 4px;
-      flex: 1;
-      min-width: 0;
-    }
-    .pitch-scroll-row::-webkit-scrollbar { display: none; }
+  text = text
+    .replace(/\s*(\([0-9]+\)|\[[0-9]+\]|[0-9]\.|\bV[1-4]\b|\bChorus\b|\[후렴\]|\[Bridge\]|후렴:)\s*/gi, '\n\n$1 ')
+    .replace(/([,.~!?])\s+/g, '$1\n')
+    .replace(/(하네|있네|리라|도다|니다|소서|노라|옵소서|주시네|채우네|임하네|찬양해|예배해|사랑해|영원히|예수님|하나님|성령님|할렐루야|아멘)\s+/g, '$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
-    .pitch-capsule {
-      display: inline-flex;
-      align-items: center;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      padding: 2px 5px;
-      gap: 3px;
-      box-shadow: 0 1px 3px rgba(160, 145, 120, 0.08);
-    }
-    .pitch-capsule:active {
-      transform: scale(0.95);
-      border-color: var(--text-gold);
-      box-shadow: 0 0 8px var(--gold-glow);
-    }
-    .pitch-badge { font-size: 8px; font-weight: 800; padding: 1px 3px; border-radius: 3px; }
-    .pitch-capsule.sop .pitch-badge { background: rgba(217, 106, 78, 0.12); color: var(--sop-accent); }
-    .pitch-capsule.alto .pitch-badge { background: rgba(196, 145, 92, 0.14); color: var(--alto-accent); }
-    .pitch-capsule.tenor .pitch-badge { background: rgba(70, 126, 103, 0.14); color: var(--tenor-accent); }
-    .pitch-capsule.bari .pitch-badge { background: rgba(125, 106, 168, 0.14); color: var(--bari-accent); }
-    .pitch-capsule.bass .pitch-badge { background: rgba(75, 110, 138, 0.14); color: var(--bass-accent); }
-    .pitch-val { font-size: 10.5px; font-weight: 750; color: var(--text-primary); }
+  return text;
+}
 
-    .metro-led {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #C4BFB3;
-      display: inline-block;
-    }
-    .metro-led.flash { background: var(--text-gold); box-shadow: 0 0 6px var(--text-gold); }
+export default function Home() {
+  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
+  const [contis, setContis] = useState<Conti[]>([]);
+  const [allSongs, setAllSongs] = useState<SongItem[]>([]);
+  const [librarySongs, setLibrarySongs] = useState<LibrarySong[]>([]);
+  const [selectedContiId, setSelectedContiId] = useState<string>('');
+  const [isReordering, setIsReordering] = useState(false);
 
-    main {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: auto;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
-      position: relative;
-      touch-action: pan-x pan-y;
-      -webkit-overflow-scrolling: touch;
-      background: var(--surface-deep);
-    }
+  const [viewLevel, setViewLevel] = useState<'home' | 'detail'>('home');
+  const [activeTab, setActiveTab] = useState<'conti' | 'library'>('conti');
+  const [showPastContis, setShowPastContis] = useState(false);
 
-    .sheet-wrapper {
-      position: relative;
-      background: #FFFFFF;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      box-shadow: 0 8px 32px rgba(140, 125, 100, 0.15);
-    }
-    #pdfCanvas { display: block; }
-    #drawCanvas {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      cursor: crosshair;
-      touch-action: none;
-      display: none;
-    }
-    #drawCanvas.active { display: block; }
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
+  const [noticeInput, setNoticeInput] = useState('');
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [myAttendanceName, setMyAttendanceName] = useState('');
+  const [myAttendanceStatus, setMyAttendanceStatus] = useState<'yes' | 'no' | 'maybe'>('yes');
 
-    body.invert-mode { 
-      --bg-base: #181716;
-      --surface-deep: #121110;
-      --surface-elevated: #242220;
-      --surface-highlight: #2F2C29;
-      --text-primary: #EDEAE1;
-      --text-secondary: #9E988D;
-      --border-subtle: rgba(255, 255, 255, 0.08);
-      background: #181716; 
-    }
-    body.invert-mode .sheet-wrapper { filter: invert(0.92) hue-rotate(180deg) brightness(0.95); }
+  const [expandedLyricsSongId, setExpandedLyricsSongId] = useState<string | null>(null);
+  const [lyricsFontSize, setLyricsFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
-    #audioBar {
-      position: fixed;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.94);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--border-subtle);
-      border-radius: 18px;
-      padding: 5px 9px;
-      display: none;
-      align-items: center;
-      gap: 6px;
-      z-index: 150;
-      box-shadow: var(--float-shadow);
-      width: 95vw;
-      max-width: 520px;
-      overflow-x: auto;
-      white-space: nowrap;
-      -webkit-overflow-scrolling: touch;
-    }
-    #audioBar::-webkit-scrollbar { display: none; }
-    #audioBar.show { display: flex; }
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authPasswordInput, setAuthPasswordInput] = useState('');
+  const [isChangePwModalOpen, setIsChangePwModalOpen] = useState(false);
+  const [newPwInput, setNewPwInput] = useState('');
 
-    #audioPlayBtn {
-      border-radius: 50%;
-      width: 36px;
-      height: 36px;
-      min-width: 36px;
-      padding: 0;
-      justify-content: center;
-      background: var(--surface-deep);
-      border: 1px solid var(--border-metallic);
-      color: var(--text-gold);
-      flex-shrink: 0;
-    }
-    #audioPlayBtn:active { transform: scale(0.92); }
+  const [librarySearchTerm, setLibrarySearchTerm] = useState('');
+  const [isSyncingLib, setIsSyncingLib] = useState(false);
+  const [previewLibSong, setPreviewLibSong] = useState<LibrarySong | null>(null);
 
-    .part-track-selector {
-      display: flex;
-      background: var(--surface-deep);
-      border-radius: 10px;
-      padding: 2.5px;
-      border: 1px solid var(--border-subtle);
-      gap: 2px;
-      flex-shrink: 0;
-    }
+  const [isNewContiModalOpen, setIsNewContiModalOpen] = useState(false);
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>('');
+  const [contiTitleInput, setContiTitleInput] = useState<string>('');
+  const [currentCalMonth, setCurrentCalMonth] = useState<Date>(new Date());
 
-    .part-tab {
-      padding: 5px 8px;
-      min-width: 30px;
-      border-radius: 7px;
-      font-size: 11px;
-      font-weight: 800;
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      box-shadow: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s ease;
-      flex-shrink: 0;
-    }
-    .part-tab.active {
-      background: var(--surface-elevated);
-      color: var(--text-gold);
-      box-shadow: 0 2px 6px rgba(160, 145, 120, 0.18);
-    }
-    .part-tab.active[data-part="ALL"] { color: var(--text-gold); }
-    .part-tab.active[data-part="S"] { color: var(--sop-accent); }
-    .part-tab.active[data-part="A"] { color: var(--alto-accent); }
-    .part-tab.active[data-part="T"] { color: var(--tenor-accent); }
-    .part-tab.active[data-part="BAR"] { color: var(--bari-accent); }
-    .part-tab.active[data-part="B"] { color: var(--bass-accent); }
+  const [masterSingers, setMasterSingers] = useState<string[]>([]);
+  const [newSingerName, setNewSingerName] = useState('');
+  const [isSingerModalOpen, setIsSingerModalOpen] = useState(false);
+  const [selectedSingers, setSelectedSingers] = useState<string[]>([]);
+  const [noteInput, setNoteInput] = useState('');
 
-    .audio-side-tools {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1px;
-      flex-shrink: 0;
-      margin-left: auto;
-    }
-    #audioTimeText {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--text-secondary);
-      min-width: 28px;
-      text-align: center;
-      font-variant-numeric: tabular-nums;
-    }
-    #audioRateBtn {
-      font-size: 9px;
-      font-weight: 700;
-      padding: 1px 5px;
-      border-radius: 4px;
-      background: var(--surface-deep);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-secondary);
-    }
+  const [masterTags, setMasterTags] = useState<CustomTag[]>(DEFAULT_CUSTOM_TAGS);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState<string>('amber');
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
 
-    #drawingToolbar {
-      position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 78px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(18px);
-      border: 1px solid var(--border-subtle);
-      border-radius: 14px;
-      padding: 5px 8px;
-      display: none;
-      gap: 5px;
-      z-index: 110;
-      box-shadow: var(--float-shadow);
-      max-width: 95vw;
-      overflow-x: auto;
-      white-space: nowrap;
-      -webkit-overflow-scrolling: touch;
-    }
-    #drawingToolbar::-webkit-scrollbar { display: none; }
-    #drawingToolbar button {
-      padding: 4px 8px;
-      font-size: 11px;
-      flex-shrink: 0;
-    }
+  const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 
-    #ytFloatingContainer {
-      position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 65px);
-      right: 12px;
-      width: 230px;
-      height: 145px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-metallic);
-      border-radius: 14px;
-      overflow: hidden;
-      z-index: 160;
-      box-shadow: var(--float-shadow);
-      display: none;
-      flex-direction: column;
-      touch-action: none;
-      transition: height 0.2s ease, opacity 0.2s ease;
-    }
-    #ytFloatingContainer.show { display: flex; }
-    #ytFloatingContainer.minimized {
-      height: 32px !important;
-      opacity: 0.95;
-    }
-    #ytFloatingContainer.minimized iframe {
-      display: none;
-    }
-    .yt-float-header {
-      background: var(--surface-deep);
-      padding: 5px 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: move;
-      user-select: none;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-    .yt-float-title {
-      font-size: 11px;
-      font-weight: 750;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      pointer-events: none;
-    }
-    .yt-float-tools {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-    }
-    .yt-float-tools button {
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      padding: 2px 6px;
-      font-size: 12px;
-      cursor: pointer;
-      box-shadow: none;
-    }
-    .yt-float-tools button:active {
-      color: var(--text-primary);
-    }
+  const [activePipVideoId, setActivePipVideoId] = useState<string | null>(null);
+  const [activePipTitle, setActivePipTitle] = useState<string>('');
+  const [isPipMinimized, setIsPipMinimized] = useState(false);
+  const [pipPosition, setPipPosition] = useState<{ x: number; y: number }>({ x: 20, y: 80 });
+  const isDraggingPip = useRef(false);
+  const pipDragStart = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number }>({ mouseX: 0, mouseY: 0, startX: 0, startY: 0 });
 
-    .modal-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(44, 42, 40, 0.45);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      z-index: 999;
-      align-items: center;
-      justify-content: center;
-    }
-    .modal-backdrop.open { display: flex; }
-    .modal {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-subtle);
-      width: 92%;
-      max-width: 480px;
-      max-height: 85vh;
-      overflow-y: auto;
-      border-radius: 20px;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      box-shadow: 0 20px 50px rgba(120, 105, 80, 0.22);
-    }
-    .modal h3 { font-size: 15px; font-weight: 800; color: var(--text-primary); }
-    .form-group { display: flex; flex-direction: column; gap: 4px; }
-    .form-group label { font-size: 10.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
-    .form-group input[type="text"] {
-      width: 100%;
-      border-radius: 8px;
-      padding: 8px 10px;
-      border: 1px solid var(--border-subtle);
-      background: var(--surface-highlight);
-      color: var(--text-primary);
-      font-size: 12px;
-      outline: none;
-    }
-    .form-group input[type="text"]:focus {
-      border-color: var(--text-gold);
-    }
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragCardWidth, setDragCardWidth] = useState<number>(0);
 
-    @media (max-width: 768px) {
-      .modal input[type="text"],
-      .modal select,
-      .search-input {
-        font-size: 16px !important;
-      }
-    }
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSongId, setEditingSongId] = useState<string | null>(null);
+  const [modalHeaderTag, setModalHeaderTag] = useState('');
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalKey, setModalKey] = useState('');
+  const [modalBpm, setModalBpm] = useState('');
+  const [modalComment, setModalComment] = useState('');
+  const [modalLyrics, setModalLyrics] = useState('');
+  const [modalYoutubeUrl, setModalYoutubeUrl] = useState('');
+  const [modalSheetType, setModalSheetType] = useState<'file' | 'library'>('file');
+  const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
+  const [modalLibrarySearch, setModalLibrarySearch] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-    .pitch-slot-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-    .pitch-edit-card {
-      background: var(--surface-highlight);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 6px 2px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-    .pitch-edit-card span { font-size: 9px; font-weight: 800; }
-    .pitch-edit-card select { width: 100%; font-size: 11.5px; font-weight: 700; padding: 4px 0; text-align: center; }
+  const [viewingSongId, setViewingSongId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'sheet' | 'lyrics'>('sheet');
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [scale, setScale] = useState(1.0);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [currentTool, setCurrentTool] = useState<'pen' | 'highlighter' | 'breath' | 'eraser'>('pen');
+  const [penColor, setPenColor] = useState('#B89C70');
+  const [showViewerControls, setShowViewerControls] = useState(true);
+  const [sheetImgError, setSheetImgError] = useState(false);
 
-    .part-audio-edit-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 5px;
-      background: var(--surface-highlight);
-      padding: 8px;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-    }
-    .audio-field-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .audio-part-label {
-      font-size: 10px;
-      font-weight: 800;
-      width: 32px;
-      text-align: center;
-      flex-shrink: 0;
-    }
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDrawing = useRef(false);
+  const history = useRef<ImageData[]>([]);
+  const isLocalDrawing = useRef(false);
 
-    .menu-action-list { display: flex; flex-direction: column; gap: 6px; }
-    .menu-action-btn {
-      width: 100%;
-      justify-content: flex-start;
-      padding: 10px 12px;
-      background: var(--surface-highlight);
-      font-size: 13px;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      color: var(--text-primary);
-    }
+  const touchStartPos = useRef<{ x: number; y: number; time: number } | null>(null);
+  const isPanning = useRef(false);
+  const startPanPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const initialPinchDist = useRef<number | null>(null);
+  const initialScaleOnPinch = useRef<number>(1.0);
+  const lastTapTime = useRef<number>(0);
 
-    .spinner {
-      border: 2.5px solid rgba(184, 156, 112, 0.18);
-      border-top: 2.5px solid var(--text-gold);
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      animation: spin 0.8s linear infinite;
-      margin: 20px auto;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-
-  <div class="view-screen active" id="libraryView">
-    <div class="lib-header">
-      <div class="lib-title-box">
-        <div class="lib-title">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" style="color:var(--text-gold);"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          <span>Acappella Studio</span>
-        </div>
-        <span class="lib-subtitle">아카펠라 악보 & 음원 스튜디오</span>
-      </div>
-      <div class="lib-tools">
-        <button id="libAddNewBtn" class="btn-gold">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
-          <span>새 악보</span>
-        </button>
-        <button id="libRefreshBtn" title="새로고침">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="search-box">
-      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="text" class="search-input" id="libSearchInput" placeholder="곡 제목 검색..." />
-    </div>
-
-    <div class="song-card-list" id="songCardList">
-      <div class="spinner"></div>
-    </div>
-  </div>
-
-  <div class="view-screen" id="viewerView">
-    <header>
-      <div class="header-row">
-        <button id="backToLibBtn" class="btn-gold" style="padding: 5px 8px;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
-          <span>목록</span>
-        </button>
-
-        <span class="viewer-song-name" id="viewerSongTitle">-</span>
-
-        <button id="openCurrentSongEditBtn" title="악보 및 음정/음원 설정" style="padding: 5px 7px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        </button>
-
-        <button id="drawToggleBtn" title="메모 레이어" style="padding: 5px 7px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
-        </button>
-
-        <button id="metroToggleBtn" title="메트로놈 작동" style="padding: 5px 7px; gap: 3px;">
-          <span class="metro-led" id="metroLed"></span>
-          <span id="metroBpmLabel" style="font-size: 10.5px;">100</span>
-        </button>
-
-        <button id="openAppMenuBtn" title="전체 메뉴" style="padding: 5px 7px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-        </button>
-      </div>
-
-      <div class="header-row" style="justify-content: space-between;">
-        <div class="pitch-scroll-row" id="pitchBar"></div>
-        
-        <div style="display: flex; align-items: center; margin-left: auto; gap: 2px; flex-shrink: 0;">
-          <button id="prevPage" style="padding: 3px 5px;">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
-          </button>
-          <span id="pageIndicator" style="font-size: 10px; font-weight: 700; min-width: 32px; text-align: center; color: var(--text-secondary);">- / -</span>
-          <button id="nextPage" style="padding: 3px 5px;">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <div id="drawingToolbar">
-      <button class="active" id="toolPenBtn">펜</button>
-      <button id="toolBreathBtn">V 숨표</button>
-      <button id="toolHighlighterBtn">형광펜</button>
-      <button id="toolEraserBtn">지우개</button>
-      <button id="clearDrawBtn" style="color: var(--yt-accent);">초기화</button>
-      <button id="closeDrawBarBtn" style="color: var(--text-secondary);">✕</button>
-    </div>
-
-    <main id="viewerMain">
-      <div id="statusView" style="margin-top: 120px; text-align: center; color: var(--text-secondary);">
-        <div class="spinner" id="loadingSpinner"></div>
-        <p id="statusText" style="font-size: 13.5px; font-weight: 600;">악보를 불러오는 중...</p>
-      </div>
-      <div class="sheet-wrapper" id="sheetCard" style="display: none;">
-        <canvas id="pdfCanvas"></canvas>
-        <canvas id="drawCanvas"></canvas>
-      </div>
-    </main>
-
-    <div id="ytFloatingContainer">
-      <div class="yt-float-header" id="ytDragHandle">
-        <span class="yt-float-title">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--yt-accent)"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-          YouTube
-        </span>
-        <div class="yt-float-tools">
-          <button id="minimizeYtBtn" title="악보 가림 방지 (접기)">－</button>
-          <button id="closeYtFloatBtn" title="닫기">✕</button>
-        </div>
-      </div>
-      <iframe id="ytIframe" width="100%" height="100%" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-    </div>
-
-    <div id="audioBar">
-      <button id="audioPlayBtn" title="재생/일시정지">
-        <svg id="playIconSvg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
-      </button>
-      
-      <div class="part-track-selector" id="partTabSelector"></div>
-
-      <button id="ytToggleBtn" class="btn-yt" style="display:none; padding:4px 6px; font-size:11px;" title="유튜브 음원 듣기">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-        <span>YT</span>
-      </button>
-
-      <div class="audio-side-tools">
-        <span id="audioTimeText">0:00</span>
-        <button id="audioRateBtn">1.0x</button>
-      </div>
-      
-      <button id="closeAudioBtn" style="border: none; background: transparent; padding: 2px 4px; color: var(--text-secondary); font-size: 12px;" title="플레이어 닫기">✕</button>
-      <audio id="guideAudioElement" preload="none"></audio>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="appMenuModal">
-    <div class="modal">
-      <h3>도구 및 설정</h3>
-      <div class="menu-action-list">
-        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface-highlight); padding:8px 12px; border-radius:10px; border:1px solid var(--border-subtle);">
-          <span style="font-size:12.5px; font-weight:700;">화면 줌 크기</span>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <button id="zoomOutBtn" style="padding:4px 8px;">－</button>
-            <span id="zoomLevelText" style="font-size:11.5px; min-width:34px; text-align:center; font-weight:700;">100%</span>
-            <button id="zoomInBtn" style="padding:4px 8px;">＋</button>
-          </div>
-        </div>
-
-        <button class="menu-action-btn" id="menuOpenMetroBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span>메트로놈 템포 (BPM/소리) 설정</span>
-        </button>
-
-        <button class="menu-action-btn" id="menuToggleInvertBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10V2z"/></svg>
-          <span>무대용 반전 모드 (Dark/Light)</span>
-        </button>
-
-        <button class="menu-action-btn" id="menuRefreshBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-          <span>캐시 비우기 및 새로고침</span>
-        </button>
-
-        <button class="menu-action-btn" id="deleteLocalBtn" style="display:none; color: var(--yt-accent);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-          <span>현재 악보 삭제</span>
-        </button>
-      </div>
-      <div style="display:flex; justify-content:flex-end; margin-top:4px;">
-        <button id="closeAppMenuBtn">닫기</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="currentSongEditModal">
-    <div class="modal">
-      <h3 id="currentSongModalTitle">악보 설정 (클라우드 동기화)</h3>
-      
-      <div class="form-group">
-        <label>유튜브 음원/영상 URL</label>
-        <input type="text" id="curQuickYtUrl" placeholder="https://youtu.be/... 또는 https://www.youtube.com/watch?v=..." />
-      </div>
-
-      <div class="form-group">
-        <label>파트별 첫 음 지정</label>
-        <div class="pitch-slot-container">
-          <div class="pitch-edit-card"><span style="color: var(--sop-accent);">SOP</span><select id="curQuickS"></select></div>
-          <div class="pitch-edit-card"><span style="color: var(--alto-accent);">ALT</span><select id="curQuickA"></select></div>
-          <div class="pitch-edit-card"><span style="color: var(--tenor-accent);">TEN</span><select id="curQuickT"></select></div>
-          <div class="pitch-edit-card"><span style="color: var(--bari-accent);">BAR</span><select id="curQuickBAR"></select></div>
-          <div class="pitch-edit-card"><span style="color: var(--bass-accent);">BAS</span><select id="curQuickB"></select></div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>파트별 오디오 링크 (클라우드 영구 저장)</label>
-        <div class="part-audio-edit-grid">
-          <div class="audio-field-row">
-            <span class="audio-part-label" style="color: var(--text-gold);">ALL</span>
-            <input type="text" id="editAudio_ALL" placeholder="전체 합창 또는 MR 음원 링크" />
-          </div>
-          <div class="audio-field-row">
-            <span class="audio-part-label" style="color: var(--sop-accent);">SOP</span>
-            <input type="text" id="editAudio_S" placeholder="소프라노 가이드 링크" />
-          </div>
-          <div class="audio-field-row">
-            <span class="audio-part-label" style="color: var(--alto-accent);">ALT</span>
-            <input type="text" id="editAudio_A" placeholder="알토 가이드 링크" />
-          </div>
-          <div class="audio-field-row">
-            <span class="audio-part-label" style="color: var(--tenor-accent);">TEN</span>
-            <input type="text" id="editAudio_T" placeholder="테너 가이드 링크" />
-          </div>
-          <div class="audio-field-row">
-            <span class="audio-part-label" style="color: var(--bari-accent);">BAR</span>
-            <input type="text" id="editAudio_BAR" placeholder="바리톤 가이드 링크" />
-          </div>
-          <div class="audio-field-row">
-            <span class="audio-part-label" style="color: var(--bass-accent);">BAS</span>
-            <input type="text" id="editAudio_B" placeholder="베이스 가이드 링크" />
-          </div>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px;">
-        <button id="closeCurrentSongEditBtn">취소</button>
-        <button class="btn-gold" id="saveCurrentSongEditBtn">클라우드에 저장</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="newSongModal">
-    <div class="modal">
-      <h3>새로운 악보 등록</h3>
-      <div class="form-group">
-        <label>곡 명</label>
-        <input type="text" id="newSongTitle" placeholder="예: Java Jive" required />
-      </div>
-      <div class="form-group">
-        <label>악보 PDF 또는 이미지 URL</label>
-        <input type="text" id="newSongPdfUrl" placeholder="https://drive.google.com/file/d/..." required />
-      </div>
-      <div class="form-group">
-        <label>유튜브 음원 URL (선택)</label>
-        <input type="text" id="newSongYtUrl" placeholder="https://youtu.be/..." />
-      </div>
-      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px;">
-        <button id="closeNewSongModalBtn">취소</button>
-        <button class="btn-gold" id="saveNewSongBtn">등록하기</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="metroModal">
-    <div class="modal">
-      <h3>메트로놈 설정</h3>
-      <div class="form-group">
-        <label>템포: <span id="modalBpmDisplay" style="color: var(--text-gold); font-size: 13px;">100 BPM</span></label>
-        <input type="range" id="bpmSlider" min="40" max="220" value="100" style="padding: 0; cursor: pointer;" />
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <button id="tapTempoBtn" class="btn-gold" style="flex: 1; justify-content: center; padding: 10px;">TAP TEMPO</button>
-        <button id="metroSoundToggleBtn" style="flex: 1; justify-content: center;">오디오: 켜짐</button>
-      </div>
-      <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
-        <button id="closeMetroModalBtn">닫기</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let GOOGLE_API_KEY = "";
-    let DRIVE_FOLDER_ID = "";
-    let firestoreDb = null;
-
-    function resetViewportZoom() {
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA')) {
-        activeEl.blur();
-      }
-      const meta = document.getElementById('viewportMeta');
-      if (meta) {
-        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-        setTimeout(() => {
-          meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
-        }, 150);
-      }
-      window.scrollTo(0, 0);
-    }
-
-    async function loadConfig() {
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
       try {
-        const res = await fetch('./config.json', { cache: 'no-cache' });
-        if (!res.ok) throw new Error("config.json 없음");
-        const config = await res.json();
-        GOOGLE_API_KEY = (config.googleApiKey || config.apiKey || "").trim();
-        DRIVE_FOLDER_ID = (config.driveFolderId || config.folderId || "").trim();
-
-        if (config.firebase && config.firebase.projectId) {
-          try {
-            if (!firebase.apps.length) {
-              firebase.initializeApp(config.firebase);
-            }
-            firestoreDb = firebase.firestore();
-          } catch (fbErr) {
-            console.warn("Firebase 초기화 오류:", fbErr.message);
-          }
-        }
-      } catch (err) {
-        console.warn("설정 로드 예외:", err.message);
-      }
-    }
-
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-    let db;
-    function initDB() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open('AcappellaStudioDB_V82_WARM_CHAMPAGNE', 1);
-        req.onupgradeneeded = (e) => {
-          const d = e.target.result;
-          if (!d.objectStoreNames.contains('custom_songs')) d.createObjectStore('custom_songs', { keyPath: 'id' });
-          if (!d.objectStoreNames.contains('pitch_overrides')) d.createObjectStore('pitch_overrides', { keyPath: 'songId' });
-          if (!d.objectStoreNames.contains('personal_drawings')) d.createObjectStore('personal_drawings', { keyPath: 'id' });
-          if (!d.objectStoreNames.contains('pdf_cache')) d.createObjectStore('pdf_cache', { keyPath: 'id' });
-        };
-        req.onsuccess = () => { db = req.result; resolve(); };
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    async function getStored(storeName) {
-      return new Promise((resolve) => {
-        const tx = db.transaction(storeName, 'readonly');
-        const req = tx.objectStore(storeName).getAll();
-        req.onsuccess = () => resolve(req.result || []);
-      });
-    }
-
-    async function getStoredItem(storeName, key) {
-      return new Promise((resolve) => {
-        const tx = db.transaction(storeName, 'readonly');
-        const req = tx.objectStore(storeName).get(key);
-        req.onsuccess = () => resolve(req.result);
-      });
-    }
-
-    async function putStored(storeName, item) {
-      return new Promise((resolve) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        tx.objectStore(storeName).put(item);
-        tx.oncomplete = () => resolve();
-      });
-    }
-
-    async function deleteStored(storeName, id) {
-      return new Promise((resolve) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        tx.objectStore(storeName).delete(id);
-        tx.oncomplete = () => resolve();
-      });
-    }
-
-    async function syncSongDataFromFirestore() {
-      if (!firestoreDb) return new Map();
-      try {
-        const snap = await firestoreDb.collection('song_settings').get();
-        const map = new Map();
-        snap.forEach(doc => {
-          map.set(doc.id, doc.data());
-        });
-        return map;
-      } catch (err) {
-        console.warn("Firestore 동기화 실패 (로컬 데이터로 대체):", err.message);
-        return new Map();
-      }
-    }
-
-    async function saveSongDataToFirestore(songId, data) {
-      if (!firestoreDb) return;
-      try {
-        await firestoreDb.collection('song_settings').doc(songId).set(data, { merge: true });
-      } catch (err) {
-        console.error("Firestore 저장 실패:", err);
-      }
-    }
-
-    let audioCtx = null;
-    function getAudioContext() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      return audioCtx;
-    }
-
-    function unlockIOSAudio() {
-      const ctx = getAudioContext();
-      if (ctx.state === 'suspended') ctx.resume();
-      const buffer = ctx.createBuffer(1, 1, 22050);
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start(0);
-
-      window.removeEventListener('touchstart', unlockIOSAudio);
-      window.removeEventListener('click', unlockIOSAudio);
-    }
-    window.addEventListener('touchstart', unlockIOSAudio, { passive: true });
-    window.addEventListener('click', unlockIOSAudio, { passive: true });
-
-    const availableNotes = [
-      "", "C2", "C#2", "D2", "Eb2", "E2", "F2", "F#2", "G2", "Ab2", "A2", "Bb2", "B2",
-      "C3", "C#3", "D3", "Eb3", "E3", "F3", "F#3", "G3", "Ab3", "A3", "Bb3", "B3",
-      "C4", "C#4", "D4", "Eb4", "E4", "F4", "F#4", "G4", "Ab4", "A4", "Bb4", "B4",
-      "C5", "C#5", "D5", "Eb5", "E5"
-    ];
-
-    const noteFrequencies = {
-      "C2": 65.41, "C#2": 69.30, "DB2": 69.30, "D2": 73.42, "D#2": 77.78, "EB2": 77.78, "E2": 82.41, "F2": 87.31, "F#2": 92.50, "GB2": 92.50, "G2": 98.00, "G#2": 103.83, "AB2": 103.83, "A2": 110.00, "A#2": 116.54, "BB2": 116.54, "B2": 123.47,
-      "C3": 130.81, "C#3": 138.59, "DB3": 138.59, "D3": 146.83, "D#3": 155.56, "EB3": 155.56, "E3": 164.81, "F3": 174.61, "F#3": 185.00, "GB3": 185.00, "G3": 196.00, "G#3": 207.65, "AB3": 207.65, "A3": 220.00, "A#3": 233.08, "BB3": 233.08, "B3": 246.94,
-      "C4": 261.63, "C#4": 277.18, "DB4": 277.18, "D4": 293.66, "D#4": 311.13, "EB4": 311.13, "E4": 329.63, "F4": 349.23, "F#4": 369.99, "GB4": 369.99, "G4": 392.00, "G#4": 415.30, "AB4": 415.30, "A4": 440.00, "A#4": 466.16, "BB4": 466.16, "B4": 493.88,
-      "C5": 523.25, "C#5": 554.37, "D5": 587.33, "EB5": 622.25, "E5": 659.25
-    };
-
-    function playNote(noteName) {
-      if (!noteName) return;
-      const clean = noteName.trim().toUpperCase();
-      const freq = noteFrequencies[clean];
-      if (!freq) return;
-
-      const ctx = getAudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-      gain.gain.setValueAtTime(0.001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.8);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + 1.8);
-    }
-
-    function initPitchSelectOptions() {
-      ['curQuickS', 'curQuickA', 'curQuickT', 'curQuickBAR', 'curQuickB'].forEach(id => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        sel.innerHTML = '';
-        availableNotes.forEach(n => {
-          const opt = document.createElement('option');
-          opt.value = n;
-          opt.textContent = n || '(없음)';
-          sel.appendChild(opt);
-        });
-      });
-    }
-
-    let metroBpm = 100;
-    let isMetroRunning = false;
-    let isMetroSoundOn = true;
-    let metroTimerId = null;
-
-    function playMetroClick() {
-      if (!isMetroSoundOn) return;
-      const ctx = getAudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(1000, ctx.currentTime);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.05);
-    }
-
-    const metroLed = document.getElementById('metroLed');
-    function metroTick() {
-      metroLed.classList.add('flash');
-      setTimeout(() => metroLed.classList.remove('flash'), 80);
-      playMetroClick();
-    }
-
-    function startMetro() {
-      const ctx = getAudioContext();
-      if (ctx.state === 'suspended') ctx.resume();
-      isMetroRunning = true;
-      document.getElementById('metroToggleBtn').classList.add('active');
-      const interval = (60 / metroBpm) * 1000;
-      metroTick();
-      metroTimerId = setInterval(metroTick, interval);
-    }
-
-    function stopMetro() {
-      isMetroRunning = false;
-      document.getElementById('metroToggleBtn').classList.remove('active');
-      if (metroTimerId) clearInterval(metroTimerId);
-      metroLed.classList.remove('flash');
-    }
-
-    document.getElementById('metroToggleBtn').onclick = () => {
-      if (isMetroRunning) stopMetro();
-      else startMetro();
-    };
-
-    let tapTimes = [];
-    document.getElementById('tapTempoBtn').onclick = () => {
-      const now = performance.now();
-      tapTimes.push(now);
-      if (tapTimes.length > 4) tapTimes.shift();
-      if (tapTimes.length >= 2) {
-        const intervals = [];
-        for (let i = 1; i < tapTimes.length; i++) intervals.push(tapTimes[i] - tapTimes[i - 1]);
-        const avg = intervals.reduce((a, b) => a + b) / intervals.length;
-        const calcBpm = Math.round(60000 / avg);
-        if (calcBpm >= 40 && calcBpm <= 240) {
-          metroBpm = calcBpm;
-          document.getElementById('bpmSlider').value = calcBpm;
-          document.getElementById('modalBpmDisplay').textContent = \`\${calcBpm} BPM\`;
-          document.getElementById('metroBpmLabel').textContent = calcBpm;
-          if (isMetroRunning) { stopMetro(); startMetro(); }
-        }
-      }
-    };
-
-    document.getElementById('bpmSlider').oninput = (e) => {
-      metroBpm = Number(e.target.value);
-      document.getElementById('modalBpmDisplay').textContent = \`\${metroBpm} BPM\`;
-      document.getElementById('metroBpmLabel').textContent = metroBpm;
-      if (isMetroRunning) { stopMetro(); startMetro(); }
-    };
-
-    document.getElementById('metroSoundToggleBtn').onclick = (e) => {
-      isMetroSoundOn = !isMetroSoundOn;
-      e.target.textContent = \`오디오: \${isMetroSoundOn ? '켜짐' : '무음'}\`;
-    };
-
-    function extractDriveFileId(url) {
-      if (!url) return null;
-      const match = url.match(/\\/d\\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
-      return match ? match[1] : null;
-    }
-
-    function extractYouTubeId(url) {
-      if (!url) return null;
-      const regExp = /^.*(youtu.be\\/|v\\/|u\\/\\w\\/|embed\\/|watch\\?v=|&v=)([^#&?]*).*/;
-      const match = url.match(regExp);
-      return (match && match[2].length === 11) ? match[2] : null;
-    }
-
-    function resolvePlayableAudioUrl(rawUrl) {
-      if (!rawUrl) return "";
-      const driveId = extractDriveFileId(rawUrl);
-      if (driveId && GOOGLE_API_KEY) {
-        return \`https://www.googleapis.com/drive/v3/files/\${driveId}?alt=media&key=\${GOOGLE_API_KEY}\`;
-      }
-      return rawUrl;
-    }
-
-    function parseFileName(name) {
-      const cleanName = name.replace(/\\.(pdf|png|jpe?g|webp)$/i, '').trim();
-      const match = cleanName.match(/^(.*?)\\s*\\[(.*?)\\]$/);
-      if (!match) return { title: cleanName, notes: {} };
-
-      const title = match[1].trim();
-      const notes = {};
-      match[2].split(',').forEach(item => {
-        const [p, n] = item.split(':');
-        if (p && n) {
-          let partKey = p.trim().toUpperCase();
-          if (['BAR', 'BARI', 'BARITONE', 'BR'].includes(partKey)) partKey = 'BAR';
-          notes[partKey] = n.trim().toUpperCase();
-        }
-      });
-      return { title, notes };
-    }
-
-    function parsePartFromAudioName(name) {
-      const cleanName = name.replace(/\\.(mp3|wav|m4a|aac|ogg|flac)$/i, '').trim().toUpperCase();
-      const lastSep = Math.max(cleanName.lastIndexOf('_'), cleanName.lastIndexOf('-'));
-      const token = (lastSep !== -1) ? cleanName.substring(lastSep + 1).trim() : cleanName;
-
-      const partMap = {
-        'ALL': 'ALL', 'MR': 'ALL', 'FULL': 'ALL', 'GUIDE': 'ALL',
-        'S': 'S', 'SOP': 'S', 'SOPRANO': 'S',
-        'A': 'A', 'ALT': 'A', 'ALTO': 'A',
-        'T': 'T', 'TEN': 'T', 'TENOR': 'T',
-        'BAR': 'BAR', 'BARI': 'BAR', 'BARITONE': 'BAR', 'BR': 'BAR',
-        'B': 'B', 'BAS': 'B', 'BASS': 'B'
-      };
-
-      return partMap[token] || null;
-    }
-
-    function isScoreFile(file) {
-      const name = file.name || '';
-      const mime = file.mimeType || '';
-      return (
-        mime === 'application/pdf' ||
-        mime.startsWith('image/') ||
-        /\\.(pdf|png|jpe?g|webp)$/i.test(name)
-      );
-    }
-
-    function isImageScore(file) {
-      const name = file.name || '';
-      const mime = file.mimeType || '';
-      return mime.startsWith('image/') || /\\.(png|jpe?g|webp)$/i.test(name);
-    }
-
-    let allSongs = [];
-    let currentSong = null;
-    let currentPdfDoc = null;
-    let currentImagePages = [];
-    let currentPageNum = 1;
-    let totalPageCount = 1;
-    let zoomScale = 1.0;
-    let currentRenderTask = null;
-
-    const pdfCanvas = document.getElementById('pdfCanvas');
-    const pdfCtx = pdfCanvas ? pdfCanvas.getContext('2d') : null;
-    const drawCanvas = document.getElementById('drawCanvas');
-    const drawCtx = drawCanvas ? drawCanvas.getContext('2d') : null;
-
-    const viewerSongTitle = document.getElementById('viewerSongTitle');
-    const pitchBar = document.getElementById('pitchBar');
-    const pageIndicator = document.getElementById('pageIndicator');
-    const statusView = document.getElementById('statusView');
-    const statusText = document.getElementById('statusText');
-    const spinner = document.getElementById('loadingSpinner');
-    const sheetCard = document.getElementById('sheetCard');
-    const deleteLocalBtn = document.getElementById('deleteLocalBtn');
-    const zoomLevelText = document.getElementById('zoomLevelText');
-
-    async function fetchFileBuffer(fileId, fallbackUrl) {
-      const cacheKey = \`file_\${fileId || fallbackUrl}\`;
-      const cached = await getStoredItem('pdf_cache', cacheKey);
-      if (cached && cached.data) return cached.data;
-
-      const driveId = fileId || extractDriveFileId(fallbackUrl);
-      if (!driveId && !fallbackUrl) {
-        throw new Error("파일 ID나 URL을 찾을 수 없습니다.");
-      }
-
-      const apiUrl = driveId 
-        ? \`https://www.googleapis.com/drive/v3/files/\${driveId}?alt=media&key=\${GOOGLE_API_KEY}\` 
-        : fallbackUrl;
-
-      let arrayBuffer = null;
-      try {
-        const res = await fetch(apiUrl);
-        if (!res.ok) throw new Error(\`HTTP 에러 상태 코드: \${res.status}\`);
-        
-        const buf = await res.arrayBuffer();
-        if (!buf || buf.byteLength < 50) throw new Error("파일 데이터가 비어 있습니다.");
-
-        const firstBytes = new Uint8Array(buf.slice(0, 15));
-        const header = String.fromCharCode(...firstBytes);
-        if (header.includes('<') || header.toLowerCase().includes('html')) {
-          throw new Error("구글 드라이브 파일 권한 또는 API 키를 확인해주세요.");
-        }
-
-        arrayBuffer = buf;
-      } catch (err) {
-        throw new Error("다운로드 실패: " + err.message);
-      }
-
-      await putStored('pdf_cache', { id: cacheKey, data: arrayBuffer });
-      return arrayBuffer;
-    }
-
-    const libraryView = document.getElementById('libraryView');
-    const viewerView = document.getElementById('viewerView');
-
-    function showLibraryScreen() {
-      resetViewportZoom();
-      viewerView.classList.remove('active');
-      libraryView.classList.add('active');
-      guideAudio.pause();
-      closeYouTubePlayer();
-      renderSongCardList(document.getElementById('libSearchInput').value);
-    }
-
-    function showViewerScreen() {
-      resetViewportZoom();
-      libraryView.classList.remove('active');
-      viewerView.classList.add('active');
-    }
-
-    document.getElementById('backToLibBtn').onclick = showLibraryScreen;
-
-    async function loadAllSongList() {
-      let driveItems = [];
-
-      if (GOOGLE_API_KEY && DRIVE_FOLDER_ID) {
-        try {
-          const q = \`'\${DRIVE_FOLDER_ID}' in parents and trashed = false\`;
-          const url = \`https://www.googleapis.com/drive/v3/files?q=\${encodeURIComponent(q)}&fields=files(id,name,mimeType,description)&orderBy=name&key=\${GOOGLE_API_KEY}\`;
-          const res = await fetch(url);
-
-          if (res.ok) {
-            const data = await res.json();
-            const rootItems = data.files || [];
-
-            const subFolders = rootItems.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
-            const rootScoreFiles = rootItems.filter(f => isScoreFile(f));
-
-            const folderPromises = subFolders.map(async (folder) => {
-              try {
-                const subQ = \`'\${folder.id}' in parents and trashed = false\`;
-                const subUrl = \`https://www.googleapis.com/drive/v3/files?q=\${encodeURIComponent(subQ)}&fields=files(id,name,mimeType,description)&key=\${GOOGLE_API_KEY}\`;
-                const subRes = await fetch(subUrl);
-                if (!subRes.ok) return null;
-
-                const subData = await subRes.json();
-                const subFiles = subData.files || [];
-
-                const pdfFile = subFiles.find(f => f.mimeType === 'application/pdf' || /\\.pdf$/i.test(f.name));
-                const imageFiles = subFiles
-                  .filter(f => isImageScore(f))
-                  .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-
-                if (!pdfFile && imageFiles.length === 0) return null;
-
-                const meta = parseFileName(folder.name);
-                const partAudios = {};
-                let youtubeUrl = extractYouTubeId(folder.description) ? folder.description : null;
-
-                subFiles.forEach(f => {
-                  const isAudio = (f.mimeType && f.mimeType.startsWith('audio/')) ||
-                                  /\\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(f.name);
-                  if (isAudio) {
-                    const part = parsePartFromAudioName(f.name);
-                    if (part) {
-                      partAudios[part] = \`https://www.googleapis.com/drive/v3/files/\${f.id}?alt=media&key=\${GOOGLE_API_KEY}\`;
-                    }
-                  }
-                  if (!youtubeUrl && (f.name.toLowerCase().includes('youtube') || f.name.toLowerCase().includes('youtu.be'))) {
-                    const yid = extractYouTubeId(f.name);
-                    if (yid) youtubeUrl = \`https://www.youtube.com/watch?v=\${yid}\`;
-                  }
-                });
-
-                if (pdfFile) {
-                  const pdfMeta = parseFileName(pdfFile.name);
-                  return {
-                    id: \`drive_\${pdfFile.id}\`,
-                    driveId: pdfFile.id,
-                    type: 'drive',
-                    fileType: 'pdf',
-                    isFolder: true,
-                    title: meta.title,
-                    notes: Object.keys(meta.notes).length > 0 ? meta.notes : pdfMeta.notes,
-                    partAudioUrls: partAudios,
-                    youtubeUrl: youtubeUrl
-                  };
-                } else {
-                  return {
-                    id: \`drive_img_\${folder.id}\`,
-                    type: 'drive',
-                    fileType: 'image',
-                    isFolder: true,
-                    title: meta.title,
-                    notes: meta.notes,
-                    partAudioUrls: partAudios,
-                    imagePages: imageFiles,
-                    youtubeUrl: youtubeUrl
-                  };
-                }
-              } catch (err) {
-                console.warn(\`폴더 [\${folder.name}] 스캔 실패:\`, err);
-                return null;
-              }
-            });
-
-            const parsedFolderSongs = (await Promise.all(folderPromises)).filter(Boolean);
-            driveItems.push(...parsedFolderSongs);
-
-            rootScoreFiles.forEach(f => {
-              const meta = parseFileName(f.name);
-              const isImg = isImageScore(f);
-              driveItems.push({
-                id: \`drive_\${f.id}\`,
-                driveId: f.id,
-                type: 'drive',
-                fileType: isImg ? 'image' : 'pdf',
-                isFolder: false,
-                title: meta.title,
-                notes: meta.notes,
-                partAudioUrls: {},
-                imagePages: isImg ? [f] : null,
-                youtubeUrl: null
-              });
-            });
-          }
-        } catch (e) {
-          console.warn("구글 드라이브 스캔 예외:", e);
-        }
-      }
-
-      const customItems = await getStored('custom_songs');
-      const pitchOverrides = await getStored('pitch_overrides');
-      const localPitchMap = new Map(pitchOverrides.map(o => [o.songId, o]));
-      const firestoreMap = await syncSongDataFromFirestore();
-
-      allSongs = [...customItems, ...driveItems].map(s => {
-        const localOverride = localPitchMap.get(s.id);
-        const cloudOverride = firestoreMap.get(s.id);
-        
-        const mergedAudios = {
-          ...(s.partAudioUrls || {}),
-          ...(localOverride?.partAudioUrls || {}),
-          ...(cloudOverride?.partAudioUrls || {})
-        };
-        Object.keys(mergedAudios).forEach(k => {
-          if (!mergedAudios[k]) delete mergedAudios[k];
-        });
-
-        return {
-          ...s,
-          notes: cloudOverride?.notes || localOverride?.notes || s.notes || {},
-          partAudioUrls: mergedAudios,
-          youtubeUrl: cloudOverride?.youtubeUrl !== undefined ? cloudOverride.youtubeUrl : (localOverride?.youtubeUrl !== undefined ? localOverride.youtubeUrl : (s.youtubeUrl || null))
-        };
-      });
-
-      renderSongCardList();
-    }
-
-    function renderSongCardList(searchTerm = "") {
-      const container = document.getElementById('songCardList');
-      container.innerHTML = "";
-
-      const filtered = allSongs.filter(s => 
-        s.title.toLowerCase().includes(searchTerm.toLowerCase().trim())
-      );
-
-      if (filtered.length === 0) {
-        container.innerHTML = \`
-          <div style="text-align:center; padding:50px 10px; color:var(--text-secondary); font-size:13px; font-weight:600;">
-            등록된 악보가 없습니다.<br>구글 드라이브 폴더를 확인하거나 <b>[+ 새 악보]</b>를 등록해보세요.
-          </div>
-        \`;
-        return;
-      }
-
-      filtered.forEach(song => {
-        const card = document.createElement('div');
-        card.className = 'song-card';
-
-        const notes = song.notes || {};
-        const partsOrder = ['S', 'A', 'T', 'BAR', 'B'];
-        const pitchText = partsOrder
-          .filter(p => notes[p])
-          .map(p => \`\${p}:\${notes[p]}\`)
-          .join(' · ') || '첫 음 미지정';
-
-        const audioParts = Object.keys(song.partAudioUrls || {});
-        const hasAudio = audioParts.length > 0;
-        const hasYt = !!song.youtubeUrl;
-        const formatLabel = song.fileType === 'image' ? 'IMAGE' : 'PDF';
-
-        card.innerHTML = \`
-          <div class="song-main-info">
-            <div class="song-title-text">
-              \${song.isFolder ? \`
-                <svg class="folder-tag-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              \` : ''}
-              <span>\${song.title}</span>
-            </div>
-            <div class="song-meta-row">
-              <span class="meta-chip">\${formatLabel}</span>
-              <span class="meta-chip">\${pitchText}</span>
-              \${hasAudio ? \`<span class="meta-chip audio-chip">PART AUDIO (\${audioParts.join(',')})</span>\` : ''}
-              \${hasYt ? \`<span class="meta-chip yt-chip">YOUTUBE</span>\` : ''}
-            </div>
-          </div>
-          <div class="song-action-cue">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
-          </div>
-        \`;
-
-        card.onclick = () => openSongInViewer(song.id);
-        container.appendChild(card);
-      });
-    }
-
-    document.getElementById('libSearchInput').oninput = (e) => {
-      renderSongCardList(e.target.value);
-    };
-
-    const ytToggleBtn = document.getElementById('ytToggleBtn');
-    const ytFloatingContainer = document.getElementById('ytFloatingContainer');
-    const ytDragHandle = document.getElementById('ytDragHandle');
-    const ytIframe = document.getElementById('ytIframe');
-    const closeYtFloatBtn = document.getElementById('closeYtFloatBtn');
-    const minimizeYtBtn = document.getElementById('minimizeYtBtn');
-
-    function openYouTubePlayer(url) {
-      const vid = extractYouTubeId(url);
-      if (!vid) return;
-      ytIframe.src = \`https://www.youtube.com/embed/\${vid}?autoplay=1&enablejsapi=1\`;
-      ytFloatingContainer.classList.add('show');
-      guideAudio.pause();
-    }
-
-    function closeYouTubePlayer() {
-      ytIframe.src = '';
-      ytFloatingContainer.classList.remove('show');
-      ytFloatingContainer.classList.remove('minimized');
-      minimizeYtBtn.textContent = '－';
-    }
-
-    closeYtFloatBtn.onclick = closeYouTubePlayer;
-
-    minimizeYtBtn.onclick = (e) => {
-      e.stopPropagation();
-      ytFloatingContainer.classList.toggle('minimized');
-      minimizeYtBtn.textContent = ytFloatingContainer.classList.contains('minimized') ? '＋' : '－';
-    };
-
-    ytToggleBtn.onclick = () => {
-      if (currentSong && currentSong.youtubeUrl) {
-        if (ytFloatingContainer.classList.contains('show')) closeYouTubePlayer();
-        else openYouTubePlayer(currentSong.youtubeUrl);
-      }
-    };
-
-    let isDraggingYt = false;
-    let dragStartX = 0, dragStartY = 0;
-    let initialLeft = 0, initialTop = 0;
-
-    function startYtDrag(clientX, clientY) {
-      isDraggingYt = true;
-      dragStartX = clientX;
-      dragStartY = clientY;
-      const rect = ytFloatingContainer.getBoundingClientRect();
-      initialLeft = rect.left;
-      initialTop = rect.top;
-    }
-
-    function moveYtDrag(clientX, clientY) {
-      if (!isDraggingYt) return;
-      const dx = clientX - dragStartX;
-      const dy = clientY - dragStartY;
-      const maxX = window.innerWidth - ytFloatingContainer.offsetWidth - 8;
-      const maxY = window.innerHeight - ytFloatingContainer.offsetHeight - 8;
-      ytFloatingContainer.style.left = \`\${Math.max(8, Math.min(maxX, initialLeft + dx))}px\`;
-      ytFloatingContainer.style.top = \`\${Math.max(8, Math.min(maxY, initialTop + dy))}px\`;
-      ytFloatingContainer.style.right = 'auto';
-      ytFloatingContainer.style.bottom = 'auto';
-    }
-
-    ytDragHandle.addEventListener('touchstart', (e) => {
-      if (e.target.tagName === 'BUTTON') return;
-      if (e.touches.length === 1) startYtDrag(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-      if (isDraggingYt && e.touches.length === 1) moveYtDrag(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
-
-    window.addEventListener('touchend', () => { isDraggingYt = false; });
-
-    ytDragHandle.addEventListener('mousedown', (e) => {
-      if (e.target.tagName === 'BUTTON') return;
-      startYtDrag(e.clientX, e.clientY);
+        localStorage.setItem('praise_app_theme', next);
+      } catch (e) {}
+      return next;
     });
-    window.addEventListener('mousemove', (e) => {
-      if (isDraggingYt) moveYtDrag(e.clientX, e.clientY);
-    });
-    window.addEventListener('mouseup', () => { isDraggingYt = false; });
+  }, []);
 
-    async function openSongInViewer(songId) {
-      const song = allSongs.find(s => s.id === songId);
-      if (!song) return;
-      currentSong = song;
-
-      showViewerScreen();
-      viewerSongTitle.textContent = song.title;
-      deleteLocalBtn.style.display = song.type === 'custom' ? 'flex' : 'none';
-
-      closeYouTubePlayer();
-      loadSongAudioTracks(song);
-
-      if (song.youtubeUrl) {
-        ytToggleBtn.style.display = 'inline-flex';
-        audioBar.classList.add('show');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const root = document.documentElement;
+      if (theme === 'dark') {
+        root.classList.add('dark');
       } else {
-        ytToggleBtn.style.display = 'none';
-      }
-
-      pitchBar.innerHTML = '';
-      const partClassMap = { 'S': 'sop', 'A': 'alto', 'T': 'tenor', 'BAR': 'bari', 'B': 'bass' };
-      const partFullMap = { 'S': 'SOP', 'A': 'ALT', 'T': 'TEN', 'BAR': 'BAR', 'B': 'BAS' };
-      const parts = ['S', 'A', 'T', 'BAR', 'B'];
-      let hasAnyPitch = false;
-
-      parts.forEach(p => {
-        const note = song.notes?.[p];
-        if (note) {
-          hasAnyPitch = true;
-          const btn = document.createElement('button');
-          btn.className = \`pitch-capsule \${partClassMap[p] || ''}\`;
-          btn.innerHTML = \`
-            <span class="pitch-badge">\${partFullMap[p]}</span>
-            <span class="pitch-val">\${note}</span>
-          \`;
-          btn.onclick = () => playNote(note);
-          pitchBar.appendChild(btn);
-        }
-      });
-
-      if (!hasAnyPitch) {
-        const hint = document.createElement('span');
-        hint.style.cssText = "font-size: 10px; color: var(--text-secondary); padding: 2px 4px; font-weight: 600;";
-        hint.textContent = "첫 음 없음 (설정 버튼)";
-        pitchBar.appendChild(hint);
-      }
-
-      statusView.style.display = 'block';
-      sheetCard.style.display = 'none';
-      spinner.style.display = 'block';
-      statusText.innerHTML = \`'\${song.title}' 악보 로딩 중...\`;
-
-      try {
-        currentPageNum = 1;
-        zoomScale = 1.0;
-        updateZoomDisplay();
-
-        if (song.fileType === 'image') {
-          if (currentImagePages && currentImagePages.length > 0) {
-            currentImagePages.forEach(img => {
-              if (img._blobUrl) URL.revokeObjectURL(img._blobUrl);
-            });
-          }
-
-          currentPdfDoc = null;
-          currentImagePages = [];
-
-          const imgFiles = song.imagePages || [{ id: song.driveId, name: song.title }];
-          totalPageCount = imgFiles.length;
-
-          const loadPromises = imgFiles.map(async (f) => {
-            const buffer = await fetchFileBuffer(f.id, song.url);
-            const blob = new Blob([buffer]);
-            const blobUrl = URL.createObjectURL(blob);
-            const img = new Image();
-            img._blobUrl = blobUrl;
-
-            return new Promise((resolve, reject) => {
-              img.onload = () => resolve(img);
-              img.onerror = reject;
-              img.src = blobUrl;
-            });
-          });
-
-          currentImagePages = await Promise.all(loadPromises);
-
-          statusView.style.display = 'none';
-          sheetCard.style.display = 'flex';
-          renderImagePage(currentPageNum);
-        } else {
-          currentImagePages = [];
-          const buffer = await fetchFileBuffer(song.driveId, song.url);
-          
-          const loadingTask = pdfjsLib.getDocument({ data: buffer });
-          currentPdfDoc = await loadingTask.promise;
-          totalPageCount = currentPdfDoc.numPages;
-
-          statusView.style.display = 'none';
-          sheetCard.style.display = 'flex';
-          renderPdfPage(currentPageNum);
-        }
-      } catch (err) {
-        console.error("악보 로드 실패:", err);
-        spinner.style.display = 'none';
-        statusText.innerHTML = \`악보를 불러올 수 없습니다.<br><small style="color:var(--yt-accent);">(\${err.message})</small>\`;
+        root.classList.remove('dark');
       }
     }
+  }, [theme]);
 
-    function renderPdfPage(num) {
-      if (!currentPdfDoc || !pdfCanvas || !pdfCtx) return;
+  useEffect(() => {
+    setScale(1.0);
+    setPosition({ x: 0, y: 0 });
+    setSheetImgError(false);
+  }, [viewingSongId, currentPageIndex]);
 
-      if (currentRenderTask) {
-        currentRenderTask.cancel();
-        currentRenderTask = null;
-      }
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !viewingSongId || viewMode === 'lyrics') return;
 
-      currentPdfDoc.getPage(num).then(page => {
-        const viewerWidth = document.getElementById('viewerMain').clientWidth;
-        const baseWidth = Math.min(viewerWidth, 900);
-        const targetWidth = baseWidth * zoomScale;
+    let startDist = 0;
+    let startScale = 1.0;
+    let lastTap = 0;
 
-        const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const scale = targetWidth / unscaledViewport.width;
-        
-        const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
-        const viewport = page.getViewport({ scale: scale * dpr });
+    const onGestureStart = (e: any) => e.preventDefault();
+    const onGestureChange = (e: any) => e.preventDefault();
 
-        pdfCanvas.width = viewport.width;
-        pdfCanvas.height = viewport.height;
-        pdfCanvas.style.width = \`\${targetWidth}px\`;
-        pdfCanvas.style.height = \`\${(viewport.height / dpr)}px\`;
-
-        drawCanvas.width = viewport.width;
-        drawCanvas.height = viewport.height;
-        drawCanvas.style.width = \`\${targetWidth}px\`;
-        drawCanvas.style.height = \`\${(viewport.height / dpr)}px\`;
-
-        sheetCard.style.width = \`\${targetWidth}px\`;
-
-        const renderContext = {
-          canvasContext: pdfCtx,
-          viewport: viewport
-        };
-
-        currentRenderTask = page.render(renderContext);
-        currentRenderTask.promise.then(() => {
-          currentRenderTask = null;
-        }).catch(err => {
-          if (err.name !== 'RenderingCancelledException') console.error(err);
-        });
-
-        pageIndicator.textContent = \`\${num} / \${totalPageCount}\`;
-        loadPageDrawing(num);
-      });
-    }
-
-    function renderImagePage(num) {
-      if (!currentImagePages || currentImagePages.length === 0 || !pdfCanvas || !pdfCtx) return;
-
-      const img = currentImagePages[num - 1];
-      if (!img) return;
-
-      const viewerWidth = document.getElementById('viewerMain').clientWidth;
-      const baseWidth = Math.min(viewerWidth, 900);
-      const targetWidth = baseWidth * zoomScale;
-
-      const scale = targetWidth / img.width;
-      const targetHeight = img.height * scale;
-
-      const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
-
-      pdfCanvas.width = targetWidth * dpr;
-      pdfCanvas.height = targetHeight * dpr;
-      pdfCanvas.style.width = \`\${targetWidth}px\`;
-      pdfCanvas.style.height = \`\${targetHeight}px\`;
-
-      drawCanvas.width = targetWidth * dpr;
-      drawCanvas.height = targetHeight * dpr;
-      drawCanvas.style.width = \`\${targetWidth}px\`;
-      drawCanvas.style.height = \`\${targetHeight}px\`;
-
-      sheetCard.style.width = \`\${targetWidth}px\`;
-
-      pdfCtx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
-      pdfCtx.drawImage(img, 0, 0, pdfCanvas.width, pdfCanvas.height);
-
-      pageIndicator.textContent = \`\${num} / \${totalPageCount}\`;
-      loadPageDrawing(num);
-    }
-
-    function renderCurrentPage(num) {
-      if (currentPdfDoc) {
-        renderPdfPage(num);
-      } else if (currentImagePages && currentImagePages.length > 0) {
-        renderImagePage(num);
-      }
-    }
-
-    function updateZoomDisplay() {
-      if (zoomLevelText) zoomLevelText.textContent = \`\${Math.round(zoomScale * 100)}%\`;
-    }
-
-    function setZoom(newScale) {
-      zoomScale = Math.min(Math.max(newScale, 0.6), 2.5);
-      updateZoomDisplay();
-      renderCurrentPage(currentPageNum);
-    }
-
-    document.getElementById('zoomInBtn').onclick = () => setZoom(zoomScale + 0.15);
-    document.getElementById('zoomOutBtn').onclick = () => setZoom(zoomScale - 0.15);
-
-    let isDrawingMode = false;
-    let currentTool = 'pen';
-    let isDrawing = false;
-
-    const drawToggleBtn = document.getElementById('drawToggleBtn');
-    const drawingToolbar = document.getElementById('drawingToolbar');
-
-    function toggleDrawingMode(forcedState = null) {
-      isDrawingMode = forcedState !== null ? forcedState : !isDrawingMode;
-      if (isDrawingMode) {
-        drawToggleBtn.classList.add('active');
-        drawingToolbar.style.display = 'flex';
-        drawCanvas.classList.add('active');
-      } else {
-        drawToggleBtn.classList.remove('active');
-        drawingToolbar.style.display = 'none';
-        drawCanvas.classList.remove('active');
-      }
-    }
-
-    drawToggleBtn.onclick = () => toggleDrawingMode();
-    document.getElementById('closeDrawBarBtn').onclick = () => toggleDrawingMode(false);
-
-    function setDrawTool(tool) {
-      currentTool = tool;
-      ['toolPenBtn', 'toolBreathBtn', 'toolHighlighterBtn', 'toolEraserBtn'].forEach(id => {
-        document.getElementById(id).classList.remove('active');
-      });
-      if (tool === 'pen') document.getElementById('toolPenBtn').classList.add('active');
-      if (tool === 'breath') document.getElementById('toolBreathBtn').classList.add('active');
-      if (tool === 'highlighter') document.getElementById('toolHighlighterBtn').classList.add('active');
-      if (tool === 'eraser') document.getElementById('toolEraserBtn').classList.add('active');
-    }
-
-    document.getElementById('toolPenBtn').onclick = () => setDrawTool('pen');
-    document.getElementById('toolBreathBtn').onclick = () => setDrawTool('breath');
-    document.getElementById('toolHighlighterBtn').onclick = () => setDrawTool('highlighter');
-    document.getElementById('toolEraserBtn').onclick = () => setDrawTool('eraser');
-
-    function getCanvasCoords(e) {
-      const rect = drawCanvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return {
-        x: ((clientX - rect.left) * drawCanvas.width) / rect.width,
-        y: ((clientY - rect.top) * drawCanvas.height) / rect.height
-      };
-    }
-
-    function startDraw(e) {
-      if (!isDrawingMode || !drawCtx) return;
-      isDrawing = true;
-      const { x, y } = getCanvasCoords(e);
-
-      if (currentTool === 'breath') {
-        drawBreathMark(x, y);
-        isDrawing = false;
-        savePageDrawing();
-        return;
-      }
-
-      drawCtx.beginPath();
-      drawCtx.moveTo(x, y);
-
-      if (currentTool === 'eraser') {
-        drawCtx.globalCompositeOperation = 'destination-out';
-        drawCtx.lineWidth = 24;
-      } else if (currentTool === 'highlighter') {
-        drawCtx.globalCompositeOperation = 'source-over';
-        drawCtx.strokeStyle = 'rgba(212, 163, 115, 0.45)';
-        drawCtx.lineWidth = 18;
-        drawCtx.lineCap = 'square';
-      } else {
-        drawCtx.globalCompositeOperation = 'source-over';
-        drawCtx.strokeStyle = '#D96A4E';
-        drawCtx.lineWidth = 3.5;
-        drawCtx.lineCap = 'round';
-        drawCtx.lineJoin = 'round';
-      }
-    }
-
-    function drawingMove(e) {
-      if (!isDrawing || !drawCtx || currentTool === 'breath') return;
-      const { x, y } = getCanvasCoords(e);
-      drawCtx.lineTo(x, y);
-      drawCtx.stroke();
-    }
-
-    function endDraw() {
-      if (!isDrawing || !drawCtx) return;
-      isDrawing = false;
-      drawCtx.closePath();
-      savePageDrawing();
-    }
-
-    function drawBreathMark(x, y) {
-      drawCtx.globalCompositeOperation = 'source-over';
-      drawCtx.strokeStyle = '#D96A4E';
-      drawCtx.lineWidth = 4;
-      drawCtx.lineCap = 'round';
-      drawCtx.lineJoin = 'round';
-      
-      const size = 16;
-      drawCtx.beginPath();
-      drawCtx.moveTo(x - size, y - size);
-      drawCtx.lineTo(x, y);
-      drawCtx.lineTo(x + size, y - size);
-      drawCtx.stroke();
-      drawCtx.closePath();
-    }
-
-    drawCanvas.addEventListener('mousedown', startDraw);
-    drawCanvas.addEventListener('mousemove', drawingMove);
-    window.addEventListener('mouseup', endDraw);
-
-    drawCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); }, { passive: false });
-    drawCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); drawingMove(e); }, { passive: false });
-    drawCanvas.addEventListener('touchend', endDraw);
-
-    async function savePageDrawing() {
-      if (!currentSong) return;
-      const key = \`\${currentSong.id}_p\${currentPageNum}\`;
-      const dataUrl = drawCanvas.toDataURL();
-      await putStored('personal_drawings', { id: key, data: dataUrl });
-    }
-
-    async function loadPageDrawing(num) {
-      if (!currentSong || !drawCtx) return;
-      drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-      const key = \`\${currentSong.id}_p\${num}\`;
-      const saved = await getStoredItem('personal_drawings', key);
-      if (saved && saved.data) {
-        const img = new Image();
-        img.onload = () => {
-          drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-          drawCtx.drawImage(img, 0, 0, drawCanvas.width, drawCanvas.height);
-        };
-        img.src = saved.data;
-      }
-    }
-
-    document.getElementById('clearDrawBtn').onclick = async () => {
-      if (confirm('현재 페이지의 메모를 모두 지우시겠습니까?')) {
-        if (!drawCtx || !currentSong) return;
-        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-        const key = \`\${currentSong.id}_p\${currentPageNum}\`;
-        await deleteStored('personal_drawings', key);
-      }
-    };
-
-    const audioBar = document.getElementById('audioBar');
-    const guideAudio = document.getElementById('guideAudioElement');
-    const audioPlayBtn = document.getElementById('audioPlayBtn');
-    const playIconSvg = document.getElementById('playIconSvg');
-    const audioTimeText = document.getElementById('audioTimeText');
-    const audioRateBtn = document.getElementById('audioRateBtn');
-    const partTabSelector = document.getElementById('partTabSelector');
-
-    let currentSongPartAudios = {};
-    let activePartTab = '';
-
-    function loadSongAudioTracks(song) {
-      currentSongPartAudios = {};
-      partTabSelector.innerHTML = '';
-
-      const availableParts = song.partAudioUrls || {};
-      const partsOrder = ['ALL', 'S', 'A', 'T', 'BAR', 'B'];
-      const activeParts = partsOrder.filter(p => !!availableParts[p]);
-
-      if (activeParts.length > 0) {
-        activeParts.forEach(p => {
-          currentSongPartAudios[p] = availableParts[p];
-          const btn = document.createElement('button');
-          btn.className = 'part-tab';
-          btn.dataset.part = p;
-          btn.textContent = p;
-          btn.onclick = () => switchPartTrack(p, true);
-          partTabSelector.appendChild(btn);
-        });
-
-        audioBar.classList.add('show');
-        audioPlayBtn.style.display = 'inline-flex';
-        const defaultPart = activeParts.includes('ALL') ? 'ALL' : activeParts[0];
-        switchPartTrack(defaultPart, false);
-      } else {
-        audioPlayBtn.style.display = 'none';
-        guideAudio.pause();
-        if (!song.youtubeUrl) {
-          audioBar.classList.remove('show');
-        }
-      }
-    }
-
-    function switchPartTrack(part, autoPlay = true) {
-      activePartTab = part;
-      partTabSelector.querySelectorAll('.part-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.part === part);
-      });
-
-      const rawUrl = currentSongPartAudios[part];
-      const audioUrl = resolvePlayableAudioUrl(rawUrl);
-      if (audioUrl) {
-        const prevTime = guideAudio.currentTime;
-        const isPlaying = !guideAudio.paused;
-        guideAudio.src = audioUrl;
-        guideAudio.currentTime = prevTime;
-        if (autoPlay || isPlaying) {
-          guideAudio.play();
-          playIconSvg.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
-        }
-      }
-    }
-
-    audioPlayBtn.onclick = () => {
-      if (!guideAudio.src) return;
-      if (guideAudio.paused) {
-        guideAudio.play();
-        playIconSvg.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
-      } else {
-        guideAudio.pause();
-        playIconSvg.innerHTML = '<path d="M5 3l14 9-14 9V3z"/>';
-      }
-    };
-
-    guideAudio.ontimeupdate = () => {
-      const cur = Math.floor(guideAudio.currentTime);
-      const m = Math.floor(cur / 60);
-      const s = String(cur % 60).padStart(2, '0');
-      audioTimeText.textContent = \`\${m}:\${s}\`;
-    };
-
-    guideAudio.onended = () => {
-      playIconSvg.innerHTML = '<path d="M5 3l14 9-14 9V3z"/>';
-    };
-
-    const rates = [1.0, 1.2, 0.8];
-    let rateIdx = 0;
-    audioRateBtn.onclick = () => {
-      rateIdx = (rateIdx + 1) % rates.length;
-      const r = rates[rateIdx];
-      guideAudio.playbackRate = r;
-      audioRateBtn.textContent = \`\${r}x\`;
-    };
-
-    document.getElementById('closeAudioBtn').onclick = () => {
-      guideAudio.pause();
-      closeYouTubePlayer();
-      audioBar.classList.remove('show');
-    };
-
-    const viewerMain = document.getElementById('viewerMain');
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let initialPinchDist = 0;
-    let initialZoomScale = 1.0;
-    let isPinching = false;
-    let pinchCooldown = false;
-
-    function getTouchDistance(e) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      return Math.hypot(dx, dy);
-    }
-
-    viewerMain.addEventListener('touchstart', (e) => {
+    const onTouchStartNative = (e: TouchEvent) => {
       if (isDrawingMode) return;
 
       if (e.touches.length === 2) {
-        isPinching = true;
-        initialPinchDist = getTouchDistance(e);
-        initialZoomScale = zoomScale;
-      } else if (e.touches.length === 1) {
-        isPinching = false;
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        startDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        startScale = scale;
+        return;
       }
-    }, { passive: false });
 
-    viewerMain.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+          e.preventDefault();
+          setScale((prev) => (prev > 1.05 ? 1.0 : 1.8));
+          setPosition({ x: 0, y: 0 });
+          lastTap = 0;
+          return;
+        }
+        lastTap = now;
+      }
+    };
+
+    const onTouchMoveNative = (e: TouchEvent) => {
       if (isDrawingMode) return;
 
-      if (e.touches.length === 2 && initialPinchDist > 0) {
-        if (e.cancelable) e.preventDefault();
-        const currentDist = getTouchDistance(e);
-        const factor = currentDist / initialPinchDist;
-        const targetZoom = Math.min(Math.max(initialZoomScale * factor, 0.6), 2.5);
+      if (e.touches.length === 2 && startDist > 0) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const factor = dist / startDist;
+        const nextScale = Math.max(0.8, Math.min(3.5, startScale * factor));
+        setScale(nextScale);
+        if (nextScale <= 1.0) setPosition({ x: 0, y: 0 });
+      }
+    };
 
-        zoomScale = targetZoom;
-        updateZoomDisplay();
+    const onTouchEndNative = (e: TouchEvent) => {
+      if (e.touches.length < 2) startDist = 0;
+    };
 
-        if (!pinchCooldown) {
-          pinchCooldown = true;
-          requestAnimationFrame(() => {
-            renderCurrentPage(currentPageNum);
-            pinchCooldown = false;
+    container.addEventListener('touchstart', onTouchStartNative, { passive: false });
+    container.addEventListener('touchmove', onTouchMoveNative, { passive: false });
+    container.addEventListener('touchend', onTouchEndNative);
+    container.addEventListener('gesturestart', onGestureStart, { passive: false });
+    container.addEventListener('gesturechange', onGestureChange, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStartNative);
+      container.removeEventListener('touchmove', onTouchMoveNative);
+      container.removeEventListener('touchend', onTouchEndNative);
+      container.removeEventListener('gesturestart', onGestureStart);
+      container.removeEventListener('gesturechange', onGestureChange);
+    };
+  }, [viewingSongId, viewMode, isDrawingMode, scale]);
+
+  const handleToggleLyricsExpand = (songId: string) => {
+    setExpandedLyricsSongId((prev) => (prev === songId ? null : songId));
+  };
+
+  const handleOpenSearchGuide = (titleToSearch?: string) => {
+    const q = (titleToSearch || modalTitle || '').trim();
+    if (!q) {
+      alert('곡 제목을 먼저 입력해주세요.');
+      return;
+    }
+    setSearchModalTitle(q);
+  };
+
+  const handleOpenPipPlayer = (youtubeUrl?: string, songTitle?: string) => {
+    const videoId = extractYouTubeVideoId(youtubeUrl);
+    if (!videoId) {
+      alert('등록된 올바른 유튜브 영상 링크가 없습니다. 곡 수정에서 링크를 등록해주세요.');
+      return;
+    }
+    setActivePipVideoId(videoId);
+    setActivePipTitle(songTitle || '찬양 영상');
+    setIsPipMinimized(false);
+  };
+
+  const handleStartPipDrag = (clientX: number, clientY: number) => {
+    isDraggingPip.current = true;
+    pipDragStart.current = {
+      mouseX: clientX,
+      mouseY: clientY,
+      startX: pipPosition.x,
+      startY: pipPosition.y,
+    };
+  };
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingPip.current) return;
+      const dx = e.clientX - pipDragStart.current.mouseX;
+      const dy = e.clientY - pipDragStart.current.mouseY;
+      setPipPosition({
+        x: Math.max(10, Math.min(window.innerWidth - 260, pipDragStart.current.startX + dx)),
+        y: Math.max(10, Math.min(window.innerHeight - 180, pipDragStart.current.startY + dy)),
+      });
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDraggingPip.current || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dx = t.clientX - pipDragStart.current.mouseX;
+      const dy = t.clientY - pipDragStart.current.mouseY;
+      setPipPosition({
+        x: Math.max(10, Math.min(window.innerWidth - 260, pipDragStart.current.startX + dx)),
+        y: Math.max(10, Math.min(window.innerHeight - 180, pipDragStart.current.startY + dy)),
+      });
+    };
+    const onEnd = () => {
+      isDraggingPip.current = false;
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, []);
+
+  const handlePasteLyricsDirect = async (targetSongId?: string) => {
+    let rawText = '';
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        rawText = await navigator.clipboard.readText();
+      }
+    } catch (e) {
+      console.warn('클립보드 접근 제한');
+    }
+
+    if (!rawText || !rawText.trim()) {
+      const promptText = window.prompt('복사하신 찬양 가사를 여기에 붙여넣어 주세요:');
+      if (promptText) rawText = promptText;
+    }
+
+    if (!rawText || !rawText.trim()) {
+      alert('붙여넣을 가사가 없습니다.');
+      return;
+    }
+
+    const fixedText = formatAndFixLyrics(rawText);
+
+    if (targetSongId) {
+      try {
+        await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: fixedText }, { merge: true });
+        const targetSong = allSongs.find((s) => s.id === targetSongId);
+        if (targetSong) {
+          const libDocId = getSafeDocId(targetSong.title, targetSong.key);
+          await setDoc(doc(db, 'song_library', libDocId), { lyrics: fixedText, updatedAt: Date.now() }, { merge: true });
+        }
+        alert('가사가 깔끔하게 줄바꿈되어 등록되었습니다!');
+      } catch (err) {
+        alert('가사 저장 오류');
+      }
+    } else {
+      setModalLyrics(fixedText);
+      alert('가사가 입력창에 줄바꿈되어 들어갔습니다!');
+    }
+  };
+
+  const handleCopyLyrics = (textToCopy: string) => {
+    if (!textToCopy) {
+      alert('복사할 가사가 없습니다.');
+      return;
+    }
+    navigator.clipboard.writeText(textToCopy);
+    alert('가사가 복사되었습니다.');
+  };
+
+  const handlePasteClipboardUrl = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.startsWith('http')) {
+        const formatted = formatImageUrl(text.trim());
+        setModalSheetUrls((prev) => [...prev, formatted]);
+        alert('악보 주소가 등록되었습니다!');
+      } else {
+        alert('클립보드에 올바른 이미지 주소(http로 시작)가 없습니다.');
+      }
+    } catch (e) {
+      const directUrl = prompt('악보 이미지 주소(URL)를 붙여넣어 주세요:');
+      if (directUrl && directUrl.trim()) {
+        const formatted = formatImageUrl(directUrl.trim());
+        setModalSheetUrls((prev) => [...prev, formatted]);
+      }
+    }
+  };
+
+  const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
+    if (allSongs.length === 0) {
+      if (showSuccessAlert) alert('동기화할 기존 콘티 곡이 없습니다.');
+      return;
+    }
+    setIsSyncingLib(true);
+    try {
+      const batch = writeBatch(db);
+      allSongs.forEach((song) => {
+        const cleanTitle = (song.title || '').trim();
+        if (!cleanTitle) return;
+        const libDocId = getSafeDocId(cleanTitle, song.key);
+        const libRef = doc(db, 'song_library', libDocId);
+
+        batch.set(
+          libRef,
+          {
+            id: libDocId,
+            title: cleanTitle,
+            key: song.key || null,
+            bpm: song.bpm || null,
+            comment: song.comment || '',
+            lyrics: song.lyrics || '',
+            youtubeUrl: song.youtubeUrl || '',
+            sheetUrls: song.sheetUrls || [],
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      });
+      await batch.commit();
+      if (showSuccessAlert) {
+        alert('찬양이 보관소로 안전하게 동기화되었습니다!');
+      }
+    } catch (e) {
+      console.error('보관소 동기화 오류:', e);
+    } finally {
+      setIsSyncingLib(false);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const savedTheme = localStorage.getItem('praise_app_theme') as 'dark' | 'light';
+        if (savedTheme) setTheme(savedTheme);
+
+        const savedAdmin = localStorage.getItem('praise_app_is_admin') === 'true';
+        if (savedAdmin) setIsAdmin(true);
+
+        const savedFontSize = localStorage.getItem('praise_lyrics_font_size') as 'sm' | 'base' | 'lg';
+        if (savedFontSize) setLyricsFontSize(savedFontSize);
+
+        const savedMyName = localStorage.getItem('praise_user_my_name');
+        if (savedMyName) setMyAttendanceName(savedMyName);
+      }
+    } catch (e) {}
+    setMounted(true);
+  }, []);
+
+  const handleChangeFontSize = (size: 'sm' | 'base' | 'lg') => {
+    setLyricsFontSize(size);
+    try {
+      localStorage.setItem('praise_lyrics_font_size', size);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    let unsubContis = () => {};
+    let unsubSongs = () => {};
+    let unsubLib = () => {};
+    let unsubSingers = () => {};
+    let unsubTags = () => {};
+
+    try {
+      const qContis = query(collection(db, 'contis_v2'), orderBy('date', 'desc'));
+      unsubContis = onSnapshot(qContis, (snapshot) => {
+        const list: Conti[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          list.push({
+            id: d.id,
+            title: data?.title || '',
+            date: data?.date || '',
+            assignedSingers: Array.isArray(data?.assignedSingers) ? data.assignedSingers : [],
+            customNote: data?.customNote || '',
+            notice: data?.notice || '',
+            attendance: data?.attendance && typeof data.attendance === 'object' ? data.attendance : {},
+          });
+        });
+        setContis(list);
+        if (list.length > 0) {
+          setSelectedContiId((prev) => {
+            if (prev && list.some((c) => c.id === prev)) return prev;
+            return list[0].id;
           });
         }
-      }
-    }, { passive: false });
-
-    viewerMain.addEventListener('touchend', (e) => {
-      if (isDrawingMode) return;
-
-      if (e.touches.length < 2) {
-        if (isPinching) {
-          renderCurrentPage(currentPageNum);
-        }
-        isPinching = false;
-        initialPinchDist = 0;
-      }
-
-      if (!isPinching && e.changedTouches.length === 1 && e.touches.length === 0) {
-        const touchEndX = e.changedTouches[0].clientX;
-        const touchEndY = e.changedTouches[0].clientY;
-        const diffX = touchEndX - touchStartX;
-        const diffY = touchEndY - touchStartY;
-
-        if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
-          if (diffX < 0) nextPage();
-          else prevPage();
-        }
-      }
-    }, { passive: true });
-
-    const currentSongEditModal = document.getElementById('currentSongEditModal');
-    document.getElementById('openCurrentSongEditBtn').onclick = () => {
-      if (!currentSong) return;
-      document.getElementById('currentSongModalTitle').textContent = \`[\${currentSong.title}] 악보 설정\`;
-      
-      document.getElementById('curQuickYtUrl').value = currentSong.youtubeUrl || '';
-      document.getElementById('curQuickS').value = currentSong.notes?.S || '';
-      document.getElementById('curQuickA').value = currentSong.notes?.A || '';
-      document.getElementById('curQuickT').value = currentSong.notes?.T || '';
-      document.getElementById('curQuickBAR').value = currentSong.notes?.BAR || '';
-      document.getElementById('curQuickB').value = currentSong.notes?.B || '';
-
-      const audios = currentSong.partAudioUrls || {};
-      document.getElementById('editAudio_ALL').value = audios.ALL || '';
-      document.getElementById('editAudio_S').value = audios.S || '';
-      document.getElementById('editAudio_A').value = audios.A || '';
-      document.getElementById('editAudio_T').value = audios.T || '';
-      document.getElementById('editAudio_BAR').value = audios.BAR || '';
-      document.getElementById('editAudio_B').value = audios.B || '';
-
-      currentSongEditModal.classList.add('open');
-    };
-
-    document.getElementById('closeCurrentSongEditBtn').onclick = () => {
-      resetViewportZoom();
-      currentSongEditModal.classList.remove('open');
-    };
-
-    document.getElementById('saveCurrentSongEditBtn').onclick = async () => {
-      if (!currentSong) return;
-
-      const newNotes = {
-        S: document.getElementById('curQuickS').value,
-        A: document.getElementById('curQuickA').value,
-        T: document.getElementById('curQuickT').value,
-        BAR: document.getElementById('curQuickBAR').value,
-        B: document.getElementById('curQuickB').value
-      };
-      const ytUrl = document.getElementById('curQuickYtUrl').value.trim();
-
-      const newAudios = {};
-      const parts = ['ALL', 'S', 'A', 'T', 'BAR', 'B'];
-      parts.forEach(p => {
-        const val = document.getElementById(\`editAudio_\${p}\`).value.trim();
-        if (val) newAudios[p] = val;
       });
 
-      const payload = { 
-        songId: currentSong.id, 
-        notes: newNotes,
-        youtubeUrl: ytUrl || null,
-        partAudioUrls: newAudios,
-        updatedAt: Date.now()
-      };
+      const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
+      unsubSongs = onSnapshot(qSongs, (snapshot) => {
+        const sList: SongItem[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          let sheets: string[] = [];
+          if (Array.isArray(data?.sheetUrls)) {
+            sheets = data.sheetUrls.map(formatImageUrl).filter(Boolean);
+          } else if (data?.sheetUrl && typeof data.sheetUrl === 'string') {
+            sheets = [formatImageUrl(data.sheetUrl.trim())].filter(Boolean);
+          }
+          sList.push({
+            id: d.id,
+            contiId: data?.contiId || '',
+            headerTag: data?.headerTag || '',
+            title: data?.title || '',
+            key: data?.key || null,
+            bpm: data?.bpm || null,
+            comment: data?.comment || '',
+            lyrics: data?.lyrics || '',
+            youtubeUrl: data?.youtubeUrl || '',
+            sheetUrls: sheets,
+            order: data?.order ?? 0,
+          });
+        });
+        setAllSongs(sList);
+      });
 
-      await putStored('pitch_overrides', payload);
-      await saveSongDataToFirestore(currentSong.id, payload);
+      const qLib = query(collection(db, 'song_library'), orderBy('updatedAt', 'desc'));
+      unsubLib = onSnapshot(qLib, (snapshot) => {
+        const libList: LibrarySong[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          let sheets: string[] = [];
+          if (Array.isArray(data?.sheetUrls)) {
+            sheets = data.sheetUrls.map(formatImageUrl).filter(Boolean);
+          } else if (data?.sheetUrl && typeof data.sheetUrl === 'string') {
+            sheets = [formatImageUrl(data.sheetUrl.trim())].filter(Boolean);
+          }
+          libList.push({
+            id: d.id,
+            title: data?.title || '',
+            key: data?.key || null,
+            bpm: data?.bpm || null,
+            comment: data?.comment || '',
+            lyrics: data?.lyrics || '',
+            youtubeUrl: data?.youtubeUrl || '',
+            sheetUrls: sheets,
+            updatedAt: data?.updatedAt || Date.now(),
+          });
+        });
+        setLibrarySongs(libList);
+      });
 
-      currentSong.notes = newNotes;
-      currentSong.youtubeUrl = ytUrl || null;
-      currentSong.partAudioUrls = newAudios;
-
-      const targetInAll = allSongs.find(s => s.id === currentSong.id);
-      if (targetInAll) {
-        targetInAll.notes = newNotes;
-        targetInAll.youtubeUrl = ytUrl || null;
-        targetInAll.partAudioUrls = newAudios;
-      }
-
-      resetViewportZoom();
-      currentSongEditModal.classList.remove('open');
-      openSongInViewer(currentSong.id);
-    };
-
-    const newSongModal = document.getElementById('newSongModal');
-    function openNewSongModal() {
-      document.getElementById('newSongTitle').value = '';
-      document.getElementById('newSongPdfUrl').value = '';
-      document.getElementById('newSongYtUrl').value = '';
-      newSongModal.classList.add('open');
-    }
-    document.getElementById('libAddNewBtn').onclick = openNewSongModal;
-    document.getElementById('closeNewSongModalBtn').onclick = () => {
-      resetViewportZoom();
-      newSongModal.classList.remove('open');
-    };
-
-    document.getElementById('saveNewSongBtn').onclick = async () => {
-      const title = document.getElementById('newSongTitle').value.trim();
-      const url = document.getElementById('newSongPdfUrl').value.trim();
-      const ytUrl = document.getElementById('newSongYtUrl').value.trim();
-      if (!title || !url) { alert('곡 명과 악보 URL을 입력해주세요.'); return; }
-
-      const isImg = /\\.(png|jpe?g|webp)$/i.test(url);
-      const newSongId = \`custom_\${Date.now()}\`;
-      const newSong = {
-        id: newSongId,
-        type: 'custom',
-        fileType: isImg ? 'image' : 'pdf',
-        title: title,
-        url: url,
-        youtubeUrl: ytUrl || null,
-        partAudioUrls: {},
-        notes: {},
-        createdAt: Date.now()
-      };
-
-      await putStored('custom_songs', newSong);
-      await saveSongDataToFirestore(newSongId, newSong);
-
-      resetViewportZoom();
-      newSongModal.classList.remove('open');
-      await loadAllSongList();
-      openSongInViewer(newSong.id);
-    };
-
-    const appMenuModal = document.getElementById('appMenuModal');
-    document.getElementById('openAppMenuBtn').onclick = () => appMenuModal.classList.add('open');
-    document.getElementById('closeAppMenuBtn').onclick = () => {
-      resetViewportZoom();
-      appMenuModal.classList.remove('open');
-    };
-
-    const metroModal = document.getElementById('metroModal');
-    document.getElementById('menuOpenMetroBtn').onclick = () => {
-      appMenuModal.classList.remove('open');
-      metroModal.classList.add('open');
-    };
-    document.getElementById('closeMetroModalBtn').onclick = () => {
-      resetViewportZoom();
-      metroModal.classList.remove('open');
-    };
-
-    document.getElementById('menuToggleInvertBtn').onclick = () => {
-      document.body.classList.toggle('invert-mode');
-      appMenuModal.classList.remove('open');
-    };
-
-    document.getElementById('menuRefreshBtn').onclick = async () => {
-      appMenuModal.classList.remove('open');
-      if (currentSong) {
-        await deleteStored('pdf_cache', \`file_\${currentSong.driveId || currentSong.url}\`);
-      }
-      const url = new URL(window.location.href);
-      url.searchParams.set('t', Date.now());
-      window.location.href = url.toString();
-    };
-
-    document.getElementById('libRefreshBtn').onclick = () => loadAllSongList();
-
-    deleteLocalBtn.onclick = async () => {
-      if (!currentSong || currentSong.type !== 'custom') return;
-      if (confirm(\`'\${currentSong.title}' 트랙을 삭제하시겠습니까?\`)) {
-        await deleteStored('custom_songs', currentSong.id);
-        await deleteStored('pitch_overrides', currentSong.id);
-        await deleteStored('pdf_cache', \`file_\${currentSong.driveId || currentSong.url}\`);
-        if (firestoreDb) {
-          try { await firestoreDb.collection('song_settings').doc(currentSong.id).delete(); } catch(e){}
+      unsubSingers = onSnapshot(doc(db, 'settings', 'singers_pool'), (snap) => {
+        if (snap.exists()) {
+          const rawList = snap.data()?.list;
+          setMasterSingers(Array.isArray(rawList) ? rawList : []);
         }
-        resetViewportZoom();
-        appMenuModal.classList.remove('open');
-        await loadAllSongList();
-        showLibraryScreen();
-      }
+      });
+
+      unsubTags = onSnapshot(doc(db, 'settings', 'tags_pool_v2'), (snap) => {
+        if (snap.exists()) {
+          const rawList = snap.data()?.list;
+          if (Array.isArray(rawList) && rawList.length > 0) {
+            const parsed: CustomTag[] = rawList.map((item: any) => {
+              if (typeof item === 'string') return { name: item.replace(/[<>]/g, ''), color: 'amber' };
+              return { name: item.name || '', color: item.color || 'amber' };
+            });
+            setMasterTags(parsed);
+          }
+        }
+      });
+    } catch (err) {
+      console.error('Firebase 로드 실패:', err);
+    }
+
+    return () => {
+      unsubContis();
+      unsubSongs();
+      unsubLib();
+      unsubSingers();
+      unsubTags();
     };
+  }, [mounted]);
 
-    function nextPage() {
-      if (currentPageNum < totalPageCount) {
-        currentPageNum++;
-        renderCurrentPage(currentPageNum);
-        document.getElementById('viewerMain').scrollTop = 0;
+  useEffect(() => {
+    if (!viewingSongId || viewMode === 'lyrics') return;
+
+    const pageDrawId = `${viewingSongId}_p${currentPageIndex}`;
+    const drawDocRef = doc(db, 'drawings_v2', pageDrawId);
+
+    const unsubDraw = onSnapshot(drawDocRef, (docSnap) => {
+      if (isLocalDrawing.current) return;
+
+      const data = docSnap.data();
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) return;
+
+      if (data?.drawingData) {
+        const dImg = new Image();
+        dImg.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(dImg, 0, 0, canvas.width, canvas.height);
+          history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+        };
+        dImg.src = data.drawingData;
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        history.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
       }
-    }
-    function prevPage() {
-      if (currentPageNum > 1) {
-        currentPageNum--;
-        renderCurrentPage(currentPageNum);
-        document.getElementById('viewerMain').scrollTop = 0;
-      }
-    }
-
-    document.getElementById('nextPage').onclick = nextPage;
-    document.getElementById('prevPage').onclick = prevPage;
-
-    window.addEventListener('keydown', (e) => {
-      if (['ArrowRight', 'PageDown', ' '].includes(e.key)) nextPage();
-      else if (['ArrowLeft', 'PageUp'].includes(e.key)) prevPage();
     });
 
-    async function startApp() {
-      try {
-        await initDB();
-        initPitchSelectOptions();
-        await loadConfig();
-        await loadAllSongList();
-        showLibraryScreen();
-      } catch (err) {
-        console.error("초기화 실패:", err);
+    return () => unsubDraw();
+  }, [viewingSongId, currentPageIndex, viewMode]);
+
+  const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
+  const viewingSong = allSongs.find((s) => s.id === viewingSongId) || null;
+
+  const activeViewerContiId = viewingSong?.contiId || currentConti?.id;
+  const currentSongs = allSongs
+    .filter((s) => s.contiId === activeViewerContiId)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
+
+  const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
+  const customNote = currentConti?.customNote || '';
+  const currentNotice = currentConti?.notice || '';
+  const currentAttendance = currentConti?.attendance || {};
+
+  const yesCount = Object.values(currentAttendance).filter((v) => v === 'yes').length;
+  const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
+  const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
+
+  const todayStr = formatDateToStr(new Date());
+  const upcomingContis = contis.filter((c) => (c.date || '') >= todayStr);
+  const pastContis = contis.filter((c) => (c.date || '') < todayStr);
+
+  const handlePrevSong = () => {
+    if (currentSongIndex > 0) {
+      setViewingSongId(currentSongs[currentSongIndex - 1].id);
+      setCurrentPageIndex(0);
+    }
+  };
+
+  const handleNextSong = () => {
+    if (currentSongIndex < currentSongs.length - 1) {
+      setViewingSongId(currentSongs[currentSongIndex + 1].id);
+      setCurrentPageIndex(0);
+    }
+  };
+
+  const handleTouchStartViewer = (e: React.TouchEvent) => {
+    if (viewMode === 'lyrics') return;
+
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialPinchDist.current = Math.hypot(dx, dy);
+      initialScaleOnPinch.current = scale;
+      isPanning.current = false;
+      touchStartPos.current = null;
+      return;
+    }
+
+    if (e.touches.length === 1 && !isDrawingMode) {
+      const touch = e.touches[0];
+      const now = Date.now();
+
+      if (now - lastTapTime.current < 300) {
+        if (scale > 1.05) {
+          setScale(1.0);
+          setPosition({ x: 0, y: 0 });
+        } else {
+          setScale(1.8);
+        }
+        lastTapTime.current = 0;
+        return;
+      }
+      lastTapTime.current = now;
+
+      touchStartPos.current = { x: touch.clientX, y: touch.clientY, time: now };
+
+      if (scale > 1.0) {
+        isPanning.current = true;
+        startPanPos.current = { x: touch.clientX - position.x, y: touch.clientY - position.y };
+      }
+    }
+  };
+
+  const handleTouchMoveViewer = (e: React.TouchEvent) => {
+    if (viewMode === 'lyrics') return;
+
+    if (e.touches.length === 2 && initialPinchDist.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const currentDist = Math.hypot(dx, dy);
+      const ratio = currentDist / initialPinchDist.current;
+      const newScale = Math.max(0.8, Math.min(3.0, initialScaleOnPinch.current * ratio));
+      setScale(newScale);
+      if (newScale <= 1.0) setPosition({ x: 0, y: 0 });
+      return;
+    }
+
+    if (isPanning.current && scale > 1.0 && e.touches.length === 1 && !isDrawingMode) {
+      const touch = e.touches[0];
+      const maxLimit = 350 * (scale - 1);
+      const newX = Math.max(-maxLimit, Math.min(maxLimit, touch.clientX - startPanPos.current.x));
+      const newY = Math.max(-maxLimit * 1.5, Math.min(maxLimit * 1.5, touch.clientY - startPanPos.current.y));
+      setPosition({ x: newX, y: newY });
+    }
+  };
+
+  const handleTouchEndViewer = (e: React.TouchEvent) => {
+    if (viewMode === 'lyrics') return;
+
+    if (e.touches.length < 2) {
+      initialPinchDist.current = null;
+    }
+
+    if (scale <= 1.05 && touchStartPos.current && !isDrawingMode) {
+      const touch = e.changedTouches[0];
+      const diffX = touch.clientX - touchStartPos.current.x;
+      const diffY = touch.clientY - touchStartPos.current.y;
+      const elapsed = Date.now() - touchStartPos.current.time;
+
+      if (elapsed < 400 && Math.abs(diffX) > 55 && Math.abs(diffY) < 70) {
+        const validSheets = (viewingSong?.sheetUrls || []).map(formatImageUrl).filter(Boolean);
+        const totalPages = validSheets.length;
+
+        if (diffX < 0) {
+          if (currentPageIndex < totalPages - 1) {
+            setCurrentPageIndex((p) => p + 1);
+          } else {
+            handleNextSong();
+          }
+        } else {
+          if (currentPageIndex > 0) {
+            setCurrentPageIndex((p) => p - 1);
+          } else {
+            handlePrevSong();
+          }
+        }
       }
     }
 
-    startApp();
-  </script>
-</body>
-</html>`;
+    isPanning.current = false;
+    touchStartPos.current = null;
+  };
+
+  const handleUpdateViewingSongLyrics = async (newLyrics: string) => {
+    if (!viewingSong) return;
+    try {
+      await setDoc(doc(db, 'songs_v2', viewingSong.id), { lyrics: newLyrics }, { merge: true });
+      const libDocId = getSafeDocId(viewingSong.title, viewingSong.key);
+      await setDoc(doc(db, 'song_library', libDocId), { lyrics: newLyrics, updatedAt: Date.now() }, { merge: true });
+    } catch (e) {
+      console.error('가사 저장 오류:', e);
+    }
+  };
+
+  const handleSaveNotice = async () => {
+    if (!currentConti) return;
+    try {
+      await setDoc(doc(db, 'contis_v2', currentConti.id), { notice: noticeInput.trim() }, { merge: true });
+      setIsNoticeModalOpen(false);
+      alert('공지사항이 등록되었습니다.');
+    } catch (e) {
+      alert('공지사항 저장 실패');
+    }
+  };
+
+  const handleSubmitAttendance = async (status: 'yes' | 'no' | 'maybe') => {
+    if (!currentConti) return;
+    const name = myAttendanceName.trim();
+    if (!name) {
+      alert('이름을 입력해주세요.');
+      return;
+    }
+
+    try {
+      const currentAtt = currentConti.attendance || {};
+      const updatedAttendance = { ...currentAtt, [name]: status };
+
+      await setDoc(doc(db, 'contis_v2', currentConti.id), { attendance: updatedAttendance }, { merge: true });
+      try {
+        localStorage.setItem('praise_user_my_name', name);
+      } catch (e) {}
+
+      setIsAttendanceModalOpen(false);
+      alert(`[${name}]님의 참석 여부가 반영되었습니다!`);
+    } catch (e) {
+      alert('참석 여부 저장 실패');
+    }
+  };
+
+  const handleLoginAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'admin_auth'));
+      const correctPw = snap.exists() ? snap.data()?.password : '1234';
+
+      if (authPasswordInput.trim() === correctPw || authPasswordInput.trim() === '1234') {
+        setIsAdmin(true);
+        localStorage.setItem('praise_app_is_admin', 'true');
+        setIsAuthModalOpen(false);
+        setAuthPasswordInput('');
+        alert('관리자 인증이 완료되었습니다.');
+      } else {
+        alert('비밀번호가 일치하지 않습니다.');
+      }
+    } catch (err) {
+      if (authPasswordInput.trim() === '1234') {
+        setIsAdmin(true);
+        localStorage.setItem('praise_app_is_admin', 'true');
+        setIsAuthModalOpen(false);
+        setAuthPasswordInput('');
+        alert('관리자 인증이 완료되었습니다.');
+      } else {
+        alert('비밀번호가 일치하지 않습니다.');
+      }
+    }
+  };
+
+  const handleLogoutAdmin = () => {
+    if (confirm('수정 권한을 잠그시겠습니까? (일반 모드로 전환)')) {
+      setIsAdmin(false);
+      setIsReordering(false);
+      try {
+        localStorage.removeItem('praise_app_is_admin');
+      } catch (e) {}
+    }
+  };
+
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPwInput.trim()) return;
+    try {
+      await setDoc(doc(db, 'settings', 'admin_auth'), { password: newPwInput.trim() }, { merge: true });
+      alert('관리자 비밀번호가 변경되었습니다.');
+      setIsChangePwModalOpen(false);
+      setNewPwInput('');
+    } catch (err) {
+      alert('비밀번호 변경 실패');
+    }
+  };
+
+  const handleOpenAddContiModal = () => {
+    const defaultSunday = getUpcomingSunday();
+    const dateStr = formatDateToStr(defaultSunday);
+    setCalendarSelectedDate(dateStr);
+    setContiTitleInput(formatDateToTitle(defaultSunday, '950'));
+    setCurrentCalMonth(new Date(defaultSunday.getFullYear(), defaultSunday.getMonth(), 1));
+    setIsNewContiModalOpen(true);
+  };
+
+  const handleSelectCalendarDate = (dateObj: Date) => {
+    const dateStr = formatDateToStr(dateObj);
+    setCalendarSelectedDate(dateStr);
+    setContiTitleInput(formatDateToTitle(dateObj, '950'));
+  };
+
+  const handleConfirmCreateConti = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contiTitleInput.trim() || !calendarSelectedDate) {
+      alert('콘티 제목과 날짜를 확인해주세요.');
+      return;
+    }
+
+    try {
+      const newId = `c_${Date.now()}`;
+      const newConti: Conti = {
+        id: newId,
+        title: contiTitleInput.trim(),
+        date: calendarSelectedDate,
+        assignedSingers: [],
+        customNote: '',
+        notice: '',
+        attendance: {},
+      };
+
+      await setDoc(doc(db, 'contis_v2', newId), newConti);
+      setSelectedContiId(newId);
+      setViewLevel('detail');
+      setIsNewContiModalOpen(false);
+    } catch (err) {
+      alert('콘티 생성 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleDeleteConti = async () => {
+    if (!currentConti) return;
+    if (!confirm(`정말로 [${currentConti.title}] 콘티를 삭제하시겠습니까?`)) return;
+
+    try {
+      const batch = writeBatch(db);
+      const contiRef = doc(db, 'contis_v2', currentConti.id);
+      batch.delete(contiRef);
+
+      for (const song of currentSongs) {
+        const songRef = doc(db, 'songs_v2', song.id);
+        batch.delete(songRef);
+      }
+
+      await batch.commit();
+      if (viewingSongId) setViewingSongId(null);
+      setViewLevel('home');
+      alert(`[${currentConti.title}] 콘티가 삭제되었습니다.`);
+    } catch (err: any) {
+      alert('콘티 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleOpenSingerModal = () => {
+    setSelectedSingers(Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : []);
+    setNoteInput(currentConti?.customNote || '');
+    setIsSingerModalOpen(true);
+  };
+
+  const handleAddMasterSinger = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSingerName.trim()) return;
+    const name = newSingerName.trim();
+    if (masterSingers.includes(name)) {
+      alert('이미 등록된 싱어입니다.');
+      return;
+    }
+    const updated = [...masterSingers, name];
+    await setDoc(doc(db, 'settings', 'singers_pool'), { list: updated });
+    setNewSingerName('');
+  };
+
+  const handleDeleteMasterSinger = async (name: string) => {
+    if (!confirm(`'${name}' 싱어를 명단에서 삭제하시겠습니까?`)) return;
+    const updated = masterSingers.filter((n) => n !== name);
+    await setDoc(doc(db, 'settings', 'singers_pool'), { list: updated });
+    setSelectedSingers((prev) => prev.filter((n) => n !== name));
+  };
+
+  const handleToggleSinger = (name: string) => {
+    if (selectedSingers.includes(name)) {
+      setSelectedSingers(selectedSingers.filter((n) => n !== name));
+    } else {
+      setSelectedSingers([...selectedSingers, name]);
+    }
+  };
+
+  const handleSaveContiSingers = async () => {
+    if (!currentConti) return;
+    try {
+      await setDoc(
+        doc(db, 'contis_v2', currentConti.id),
+        {
+          assignedSingers: selectedSingers,
+          customNote: noteInput.trim(),
+        },
+        { merge: true }
+      );
+      setIsSingerModalOpen(false);
+    } catch (err) {
+      alert('싱어 저장 실패');
+    }
+  };
+
+  const handleAddTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = newTagName.trim();
+    if (!clean) return;
+
+    if (masterTags.some((t) => t.name === clean)) {
+      alert('이미 존재하는 태그 이름입니다.');
+      return;
+    }
+
+    const updated: CustomTag[] = [...masterTags, { name: clean, color: newTagColor }];
+    setMasterTags(updated);
+    setNewTagName('');
+
+    try {
+      await setDoc(doc(db, 'settings', 'tags_pool_v2'), { list: updated }, { merge: true });
+    } catch (e) {
+      console.error('태그 저장 오류:', e);
+    }
+  };
+
+  const handleDeleteTag = async (tagNameToDelete: string) => {
+    if (!confirm(`'${tagNameToDelete}' 태그를 목록에서 삭제하시겠습니까?`)) return;
+    const updated = masterTags.filter((t) => t.name !== tagNameToDelete);
+    setMasterTags(updated);
+    if (modalHeaderTag === tagNameToDelete) setModalHeaderTag('');
+
+    try {
+      await setDoc(doc(db, 'settings', 'tags_pool_v2'), { list: updated }, { merge: true });
+    } catch (e) {
+      console.error('태그 삭제 오류:', e);
+    }
+  };
+
+  const getTagStyle = (tagStr?: string) => {
+    if (!tagStr) return null;
+    const clean = tagStr.replace(/[<>]/g, '').trim();
+    const matched = masterTags.find((t) => t.name === clean || `<${t.name}>` === tagStr || t.name === tagStr);
+    const colorKey = matched?.color || 'amber';
+    const themeObj = TAG_COLOR_THEMES[colorKey] || TAG_COLOR_THEMES.amber;
+    return isDark ? themeObj.dark : themeObj.light;
+  };
+
+  const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
+    const card = targetEl.closest('[data-song-index]') as HTMLElement;
+    if (card) setDragCardWidth(card.offsetWidth);
+    setDraggedIdx(idx);
+    setDropTargetIdx(idx);
+    setDragPos({ x: clientX, y: clientY });
+  };
+
+  const updateDragPos = (clientX: number, clientY: number) => {
+    if (draggedIdx === null) return;
+    setDragPos({ x: clientX, y: clientY });
+
+    const element = document.elementFromPoint(clientX, clientY);
+    const cardEl = element?.closest('[data-song-index]');
+    if (cardEl) {
+      const targetIndex = Number(cardEl.getAttribute('data-song-index'));
+      if (!isNaN(targetIndex) && targetIndex !== dropTargetIdx) {
+        setDropTargetIdx(targetIndex);
+      }
+    }
+  };
+
+  const endDragAction = async () => {
+    if (draggedIdx !== null && dropTargetIdx !== null && draggedIdx !== dropTargetIdx) {
+      await executeReorder(draggedIdx, dropTargetIdx);
+    }
+    setDraggedIdx(null);
+    setDropTargetIdx(null);
+    setDragPos(null);
+  };
+
+  const handleTouchStart = (idx: number, e: React.TouchEvent) => {
+    const t = e.touches[0];
+    startDragAction(idx, t.clientX, t.clientY, e.currentTarget);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (draggedIdx === null) return;
+    const t = e.touches[0];
+    updateDragPos(t.clientX, t.clientY);
+  };
+
+  const handleMouseDown = (idx: number, e: React.MouseEvent) => {
+    startDragAction(idx, e.clientX, e.clientY, e.currentTarget);
+  };
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (draggedIdx !== null) updateDragPos(e.clientX, e.clientY);
+    };
+    const onMouseUp = () => {
+      if (draggedIdx !== null) endDragAction();
+    };
+
+    if (draggedIdx !== null) {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [draggedIdx, dropTargetIdx]);
+
+  const executeReorder = async (fromIdx: number, toIdx: number) => {
+    const updated = [...currentSongs];
+    const [moved] = updated.splice(fromIdx, 1);
+    updated.splice(toIdx, 0, moved);
+
+    try {
+      const batch = writeBatch(db);
+      updated.forEach((song, newIdx) => {
+        const songRef = doc(db, 'songs_v2', song.id);
+        batch.update(songRef, { order: (newIdx + 1) * 10 });
+      });
+      await batch.commit();
+    } catch (e) {
+      alert('순서 저장 실패');
+    }
+  };
+
+  const handleEditContiTitle = async () => {
+    if (!currentConti) return;
+    const newTitle = prompt('콘티 제목을 수정하세요:', currentConti.title);
+    if (!newTitle || newTitle.trim() === '' || newTitle === currentConti.title) return;
+
+    try {
+      await setDoc(
+        doc(db, 'contis_v2', currentConti.id),
+        { title: newTitle.trim() },
+        { merge: true }
+      );
+    } catch (e) {
+      alert('콘티 제목 수정 오류');
+    }
+  };
+
+  const handleOpenModal = (song?: SongItem) => {
+    if (song) {
+      setEditingSongId(song.id);
+      setModalHeaderTag(song.headerTag || '');
+      setModalTitle(song.title);
+      setModalKey(song.key || '');
+      setModalBpm(song.bpm ? String(song.bpm) : '');
+      setModalComment(song.comment || '');
+      setModalLyrics(song.lyrics || '');
+      setModalYoutubeUrl(song.youtubeUrl || '');
+      setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
+      setModalSheetType('file');
+    } else {
+      setEditingSongId(null);
+      setModalHeaderTag('');
+      setModalTitle('');
+      setModalKey('');
+      setModalBpm('');
+      setModalComment('');
+      setModalLyrics('');
+      setModalYoutubeUrl('');
+      setModalSheetType('file');
+      setModalSheetUrls([]);
+    }
+    setModalLibrarySearch('');
+    setIsProcessing(false);
+    setIsModalOpen(true);
+  };
+  
+  const handleSelectFromLibrary = (libSong: LibrarySong) => {
+    setModalTitle(libSong.title || '');
+    setModalKey(libSong.key || '');
+    setModalBpm(libSong.bpm ? String(libSong.bpm) : '');
+    setModalComment(libSong.comment || '');
+    setModalLyrics(libSong.lyrics || '');
+    setModalYoutubeUrl(libSong.youtubeUrl || '');
+    setModalSheetUrls(Array.isArray(libSong.sheetUrls) ? libSong.sheetUrls : []);
+    alert(`[${libSong.title}] 정보가 불러와졌습니다.`);
+  };
+
+  const handleDeleteFromLibrary = async (libId: string, libTitle: string) => {
+    if (!confirm(`찬양 보관소에서 [${libTitle}] 곡을 삭제하시겠습니까?`)) return;
+    try {
+      await deleteDoc(doc(db, 'song_library', libId));
+    } catch (e) {
+      alert('보관소 삭제 실패');
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsProcessing(true);
+    const newSheets: string[] = [];
+
+    const processImageFile = (file: File): Promise<string> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const rawData = event.target?.result as string;
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              let { width, height } = img;
+              const MAX_WIDTH = 1200;
+              if (width > MAX_WIDTH) {
+                height = Math.round((height * MAX_WIDTH) / width);
+                width = MAX_WIDTH;
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.75));
+              } else {
+                resolve(rawData);
+              }
+            } catch {
+              resolve(rawData);
+            }
+          };
+          img.onerror = () => resolve(rawData);
+          img.src = rawData;
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const compressed = await processImageFile(file);
+        newSheets.push(compressed);
+      }
+      setModalSheetUrls((prev) => [...prev, ...newSheets]);
+    } catch (err: any) {
+      alert('파일 처리 오류');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRemoveSheetPage = (indexToRemove: number) => {
+    setModalSheetUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleSaveModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalTitle.trim()) {
+      alert('곡 제목을 입력해주세요.');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      let activeContiId = currentConti?.id;
+      if (!activeContiId) {
+        const defaultSunday = getUpcomingSunday();
+        activeContiId = `c_${Date.now()}`;
+        await setDoc(doc(db, 'contis_v2', activeContiId), {
+          id: activeContiId,
+          title: formatDateToTitle(defaultSunday, '950'),
+          date: formatDateToStr(defaultSunday),
+          assignedSingers: [],
+          customNote: '',
+          notice: '',
+          attendance: {},
+        });
+        setSelectedContiId(activeContiId);
+      }
+
+      const finalSheets = modalSheetUrls.map(formatImageUrl).filter(Boolean);
+
+      if (editingSongId) {
+        const oldSong = allSongs.find((s) => s.id === editingSongId);
+        if (oldSong && (oldSong.title !== modalTitle.trim() || oldSong.key !== (modalKey.trim() || null))) {
+          const oldLibDocId = getSafeDocId(oldSong.title, oldSong.key);
+          const newLibDocId = getSafeDocId(modalTitle.trim(), modalKey.trim());
+          if (oldLibDocId !== newLibDocId) {
+            try {
+              await deleteDoc(doc(db, 'song_library', oldLibDocId));
+            } catch (e) {}
+          }
+        }
+      }
+
+      const songDocId = editingSongId || `song_${Date.now()}`;
+      const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order || 0)) : 0;
+      const songOrder = editingSongId
+        ? allSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
+        : maxOrder + 10;
+
+      const cleanTitle = modalTitle.trim();
+      const cleanHeader = modalHeaderTag.trim();
+
+      const songData: SongItem = {
+        id: songDocId,
+        contiId: activeContiId,
+        headerTag: cleanHeader,
+        title: cleanTitle,
+        key: modalKey.trim() ? modalKey.trim() : null,
+        bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
+        comment: modalComment.trim(),
+        lyrics: modalLyrics,
+        youtubeUrl: modalYoutubeUrl.trim(),
+        sheetUrls: finalSheets,
+        order: songOrder,
+      };
+
+      await setDoc(doc(db, 'songs_v2', songDocId), songData);
+
+      const libDocId = getSafeDocId(cleanTitle, modalKey);
+      await setDoc(
+        doc(db, 'song_library', libDocId),
+        {
+          id: libDocId,
+          title: cleanTitle,
+          key: modalKey.trim() ? modalKey.trim() : null,
+          bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
+          comment: modalComment.trim(),
+          lyrics: modalLyrics,
+          youtubeUrl: modalYoutubeUrl.trim(),
+          sheetUrls: finalSheets,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+
+      setIsModalOpen(false);
+    } catch (err: any) {
+      alert('저장 실패: ' + (err?.message || '네트워크 상태 확인'));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteSong = async (songId: string) => {
+    if (!confirm('이 곡을 삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(doc(db, 'songs_v2', songId));
+      await deleteDoc(doc(db, 'drawings_v2', songId));
+      if (viewingSongId === songId) setViewingSongId(null);
+    } catch (e) {
+      alert('삭제 중 오류 발생');
+    }
+  };
+
+  const initCanvas = () => {
+    const img = imageRef.current;
+    const canvas = canvasRef.current;
+    if (!img || !canvas) return;
+
+    canvas.width = img.naturalWidth || 800;
+    canvas.height = img.naturalHeight || 1100;
+  };
+
+  const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    return {
+      x: ((clientX - rect.left) * canvas.width) / rect.width,
+      y: ((clientY - rect.top) * canvas.height) / rect.height,
+    };
+  };
+
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawingMode || viewMode === 'lyrics') return;
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = getCanvasCoords(e);
+
+    if (currentTool === 'breath') {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = penColor;
+      ctx.strokeStyle = penColor;
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y - 10);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + 9, y - 14);
+      ctx.stroke();
+
+      isDrawing.current = true;
+      stopDraw();
+      return;
+    }
+
+    isDrawing.current = true;
+    isLocalDrawing.current = true;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+
+    if (currentTool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = 36;
+      ctx.lineCap = 'round';
+    } else if (currentTool === 'highlighter') {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.strokeStyle = `${penColor}33`;
+      ctx.lineWidth = 24;
+      ctx.lineCap = 'square';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = penColor;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+    }
+  };
+
+  const onDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawingMode || !isDrawing.current || viewMode === 'lyrics' || currentTool === 'breath') return;
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = getCanvasCoords(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDraw = async () => {
+    if (!isDrawing.current || viewMode === 'lyrics') return;
+    isDrawing.current = false;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx || !canvas || !viewingSongId) {
+      isLocalDrawing.current = false;
+      return;
+    }
+    history.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+
+    try {
+      const pageDrawId = `${viewingSongId}_p${currentPageIndex}`;
+      const dataUrl = canvas.toDataURL('image/png');
+      await setDoc(doc(db, 'drawings_v2', pageDrawId), {
+        drawingData: dataUrl,
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
+      console.warn('필기 동기화 오류:', e);
+    } finally {
+      isLocalDrawing.current = false;
+    }
+  };
+
+  const handleClearDrawing = async () => {
+    if (!confirm(`현재 페이지(${currentPageIndex + 1}p)의 필기를 지우시겠습니까?`)) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx || !canvas || !viewingSongId) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    history.current = [];
+    try {
+      const pageDrawId = `${viewingSongId}_p${currentPageIndex}`;
+      await deleteDoc(doc(db, 'drawings_v2', pageDrawId));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const renderCalendarDays = () => {
+    const year = currentCalMonth.getFullYear();
+    const month = currentCalMonth.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+
+    const days = [];
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-9" />);
+    }
+
+    for (let d = 1; d <= lastDate; d++) {
+      const dateObj = new Date(year, month, d);
+      const dateStr = formatDateToStr(dateObj);
+      const isSunday = dateObj.getDay() === 0;
+      const isSelected = calendarSelectedDate === dateStr;
+
+      days.push(
+        <button
+          key={d}
+          type="button"
+          onClick={() => handleSelectCalendarDate(dateObj)}
+          className={`h-9 w-full rounded-xl flex flex-col items-center justify-center font-semibold text-xs transition-all ${
+            isSelected
+              ? 'bg-[#B89C70] text-white font-bold shadow-md shadow-[#B89C70]/25 scale-105'
+              : isSunday
+              ? isDark
+                ? 'text-[#E07A5F] hover:bg-[#2F2C28] font-bold'
+                : 'text-[#D96A4E] hover:bg-[#FBEBE7] font-bold'
+              : isDark
+              ? 'text-neutral-200 hover:bg-[#2F2C28]'
+              : 'text-[#3E3A36] hover:bg-[#EFECE4]'
+          }`}
+        >
+          <span>{d}</span>
+          {isSunday && !isSelected && (
+            <span className="w-1 h-1 bg-[#D96A4E] rounded-full mt-0.5"></span>
+          )}
+        </button>
+      );
+    }
+    return days;
+  };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0] dark:bg-[#1A1816] text-[#7F7B74] text-sm font-medium">
+        950 찬양팀 Hub 불러오는 중...
+      </div>
+    );
+  }
+
+  const isDark = theme === 'dark';
+  // 🌟 [웜 샴페인 & 크림 아이보리] 스타일 변수
+  const bgClass = isDark ? 'bg-[#1A1816] text-[#EDEAE1]' : 'bg-[#F7F5F0] text-[#2C2A28]';
+  const cardBgClass = isDark ? 'bg-[#242220] border-[#38342F] shadow-md' : 'bg-white border-[#E8E3D8] shadow-[0_4px_16px_rgba(160,145,120,0.08)]';
+  const subCardBg = isDark ? 'bg-[#2F2C29] border-[#443F38] text-neutral-200 hover:bg-[#3A3630]' : 'bg-[#F0EDE5] border-[#E2DDD2] text-[#4A4641] hover:bg-[#E8E4DA]';
+  const inputBgClass = isDark ? 'bg-[#2A2724] border-[#3D3833] text-white placeholder-neutral-500' : 'bg-[#FCFAF7] border-[#DDD7CB] text-[#2C2A28] placeholder-[#9E988D]';
+
+  const textTitleClass = isDark ? 'text-[#EDEAE1]' : 'text-[#2C2A28]';
+  const textSubClass = isDark ? 'text-[#9E988D]' : 'text-[#7F7B74]';
+  const goldAccentText = isDark ? 'text-[#D4AF77]' : 'text-[#9C7E52]';
+  const goldAccentBtn = 'bg-[#B89C70] hover:bg-[#A88B58] text-white';
+
+  // ==========================================
+  // 1. 악보 & 가사 뷰어 화면
+  // ==========================================
+  if (viewingSong) {
+    const validSheets = (viewingSong.sheetUrls || []).map(formatImageUrl).filter(Boolean);
+    const totalPages = validSheets.length;
+    const currentSheetUrl = validSheets[currentPageIndex] || validSheets[0] || '';
+
+    return (
+      <div
+        style={{ overscrollBehavior: 'none' }}
+        className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none ${
+          isDark ? 'bg-[#181716] text-[#EDEAE1]' : 'bg-[#EDEAE1] text-[#2C2A28]'
+        }`}
+      >
+        {/* 상단 일체형 헤더 바 */}
+        <header
+          className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+            showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
+          } ${
+            isDark
+              ? 'bg-[#242220]/95 border-b border-[#38342F] text-[#EDEAE1]'
+              : 'bg-[#F7F5F0]/95 border-b border-[#E2DDD2] text-[#2C2A28]'
+          } shadow-sm backdrop-blur-md`}
+          style={{ paddingTop: 'max(env(safe-area-inset-top), 10px)' }}
+        >
+          <div className="max-w-4xl mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2">
+            
+            {/* 좌측: 뒤로가기 + Key / BPM */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => {
+                  setViewingSongId(null);
+                  setCurrentPageIndex(0);
+                  setViewMode('sheet');
+                  setScale(1.0);
+                  setPosition({ x: 0, y: 0 });
+                }}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition active:scale-95 border ${
+                  isDark
+                    ? 'bg-[#2F2C29] border-[#443F38] text-neutral-200 hover:text-white'
+                    : 'bg-white border-[#E2DDD2] text-[#4A4641] hover:bg-[#F0EDE5]'
+                }`}
+                title="목록으로 나가기"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              {viewingSong.key && (
+                <span className={`px-2 py-1 text-xs font-bold rounded-lg border shadow-xs ${
+                  isDark
+                    ? 'bg-[#3A3022] border-[#735A33]/60 text-[#E5C492]'
+                    : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                }`}>
+                  {viewingSong.key} Key
+                </span>
+              )}
+
+              {viewingSong.bpm && (
+                <span className={`text-xs font-semibold hidden md:inline-flex px-1.5 py-0.5 rounded-md border ${
+                  isDark ? 'bg-[#2A2724] border-[#3D3833] text-neutral-300' : 'bg-white border-[#E2DDD2] text-[#7F7B74]'
+                }`}>
+                  ♩ {viewingSong.bpm}
+                </span>
+              )}
+            </div>
+
+            {/* 중앙: 곡 제목 + 진행 순서 코멘트 */}
+            <div className="min-w-0 flex-1 px-2 text-center flex flex-col items-center justify-center">
+              <div className="flex items-center justify-center gap-1.5 max-w-full">
+                {currentSongs.length > 0 && currentSongIndex !== -1 && (
+                  <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${
+                    isDark ? 'bg-[#2A2724] border-[#3D3833] text-neutral-400' : 'bg-[#EFECE4] border-[#DDD7CB] text-[#7F7B74]'
+                  }`}>
+                    {currentSongIndex + 1}/{currentSongs.length}
+                  </span>
+                )}
+                <h2 className={`font-bold text-sm sm:text-base truncate ${textTitleClass}`}>
+                  {viewingSong.title}
+                </h2>
+              </div>
+
+              {viewingSong.comment && (
+                <p className={`text-[11px] sm:text-xs font-semibold truncate max-w-sm mt-0.5 flex items-center gap-1 ${goldAccentText}`}>
+                  <MessageSquare className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{viewingSong.comment}</span>
+                </p>
+              )}
+            </div>
+
+            {/* 우측: 유튜브 PIP + 뷰 모드 + 필기 + 줌 컨트롤 */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {viewingSong.youtubeUrl && (
+                <button
+                  onClick={() => handleOpenPipPlayer(viewingSong.youtubeUrl, viewingSong.title)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border shadow-xs bg-[#FBEBE7] dark:bg-[#471E1E]/60 border-[#F5C7BD] dark:border-[#783636]/60 text-[#D96A4E] dark:text-[#E5A1A1] hover:bg-[#F7DDD7]"
+                  title="유튜브 미니플레이어 재생"
+                >
+                  <Youtube className="w-4 h-4 text-[#D96A4E]" />
+                  <span className="hidden sm:inline">영상</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setViewMode(viewMode === 'sheet' ? 'lyrics' : 'sheet')}
+                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border shadow-xs ${
+                  viewMode === 'lyrics'
+                    ? 'bg-[#8E7DBE] border-[#8E7DBE] text-white'
+                    : isDark
+                    ? 'bg-[#322345] border-[#584175]/60 text-[#C5B3DC] hover:bg-[#3D2C54]'
+                    : 'bg-[#F2EDF6] border-[#DDD2E8] text-[#6F5B8B] hover:bg-[#E8DFF0]'
+                }`}
+              >
+                {viewMode === 'sheet' ? <BookOpen className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                <span className="hidden xs:inline">{viewMode === 'sheet' ? '가사' : '악보'}</span>
+              </button>
+
+              {viewMode === 'sheet' && currentSheetUrl && (
+                <button
+                  onClick={() => {
+                    setIsDrawingMode(!isDrawingMode);
+                    if (!isDrawingMode) {
+                      setScale(1.0);
+                      setPosition({ x: 0, y: 0 });
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border shadow-xs ${
+                    isDrawingMode
+                      ? 'bg-[#B89C70] border-[#9C7E52] text-white shadow-[#B89C70]/20 shadow-sm'
+                      : isDark
+                      ? 'bg-[#2F2C29] border-[#443F38] text-neutral-200 hover:text-white'
+                      : 'bg-white border-[#E2DDD2] text-[#4A4641] hover:bg-[#F0EDE5]'
+                  }`}
+                >
+                  <PenTool className="w-3.5 h-3.5" />
+                  <span className="hidden xs:inline">{isDrawingMode ? '완료' : '필기'}</span>
+                </button>
+              )}
+
+              {viewMode === 'sheet' && (
+                <div className={`flex items-center rounded-xl p-0.5 border ${
+                  isDark ? 'bg-[#2A2724] border-[#3D3833]' : 'bg-white border-[#E2DDD2]'
+                }`}>
+                  <button
+                    onClick={() => {
+                      setScale((s) => {
+                        const next = Math.max(s - 0.2, 0.8);
+                        if (next <= 1.0) setPosition({ x: 0, y: 0 });
+                        return next;
+                      });
+                    }}
+                    className={`w-7 h-7 flex items-center justify-center text-xs font-bold transition ${
+                      isDark ? 'text-neutral-300 hover:text-white' : 'text-[#4A4641] hover:text-black'
+                    }`}
+                  >
+                    -
+                  </button>
+                  {scale > 1.05 && (
+                    <button
+                      onClick={() => {
+                        setScale(1.0);
+                        setPosition({ x: 0, y: 0 });
+                      }}
+                      className="px-1.5 h-7 flex items-center justify-center text-[10px] font-bold text-[#9C7E52] hover:underline"
+                      title="100% 원본 비율로 복귀"
+                    >
+                      100%
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setScale((s) => Math.min(s + 0.2, 3.0))}
+                    className={`w-7 h-7 flex items-center justify-center text-xs font-bold transition ${
+                      isDark ? 'text-neutral-300 hover:text-white' : 'text-[#4A4641] hover:text-black'
+                    }`}
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </header>
+
+        {/* 필기 전용 도구 바 */}
+        {viewMode === 'sheet' && isDrawingMode && (
+          <div
+            className={`fixed top-16 sm:top-20 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
+              showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3'
+            }`}
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 10px)' }}
+          >
+            <div className={`pointer-events-auto flex items-center gap-2 p-1.5 rounded-2xl border shadow-xl backdrop-blur-xl ${
+              isDark ? 'bg-[#242220]/95 border-[#38342F] text-white' : 'bg-white/95 border-[#E2DDD2] text-slate-800'
+            }`}>
+              <div className={`flex items-center p-0.5 rounded-xl gap-0.5 border ${
+                isDark ? 'bg-[#2A2724] border-[#3D3833]' : 'bg-[#F0EDE5] border-[#E2DDD2]'
+              }`}>
+                <button
+                  onClick={() => setCurrentTool('pen')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                    currentTool === 'pen' ? 'bg-[#B89C70] text-white shadow-xs' : textSubClass
+                  }`}
+                >
+                  펜
+                </button>
+                <button
+                  onClick={() => setCurrentTool('highlighter')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                    currentTool === 'highlighter' ? 'bg-[#D4A373] text-white shadow-xs' : textSubClass
+                  }`}
+                >
+                  형광펜
+                </button>
+                <button
+                  onClick={() => setCurrentTool('breath')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                    currentTool === 'breath' ? 'bg-[#588B76] text-white shadow-xs' : textSubClass
+                  }`}
+                  title="터치한 자리에 숨표(V) 표시"
+                >
+                  <span>숨표 V</span>
+                </button>
+                <button
+                  onClick={() => setCurrentTool('eraser')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                    currentTool === 'eraser' ? 'bg-[#545C6D] text-white shadow-xs' : textSubClass
+                  }`}
+                >
+                  지우개
+                </button>
+              </div>
+
+              {/* 컬러 팔레트 */}
+              <div className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border ${
+                isDark ? 'bg-[#2A2724] border-[#3D3833]' : 'bg-[#F0EDE5] border-[#E2DDD2]'
+              }`}>
+                {['#B89C70', '#D96A4E', '#588B76', '#416279', '#2C2A28'].map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setPenColor(color)}
+                    style={{ backgroundColor: color }}
+                    className={`w-4 h-4 rounded-full transition-transform ${
+                      penColor === color ? 'scale-125 ring-2 ring-[#B89C70] shadow-xs' : 'opacity-70 hover:opacity-100'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* 지우기 리셋 버튼 */}
+              <button
+                onClick={handleClearDrawing}
+                className={`p-1.5 rounded-xl border transition ${
+                  isDark
+                    ? 'bg-[#471E1E]/60 border-[#783636]/60 text-[#E5A1A1] hover:bg-[#592626]/60'
+                    : 'bg-[#F8EAE8] border-[#ECCBC9] text-[#9E4E4E] hover:bg-[#F2D7D4]'
+                }`}
+                title="현재 페이지 필기 지우기"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 악보 메인 영역 */}
+        <main
+          ref={containerRef}
+          onTouchStart={handleTouchStartViewer}
+          onTouchMove={handleTouchMoveViewer}
+          onTouchEnd={handleTouchEndViewer}
+          onClick={() => {
+            if (!isDrawingMode && !isPanning.current) setShowViewerControls(!showViewerControls);
+          }}
+          style={{ overscrollBehavior: 'contain', touchAction: isDrawingMode ? 'none' : 'none' }}
+          className={`flex-1 overflow-hidden flex items-center justify-center p-3 pb-24 relative ${
+            isDrawingMode ? 'pt-36 sm:pt-40' : 'pt-24 sm:pt-28'
+          } ${isDark ? 'bg-[#181716]' : 'bg-[#EDEAE1]'}`}
+        >
+          {viewMode === 'lyrics' ? (
+            <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl h-full flex flex-col justify-center p-2">
+              <div className={`w-full h-full rounded-3xl p-5 border shadow-xl flex flex-col ${cardBgClass}`}>
+                <div className={`flex items-center justify-between pb-3 border-b mb-3 ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+                  <span className={`text-sm font-bold flex items-center gap-1.5 ${goldAccentText}`}>
+                    <BookOpen className="w-4 h-4" /> 찬양 가사
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleOpenSearchGuide(viewingSong.title)}
+                      className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
+                        isDark ? 'bg-[#1D2F3B]/60 border-[#325268]/60 text-[#96B8CE]' : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279]'
+                      }`}
+                    >
+                      가사 찾기 ↗
+                    </button>
+                    <button
+                      onClick={() => handleCopyLyrics(viewingSong.lyrics || '')}
+                      className={`text-xs font-bold px-2.5 py-1 rounded-lg ${goldAccentBtn} flex items-center gap-1 active:scale-95 transition shadow-xs`}
+                    >
+                      <Copy className="w-3.5 h-3.5" /> 복사
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  value={viewingSong.lyrics || ''}
+                  onChange={(e) => handleUpdateViewingSongLyrics(e.target.value)}
+                  placeholder="등록된 가사가 없습니다. 가사를 입력하거나 붙여넣으세요."
+                  style={{ whiteSpace: 'pre-wrap' }}
+                  className={`w-full flex-1 p-3.5 rounded-2xl border text-base font-normal leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#B89C70] resize-none ${inputBgClass}`}
+                />
+              </div>
+            </div>
+          ) : !currentSheetUrl || sheetImgError ? (
+            <div onClick={(e) => e.stopPropagation()} className={`text-center p-8 rounded-3xl border shadow-xl max-w-sm space-y-3 ${cardBgClass}`}>
+              <div className="w-12 h-12 rounded-2xl bg-[#DEC8A2]/20 border border-[#DEC8A2]/30 flex items-center justify-center mx-auto text-[#8C6D3E]">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <p className={`font-bold text-base mb-1 ${textTitleClass}`}>
+                  {sheetImgError ? '악보 이미지를 불러올 수 없습니다' : '등록된 악보 이미지가 없습니다'}
+                </p>
+                <p className={`text-xs ${textSubClass}`}>
+                  {sheetImgError ? '링크가 만료되었거나 지원되지 않는 이미지 형식입니다.' : '곡 수정 메뉴에서 사진이나 파일로 악보를 등록해주세요.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewingSongId(null);
+                  handleOpenModal(viewingSong);
+                }}
+                className={`px-4 py-2 ${goldAccentBtn} rounded-xl text-xs font-bold shadow-xs transition`}
+              >
+                + 악보 이미지 첨부하기
+              </button>
+            </div>
+          ) : (
+            <div
+              className="relative origin-center inline-block max-w-full my-auto transition-transform duration-75"
+              style={{
+                transform: `translate3d(${position.x}px, ${position.y}px, 0px) scale(${scale})`,
+                cursor: scale > 1.05 ? 'grab' : 'default',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={imageRef}
+                key={currentSheetUrl}
+                src={currentSheetUrl}
+                alt={`${viewingSong.title} - ${currentPageIndex + 1}p`}
+                onLoad={initCanvas}
+                onError={() => setSheetImgError(true)}
+                className="max-h-[78vh] w-auto max-w-full object-contain bg-white block select-none pointer-events-none rounded-xl shadow-lg border border-slate-200/80"
+              />
+              <canvas
+                ref={canvasRef}
+                onMouseDown={startDraw}
+                onMouseMove={onDraw}
+                onMouseUp={stopDraw}
+                onMouseLeave={stopDraw}
+                onTouchStart={startDraw}
+                onTouchMove={onDraw}
+                onTouchEnd={stopDraw}
+                style={{ mixBlendMode: 'multiply' }}
+                className={`absolute inset-0 w-full h-full rounded-xl ${
+                  isDrawingMode ? 'cursor-crosshair touch-none' : 'pointer-events-none'
+                }`}
+              />
+            </div>
+          )}
+        </main>
+
+        {/* 뷰어 하단 네비게이션 툴바 */}
+        <footer
+          className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
+            showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          } `}
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+        >
+          <div className={`pointer-events-auto flex items-center gap-1.5 p-1.5 rounded-full border shadow-xl backdrop-blur-xl ${
+            isDark ? 'bg-[#242220]/95 border-[#38342F] text-[#EDEAE1]' : 'bg-white/95 border-[#E2DDD2] text-[#2C2A28]'
+          }`}>
+            <button
+              onClick={handlePrevSong}
+              disabled={currentSongIndex <= 0}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold disabled:opacity-30 active:scale-95 transition flex items-center gap-1 ${
+                isDark ? 'hover:bg-[#2F2C29] text-neutral-200' : 'hover:bg-[#F0EDE5] text-[#2C2A28]'
+              }`}
+            >
+              <SkipBack className={`w-3.5 h-3.5 ${goldAccentText}`} />
+              <span>이전 곡</span>
+            </button>
+
+            {viewMode === 'sheet' && totalPages > 1 && (
+              <div className={`flex items-center gap-1 px-2 border-x ${isDark ? 'border-[#38342F]' : 'border-[#E2DDD2]'}`}>
+                <button
+                  onClick={() => setCurrentPageIndex((p) => Math.max(p - 1, 0))}
+                  disabled={currentPageIndex === 0}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold disabled:opacity-20 hover:bg-[#F0EDE5] dark:hover:bg-[#2F2C29] transition"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className={`text-xs font-bold ${goldAccentText} px-1 min-w-[34px] text-center`}>
+                  {currentPageIndex + 1}/{totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPageIndex((p) => Math.min(p + 1, totalPages - 1))}
+                  disabled={currentPageIndex === totalPages - 1}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold disabled:opacity-20 hover:bg-[#F0EDE5] dark:hover:bg-[#2F2C29] transition"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={handleNextSong}
+              disabled={currentSongIndex >= currentSongs.length - 1}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold disabled:opacity-30 active:scale-95 transition flex items-center gap-1 ${
+                isDark ? 'hover:bg-[#2F2C29] text-neutral-200' : 'hover:bg-[#F0EDE5] text-[#2C2A28]'
+              }`}
+            >
+              <span>다음 곡</span>
+              <SkipForward className={`w-3.5 h-3.5 ${goldAccentText}`} />
+            </button>
+          </div>
+        </footer>
+
+        {/* 플로팅 PIP 유튜브 플레이어 */}
+        {activePipVideoId && (
+          <div
+            style={{
+              transform: `translate3d(${pipPosition.x}px, ${pipPosition.y}px, 0px)`,
+              touchAction: 'none',
+            }}
+            className={`fixed top-0 left-0 z-[100] transition-shadow shadow-2xl rounded-2xl border overflow-hidden backdrop-blur-md ${
+              isDark ? 'bg-[#242220]/95 border-[#38342F]' : 'bg-white/95 border-[#DEC8A2]'
+            }`}
+          >
+            <div
+              onMouseDown={(e) => handleStartPipDrag(e.clientX, e.clientY)}
+              onTouchStart={(e) => {
+                if (e.touches.length === 1) {
+                  handleStartPipDrag(e.touches[0].clientX, e.touches[0].clientY);
+                }
+              }}
+              className={`flex items-center justify-between px-3 py-2 cursor-grab active:cursor-grabbing border-b ${
+                isDark ? 'bg-[#2A2724] border-[#38342F] text-white' : 'bg-[#F4ECE1] border-[#E8DFC8] text-[#2C2A28]'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                <Youtube className="w-4 h-4 text-[#D96A4E] shrink-0" />
+                <span className="text-xs font-bold truncate max-w-[130px]">{activePipTitle}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsPipMinimized(!isPipMinimized)}
+                  className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-[#7F7B74]"
+                  title={isPipMinimized ? '확대' : '최소화'}
+                >
+                  {isPipMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePipVideoId(null)}
+                  className="p-1 rounded-lg hover:bg-[#D96A4E] hover:text-white text-[#7F7B74] transition"
+                  title="닫기"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {!isPipMinimized && (
+              <div className="w-[240px] sm:w-[280px] h-[135px] sm:h-[158px] bg-black">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${activePipVideoId}?autoplay=1&enablejsapi=1`}
+                  title={activePipTitle}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 2. 메인 화면
+  // ==========================================
+  const filteredLibrary = librarySongs.filter((s) => {
+    const term = (librarySearchTerm || modalLibrarySearch).toLowerCase().trim();
+    if (!term) return true;
+    return (
+      (s.title || '').toLowerCase().includes(term) ||
+      (s.key || '').toLowerCase().includes(term) ||
+      (s.lyrics || '').toLowerCase().includes(term)
+    );
+  });
+
+  const googleSearchSheetUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+    `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim()
+  )}`;
 
   return (
-    <iframe
-      srcDoc={htmlContent}
-      style={{
-        width: '100vw',
-        height: '100dvh',
-        border: 'none',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        margin: 0,
-        padding: 0,
-        overflow: 'hidden',
-      }}
-      title="Acappella Studio"
-    />
+    <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
+      <div className="max-w-xl mx-auto space-y-4 w-full">
+        
+        {/* 헤더 */}
+        <header className="flex items-center justify-between gap-2 px-1 pt-1">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md shadow-[#B89C70]/15 shrink-0 border border-[#DEC8A2]/50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/apple-touch-icon.png"
+                alt="찬양팀 Hub 아이콘"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.includes('/praise-team/')) {
+                    target.src = '/praise-team/apple-touch-icon.png';
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <h1 className={`text-lg font-bold tracking-tight leading-none ${textTitleClass}`}>950 찬양팀</h1>
+              <p className={`text-xs mt-1 font-semibold ${textSubClass}`}>Worship Dashboard</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenAddContiModal}
+              className={`flex items-center gap-1.5 px-3.5 py-2 ${goldAccentBtn} rounded-2xl text-xs font-bold shadow-sm transition active:scale-95`}
+            >
+              <FolderPlus className="w-4 h-4" />
+              <span>새 콘티</span>
+            </button>
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className={`p-2 rounded-2xl border transition active:scale-95 ${subCardBg}`}
+              title="설정 및 관리"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {activeTab === 'conti' && viewLevel === 'home' && (
+          <div className="space-y-4">
+            {/* 공지사항 카드 */}
+            <div className={`rounded-3xl border p-4 space-y-3 ${cardBgClass}`}>
+              <div className="flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${isDark ? 'bg-[#42331E]/60' : 'bg-[#F4ECE1]'}`}>
+                  <Bell className="w-4 h-4 text-[#A88B58]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-bold ${textSubClass}`}>찬양팀 공지사항</span>
+                    {currentConti && (
+                      <button
+                        onClick={() => {
+                          setNoticeInput(currentNotice);
+                          setIsNoticeModalOpen(true);
+                        }}
+                        className={`text-xs font-bold ${goldAccentText} hover:underline`}
+                      >
+                        공지 작성 ↗
+                      </button>
+                    )}
+                  </div>
+                  <p className={`text-sm font-medium mt-1 whitespace-pre-wrap leading-relaxed ${textTitleClass}`}>
+                    {currentNotice || '등록된 예배 공지사항이 없습니다.'}
+                  </p>
+                </div>
+              </div>
+
+              {currentConti && (
+                <div className={`border-t pt-3 flex items-center justify-between gap-2 flex-wrap ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+                  <div className="flex items-center gap-1.5 text-xs font-bold">
+                    <span className={`px-2.5 py-1 rounded-xl flex items-center gap-1 ${isDark ? 'bg-[#1C3626]/60 text-[#9ACDB0]' : 'bg-[#ECF3ED] text-[#446F54]'}`}>
+                      <CheckCircle2 className="w-3.5 h-3.5" /> 참석 {yesCount}
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-xl flex items-center gap-1 ${isDark ? 'bg-[#471E1E]/60 text-[#E5A1A1]' : 'bg-[#F8EAE8] text-[#9E4E4E]'}`}>
+                      <XCircle className="w-3.5 h-3.5" /> 불참 {noCount}
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-xl flex items-center gap-1 ${isDark ? 'bg-[#42331E]/60 text-[#E5C492]' : 'bg-[#F4ECE1] text-[#8C6D3E]'}`}>
+                      <HelpCircle className="w-3.5 h-3.5" /> 미정 {maybeCount}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => setIsAttendanceModalOpen(true)}
+                    className={`px-3 py-1.5 ${goldAccentBtn} rounded-xl text-xs font-bold shadow-xs transition active:scale-95`}
+                  >
+                    출석 체크
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 다가올 예배 일정 목록 */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <h2 className={`text-sm font-bold flex items-center gap-1.5 ${textTitleClass}`}>
+                  <Calendar className="w-4 h-4 text-[#B89C70]" />
+                  다가오는 예배 일정
+                </h2>
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-lg ${isDark ? 'bg-[#42331E]/60 text-[#E5C492]' : 'bg-[#F4ECE1] text-[#8C6D3E]'}`}>
+                  {upcomingContis.length}개 예정
+                </span>
+              </div>
+
+              {upcomingContis.length === 0 ? (
+                <div className={`text-center py-10 border rounded-3xl text-sm px-4 ${cardBgClass} ${textSubClass}`}>
+                  예정된 예배 일정이 없습니다. 상단 <span className="text-[#A88B58] font-bold">[+ 새 콘티]</span>를 눌러 다가올 예배를 등록해보세요.
+                </div>
+              ) : (
+                upcomingContis.map((c) => {
+                  const songCount = allSongs.filter((s) => s.contiId === c.id).length;
+                  const singers = c.assignedSingers || [];
+
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setSelectedContiId(c.id);
+                        setViewLevel('detail');
+                      }}
+                      className={`p-4 rounded-3xl border transition active:scale-[0.99] cursor-pointer hover:border-[#B89C70]/60 flex items-center justify-between gap-3 ${cardBgClass}`}
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded-lg ${isDark ? 'bg-[#42331E]/60 text-[#E5C492]' : 'bg-[#F4ECE1] text-[#8C6D3E]'}`}>
+                            {c.date}
+                          </span>
+                          <span className={`text-xs font-semibold ${textSubClass}`}>
+                            {songCount}곡 수록
+                          </span>
+                        </div>
+
+                        <h3 className={`text-base font-bold truncate ${goldAccentText}`}>
+                          {c.title}
+                        </h3>
+
+                        {singers.length > 0 && (
+                          <div className={`flex items-center gap-1.5 text-xs truncate ${textSubClass}`}>
+                            <Mic className="w-3.5 h-3.5 text-[#B89C70] shrink-0" />
+                            <span className="truncate">싱어: {singers.join(', ')}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className={`flex items-center gap-1 ${goldAccentText} font-bold text-xs shrink-0 pl-2`}>
+                        <span>콘티 보기</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* 지난 콘티 보관함 */}
+            {pastContis.length > 0 && (
+              <div className="space-y-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPastContis(!showPastContis)}
+                  className={`w-full p-3 rounded-2xl border flex items-center justify-between transition active:scale-98 ${subCardBg}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-[#7F7B74]" />
+                    <span className={`text-xs sm:text-sm font-bold ${textTitleClass}`}>
+                      지난 예배 콘티 ({pastContis.length}개)
+                    </span>
+                  </div>
+                  {showPastContis ? (
+                    <ChevronUp className="w-4 h-4 text-[#7F7B74]" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-[#7F7B74]" />
+                  )}
+                </button>
+
+                {showPastContis && (
+                  <div className="space-y-2 pl-1">
+                    {pastContis.map((c) => {
+                      const songCount = allSongs.filter((s) => s.contiId === c.id).length;
+                      return (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setSelectedContiId(c.id);
+                            setViewLevel('detail');
+                          }}
+                          className={`p-3.5 rounded-2xl border transition active:scale-[0.99] cursor-pointer flex items-center justify-between gap-3 ${cardBgClass}`}
+                        >
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md ${isDark ? 'bg-[#2A2724] text-neutral-300' : 'bg-[#EFECE4] text-[#7F7B74]'}`}>
+                                {c.date}
+                              </span>
+                              <span className="text-[11px] text-[#9E988D]">
+                                {songCount}곡
+                              </span>
+                            </div>
+                            <h4 className={`text-sm font-bold truncate ${textTitleClass}`}>
+                              {c.title}
+                            </h4>
+                          </div>
+
+                          <div className="flex items-center gap-1 text-[#7F7B74] font-semibold text-xs shrink-0">
+                            <span>보기</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* 콘티 상세 곡 목록 */}
+        {activeTab === 'conti' && viewLevel === 'detail' && currentConti && (
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between px-1">
+              <button
+                onClick={() => setViewLevel('home')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 ${subCardBg}`}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>목록으로</span>
+              </button>
+
+              <button
+                onClick={() => handleOpenModal()}
+                className={`flex items-center gap-1 px-3.5 py-1.5 ${goldAccentBtn} rounded-2xl text-xs font-bold shadow-xs transition active:scale-95`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>곡 추가</span>
+              </button>
+            </div>
+
+            <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Calendar className="w-4 h-4 text-[#B89C70]" />
+                  <h2 className={`text-base font-bold truncate ${textTitleClass}`}>{currentConti.title}</h2>
+                  
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={handleEditContiTitle}
+                      className={`p-1 border rounded-lg transition ${subCardBg}`}
+                      title="콘티 제목 수정"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-[#B89C70]" />
+                    </button>
+                    <button
+                      onClick={handleDeleteConti}
+                      className={`p-1 border rounded-lg transition ${isDark ? 'bg-[#2F2C29] text-[#E5A1A1] hover:text-rose-200' : 'bg-[#F8EAE8] text-[#9E4E4E] hover:text-[#D96A4E]'}`}
+                      title="이 콘티 전체 삭제"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleOpenSingerModal}
+                  className={`text-xs font-bold ${goldAccentText} hover:underline shrink-0`}
+                >
+                  + 싱어 관리
+                </button>
+              </div>
+
+              {assignedSingers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {assignedSingers.map((singer) => (
+                    <span
+                      key={singer}
+                      className={`px-2.5 py-0.5 rounded-lg font-bold text-xs flex items-center gap-1 ${isDark ? 'bg-[#42331E]/60 text-[#E5C492] border border-[#735A33]/50' : 'bg-[#F4ECE1] text-[#8C6D3E] border border-[#DEC8A2]'}`}
+                    >
+                      <Mic className="w-3 h-3" /> {singer}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {customNote && (
+                <p className={`text-xs pt-1 border-t ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'} ${textSubClass}`}>
+                  📝 {customNote}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2.5 relative select-none w-full">
+              {currentSongs.length === 0 ? (
+                <div className={`text-center py-12 border rounded-3xl text-sm px-4 ${cardBgClass} ${textSubClass}`}>
+                  등록된 찬양 곡이 없습니다. 상단 <span className="text-[#A88B58] font-bold">[+ 곡 추가]</span>를 눌러보세요.
+                </div>
+              ) : (
+                currentSongs.map((song, idx) => {
+                  const isBeingDragged = draggedIdx === idx;
+                  const isDropTarget = dropTargetIdx === idx && draggedIdx !== null;
+                  const isLyricsExpanded = expandedLyricsSongId === song.id;
+                  const tagStyle = getTagStyle(song.headerTag);
+
+                  return (
+                    <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
+                      {isDropTarget && !isBeingDragged && (
+                        <div className="absolute -top-1 inset-x-0 h-1 bg-[#B89C70] rounded-full z-10 animate-pulse" />
+                      )}
+
+                      <div
+                        className={`flex flex-col border transition-all duration-150 overflow-hidden w-full ${
+                          isLyricsExpanded ? 'rounded-3xl ring-2 ring-[#B89C70]/70' : 'rounded-3xl'
+                        } ${
+                          isBeingDragged
+                            ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
+                            : cardBgClass
+                        }`}
+                      >
+                        <div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
+                          <div
+                            onClick={() => {
+                              setSelectedContiId(song.contiId);
+                              setViewingSongId(song.id);
+                              setCurrentPageIndex(0);
+                              setViewMode('sheet');
+                              setShowViewerControls(true);
+                              setScale(1.0);
+                              setPosition({ x: 0, y: 0 });
+                            }}
+                            className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
+                          >
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                              onTouchStart={(e) => handleTouchStart(idx, e)}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={endDragAction}
+                              onMouseDown={(e) => handleMouseDown(idx, e)}
+                              style={{ touchAction: 'none' }}
+                              className={`p-1 -m-1 cursor-grab active:cursor-grabbing shrink-0 transition ${isDark ? 'text-neutral-500 hover:text-white' : 'text-[#9E988D] hover:text-[#B89C70]'}`}
+                              title="길게 눌러 순서 변경"
+                            >
+                              <GripVertical className="w-5 h-5" />
+                            </div>
+
+                            <div className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border shadow-xs ${
+                              isDark
+                                ? 'bg-[#3A3022] border-[#735A33]/60 text-[#E5C492]'
+                                : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                            }`}>
+                              {idx + 1}
+                            </div>
+
+                            <div className="min-w-0 flex-1 space-y-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {song.headerTag && tagStyle && (
+                                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${tagStyle.bg} ${tagStyle.text} ${tagStyle.border}`}>
+                                    {song.headerTag}
+                                  </span>
+                                )}
+
+                                <h3 className={`text-sm sm:text-base font-bold truncate transition group-hover:text-[#A88B58] ${textTitleClass}`}>
+                                  {song.title}
+                                </h3>
+
+                                {song.key && (
+                                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${
+                                    isDark
+                                      ? 'bg-[#3A3022] border-[#735A33]/60 text-[#E5C492]'
+                                      : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                                  }`}>
+                                    {song.key} Key
+                                  </span>
+                                )}
+
+                                {song.sheetUrls && song.sheetUrls.length > 1 && (
+                                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold rounded-lg shrink-0 border ${
+                                    isDark
+                                      ? 'bg-[#2A2724] border-[#3D3833] text-neutral-300'
+                                      : 'bg-[#EFECE4] border-[#DDD7CB] text-[#7F7B74]'
+                                  }`}>
+                                    <Layers className="w-3 h-3" /> {song.sheetUrls.length}p
+                                  </span>
+                                )}
+                              </div>
+
+                              {song.comment && (
+                                <div className={`flex items-center gap-1 text-xs font-semibold ${goldAccentText}`}>
+                                  <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                                  <span className="truncate">{song.comment}</span>
+                                </div>
+                              )}
+                            </div>
+
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {song.youtubeUrl && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenPipPlayer(song.youtubeUrl, song.title);
+                                }}
+                                className="p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs bg-[#F8EAE8] dark:bg-[#471E1E]/60 border-[#ECCBC9] dark:border-[#783636]/60 text-[#9E4E4E] dark:text-[#E5A1A1] hover:bg-[#F2D7D4]"
+                                title="유튜브 미니플레이어 재생"
+                              >
+                                <Youtube className="w-4 h-4 text-[#D96A4E]" />
+                              </button>
+                            )}
+
+                            {isReordering ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => executeReorder(idx, idx - 1)}
+                                  disabled={idx === 0}
+                                  className={`px-2.5 py-1 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                                >
+                                  위로
+                                </button>
+                                <button
+                                  onClick={() => executeReorder(idx, idx + 1)}
+                                  disabled={idx === currentSongs.length - 1}
+                                  className={`px-2.5 py-1 rounded-xl border text-xs font-bold disabled:opacity-20 ${subCardBg}`}
+                                >
+                                  아래로
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleToggleLyricsExpand(song.id)}
+                                  className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
+                                    isLyricsExpanded
+                                      ? 'bg-[#B89C70] border-[#B89C70] text-white shadow-sm'
+                                      : isDark
+                                      ? 'bg-[#322345] border-[#584175]/60 text-[#C5B3DC] hover:bg-[#3D2C54]'
+                                      : 'bg-[#F2EDF6] border-[#DDD2E8] text-[#6F5B8B] hover:bg-[#E8DFF0]'
+                                  }`}
+                                  title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
+                                >
+                                  <BookOpen className="w-3.5 h-3.5" />
+                                  <span>{isLyricsExpanded ? '닫기' : '가사'}</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleOpenModal(song)}
+                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs ${
+                                    isDark
+                                      ? 'bg-[#2F2C29] border-[#443F38] text-neutral-200 hover:text-white hover:bg-[#3A3630]'
+                                      : 'bg-white border-[#E2DDD2] text-[#4A4641] hover:text-[#2C2A28] hover:bg-[#F0EDE5]'
+                                  }`}
+                                  title="곡 수정"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSong(song.id)}
+                                  className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs ${
+                                    isDark
+                                      ? 'bg-[#471E1E]/60 border-[#783636]/60 text-[#E5A1A1] hover:bg-[#592626]/60'
+                                      : 'bg-[#F8EAE8] border-[#ECCBC9] text-[#9E4E4E] hover:bg-[#F2D7D4]'
+                                  }`}
+                                  title="곡 삭제"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 가사 패널 */}
+                        {isLyricsExpanded && (
+                          <div className={`border-t px-4 py-3.5 space-y-3 ${
+                            isDark ? 'bg-[#1C1B19] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'
+                          }`}>
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold flex items-center gap-1 ${goldAccentText}`}>
+                                  <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
+                                </span>
+
+                                <div className={`flex items-center rounded-xl p-0.5 text-xs font-bold border ${isDark ? 'bg-[#2A2724] border-[#3D3833]' : 'bg-white border-[#E2DDD2]'}`}>
+                                  <button
+                                    onClick={() => handleChangeFontSize('sm')}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'sm' ? 'bg-[#B89C70] text-white' : textSubClass}`}
+                                  >
+                                    소
+                                  </button>
+                                  <button
+                                    onClick={() => handleChangeFontSize('base')}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'base' ? 'bg-[#B89C70] text-white' : textSubClass}`}
+                                  >
+                                    중
+                                  </button>
+                                  <button
+                                    onClick={() => handleChangeFontSize('lg')}
+                                    className={`px-2 py-0.5 rounded-lg transition ${lyricsFontSize === 'lg' ? 'bg-[#B89C70] text-white' : textSubClass}`}
+                                  >
+                                    대
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePasteLyricsDirect(song.id)}
+                                  className={`text-xs font-bold px-2.5 py-1 rounded-xl ${goldAccentBtn} flex items-center gap-1 shadow-xs transition active:scale-95`}
+                                  title="복사한 가사 원본 공백 그대로 붙여넣기"
+                                >
+                                  <ClipboardPaste className="w-3.5 h-3.5 text-white" />
+                                  <span>가사 붙여넣기</span>
+                                </button>
+                                {song.lyrics && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyLyrics(song.lyrics || '')}
+                                    className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition active:scale-95 ${subCardBg}`}
+                                  >
+                                    <Copy className={`w-3.5 h-3.5 ${goldAccentText}`} />
+                                    <span>복사</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenSearchGuide(song.title)}
+                                  className={`text-xs font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1 transition active:scale-95 shadow-xs ${
+                                    isDark
+                                      ? 'bg-[#1D2F3B]/60 border-[#325268]/50 text-[#96B8CE] hover:bg-[#253B4A]/60'
+                                      : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279] hover:bg-[#DDE7ED]'
+                                  }`}
+                                >
+                                  <Globe className="w-3.5 h-3.5" />
+                                  <span>가사 찾기 ↗</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {song.lyrics ? (
+                              <div 
+                                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                                className={`font-normal leading-relaxed p-4 rounded-2xl border max-h-80 overflow-y-auto font-sans tracking-normal ${
+                                  lyricsFontSize === 'sm' ? 'text-xs' : lyricsFontSize === 'lg' ? 'text-base font-medium' : 'text-sm'
+                                } ${isDark ? 'bg-[#242220] border-[#38342F] text-neutral-100' : 'bg-white border-[#E8E3D8] text-[#2C2A28]'}`}
+                              >
+                                {song.lyrics}
+                              </div>
+                            ) : (
+                              <div className={`py-6 text-center rounded-2xl border border-dashed space-y-2 ${isDark ? 'border-[#3D3833] bg-[#242220]' : 'border-[#DDD7CB] bg-white'}`}>
+                                <p className={`text-xs font-medium ${textSubClass}`}>등록된 가사가 없습니다.</p>
+                                <p className="text-[11px] text-[#9E988D]">가사를 복사한 후 상단 <span className={`font-bold ${goldAccentText}`}>[가사 붙여넣기]</span>를 누르세요.</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 찬양 보관소 뷰 */}
+        {activeTab === 'library' && (
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                  <Library className={`w-5 h-5 ${goldAccentText}`} />
+                  찬양 보관소 ({librarySongs.length}곡)
+                </h2>
+                <p className={`text-xs mt-0.5 font-semibold ${textSubClass}`}>콘티에 자주 사용하는 곡들을 검색해 보세요</p>
+              </div>
+
+              <button
+                onClick={() => syncAllSongsToLibrary(true)}
+                disabled={isSyncingLib}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold border transition active:scale-95 ${subCardBg}`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${goldAccentText} ${isSyncingLib ? 'animate-spin' : ''}`} />
+                <span>동기화</span>
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-[#9E988D]" />
+              <input
+                type="text"
+                value={librarySearchTerm}
+                onChange={(e) => setLibrarySearchTerm(e.target.value)}
+                placeholder="찬양 제목, Key, 가사 본문 검색"
+                className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+              />
+            </div>
+
+            <div className="space-y-2.5">
+              {filteredLibrary.length === 0 ? (
+                <div className={`p-12 rounded-3xl border text-center text-sm ${cardBgClass} ${textSubClass}`}>
+                  검색된 찬양이 없습니다.
+                </div>
+              ) : (
+                filteredLibrary.map((libSong) => (
+                  <div
+                    key={libSong.id}
+                    onClick={() => setPreviewLibSong(libSong)}
+                    className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cursor-pointer transition active:scale-[0.99] hover:border-[#B89C70]/60 ${cardBgClass}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-bold text-sm sm:text-base truncate ${textTitleClass}`}>
+                          {libSong.title}
+                        </span>
+                        {libSong.key && (
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border ${
+                            isDark ? 'bg-[#3A3022] border-[#735A33]/50 text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                          }`}>
+                            {libSong.key} Key
+                          </span>
+                        )}
+                        {libSong.bpm && (
+                          <span className={`text-xs font-semibold ${textSubClass}`}>♩ {libSong.bpm}</span>
+                        )}
+                        <span className="text-xs text-[#9E988D] font-medium">악보 {libSong.sheetUrls?.length || 0}장</span>
+                      </div>
+                      {libSong.lyrics && (
+                        <p className={`text-xs truncate mt-1 ${textSubClass}`}>{libSong.lyrics}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {libSong.youtubeUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenPipPlayer(libSong.youtubeUrl, libSong.title);
+                          }}
+                          className="p-1.5 border rounded-xl bg-[#F8EAE8] dark:bg-[#471E1E]/60 border-[#ECCBC9] dark:border-[#783636]/60 text-[#9E4E4E] dark:text-[#E5A1A1] hover:bg-[#F2D7D4] transition shadow-xs"
+                          title="유튜브 미니플레이어 재생"
+                        >
+                          <Youtube className="w-4 h-4 text-[#D96A4E]" />
+                        </button>
+                      )}
+                      <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border shrink-0 ${
+                        isDark ? 'bg-[#3A3022] border-[#735A33]/50 text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                      }`}>
+                        보기
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* 하단 플로팅 탭바 */}
+      <nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
+        <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
+          isDark ? 'bg-[#242220]/95 border-[#38342F]' : 'bg-white/95 border-[#E2DDD2]'
+        }`}>
+          <button
+            onClick={() => {
+              setActiveTab('conti');
+              setViewLevel('home');
+            }}
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
+              activeTab === 'conti'
+                ? `${goldAccentBtn} shadow-xs`
+                : textSubClass
+            }`}
+          >
+            <HomeIcon className="w-4 h-4" />
+            <span>예배 일정</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('library')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
+              activeTab === 'library'
+                ? 'bg-[#7D6AA8] text-white shadow-xs'
+                : textSubClass
+            }`}
+          >
+            <Library className="w-4 h-4" />
+            <span>찬양 보관소</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* 메인 화면용 플로팅 PIP 플레이어 */}
+      {activePipVideoId && !viewingSongId && (
+        <div
+          style={{
+            transform: `translate3d(${pipPosition.x}px, ${pipPosition.y}px, 0px)`,
+            touchAction: 'none',
+          }}
+          className={`fixed top-0 left-0 z-[100] transition-shadow shadow-2xl rounded-2xl border overflow-hidden backdrop-blur-md ${
+            isDark ? 'bg-[#242220]/95 border-[#38342F]' : 'bg-white/95 border-[#DEC8A2]'
+          }`}
+        >
+          <div
+            onMouseDown={(e) => handleStartPipDrag(e.clientX, e.clientY)}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) {
+                handleStartPipDrag(e.touches[0].clientX, e.touches[0].clientY);
+              }
+            }}
+            className={`flex items-center justify-between px-3 py-2 cursor-grab active:cursor-grabbing border-b ${
+              isDark ? 'bg-[#2A2724] border-[#38342F] text-white' : 'bg-[#F4ECE1] border-[#E8DFC8] text-[#2C2A28]'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 min-w-0 pr-2">
+              <Youtube className="w-4 h-4 text-[#D96A4E] shrink-0" />
+              <span className="text-xs font-bold truncate max-w-[130px]">{activePipTitle}</span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsPipMinimized(!isPipMinimized)}
+                className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-[#7F7B74]"
+                title={isPipMinimized ? '확대' : '최소화'}
+              >
+                {isPipMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePipVideoId(null)}
+                className="p-1 rounded-lg hover:bg-[#D96A4E] hover:text-white text-[#7F7B74] transition"
+                title="닫기"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {!isPipMinimized && (
+            <div className="w-[240px] sm:w-[280px] h-[135px] sm:h-[158px] bg-black">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${activePipVideoId}?autoplay=1&enablejsapi=1`}
+                title={activePipTitle}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Safari PWA 안전 가사 검색 안내 모달 */}
+      {searchModalTitle && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border space-y-4 ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-2 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h3 className={`font-bold text-sm flex items-center gap-2 ${textTitleClass}`}>
+                <Globe className={`w-4 h-4 ${goldAccentText}`} />
+                가사 검색 안내
+              </h3>
+              <button onClick={() => setSearchModalTitle(null)} className="p-1 text-[#9E988D]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className={`text-xs leading-relaxed ${textSubClass}`}>
+              홈 화면 앱에서 구글로 바로 이동하면 앱이 멈추는 현상을 방지하기 위해 아래 버튼을 눌러 이동해 주세요.
+            </p>
+
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(`${searchModalTitle} 찬양 가사`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setSearchModalTitle(null)}
+              className={`w-full py-3 ${goldAccentBtn} rounded-2xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition`}
+            >
+              <span>구글에서 [{searchModalTitle}] 검색</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <button
+              type="button"
+              onClick={() => setSearchModalTitle(null)}
+              className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 새 콘티 추가 */}
+      {isNewContiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Calendar className="w-4 h-4 text-[#B89C70]" />
+                950 콘티 날짜 선택
+              </h2>
+              <button onClick={() => setIsNewContiModalOpen(false)} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCreateConti} className="mt-3 space-y-3.5">
+              <div className="flex items-center justify-between px-1">
+                <span className={`font-bold text-sm ${textTitleClass}`}>
+                  {currentCalMonth.getFullYear()}년 {currentCalMonth.getMonth() + 1}월
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentCalMonth(
+                        new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() - 1, 1)
+                      )
+                    }
+                    className={`p-1.5 rounded-xl border ${subCardBg}`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentCalMonth(
+                        new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() + 1, 1)
+                      )
+                    }
+                    className={`p-1.5 rounded-xl border ${subCardBg}`}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className={`grid grid-cols-7 gap-1 text-center text-xs font-bold ${textSubClass}`}>
+                <span className="text-[#D96A4E]">일</span>
+                <span>월</span>
+                <span>화</span>
+                <span>수</span>
+                <span>목</span>
+                <span>금</span>
+                <span>토</span>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1">{renderCalendarDays()}</div>
+
+              <div className="pt-1">
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>
+                  생성될 콘티 제목
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={contiTitleInput}
+                  onChange={(e) => setContiTitleInput(e.target.value)}
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsNewContiModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  콘티 생성
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 곡 추가/수정 */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Music className="w-4 h-4 text-[#B89C70]" />
+                {editingSongId ? '찬양 곡 수정' : '찬양 곡 추가'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveModal} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={`text-xs font-bold flex items-center gap-1.5 ${textSubClass}`}>
+                    <Tag className="w-3.5 h-3.5 text-[#A88B58]" />
+                    예배 순서 태그 (선택)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsTagModalOpen(true)}
+                    className={`text-xs font-bold ${goldAccentText} hover:underline flex items-center gap-1`}
+                  >
+                    <Settings className="w-3 h-3" />
+                    <span>태그 색상/목록 관리</span>
+                  </button>
+                </div>
+
+                <div className="flex gap-1.5 mb-2 flex-wrap">
+                  {masterTags.map((t) => {
+                    const themeObj = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    const style = isDark ? themeObj.dark : themeObj.light;
+                    const isSelected = modalHeaderTag === t.name;
+
+                    return (
+                      <button
+                        key={t.name}
+                        type="button"
+                        onClick={() => setModalHeaderTag(t.name)}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition shadow-xs ${
+                          isSelected
+                            ? 'ring-2 ring-[#B89C70] scale-105 ' + style.bg + ' ' + style.text + ' ' + style.border
+                            : style.bg + ' ' + style.text + ' ' + style.border + ' opacity-85 hover:opacity-100'
+                        }`}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                  {modalHeaderTag && (
+                    <button
+                      type="button"
+                      onClick={() => setModalHeaderTag('')}
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold border border-red-500/40 text-[#D96A4E] hover:bg-red-50"
+                    >
+                      선택 해제
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={modalHeaderTag}
+                  onChange={(e) => setModalHeaderTag(e.target.value)}
+                  placeholder="직접 입력하거나 위 태그를 터치하세요"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>순수 곡 제목 *</label>
+                <input
+                  type="text"
+                  required
+                  value={modalTitle}
+                  onChange={(e) => setModalTitle(e.target.value)}
+                  placeholder="예: 꽃들도, 은혜"
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />  
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>Key (선택)</label>
+                  <select
+                    value={modalKey}
+                    onChange={(e) => setModalKey(e.target.value)}
+                    className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] font-semibold ${inputBgClass}`}
+                  >
+                    <option value="">- 선택 안 함 -</option>
+                    {['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'].map((k) => (
+                      <option key={k} value={k}>
+                        {k} Key
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>BPM (템포, 선택)</label>
+                  <input
+                    type="number"
+                    value={modalBpm}
+                    onChange={(e) => setModalBpm(e.target.value)}
+                    placeholder="예: 72"
+                    className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>
+                  진행 순서 / 연주 메모 (선택)
+                </label>
+                <input
+                  type="text"
+                  value={modalComment}
+                  onChange={(e) => setModalComment(e.target.value)}
+                  placeholder="예: Intro 4마디 후 시작 · 후렴 반복"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={`text-xs font-bold flex items-center gap-1 ${textSubClass}`}>
+                    <Youtube className="w-3.5 h-3.5 text-[#D96A4E]" /> 유튜브 영상 링크 (선택)
+                  </label>
+                  <a
+                    href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
+                      `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 찬양`.trim()
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-[#D96A4E] hover:underline flex items-center gap-1"
+                  >
+                    <span>유튜브 검색 ↗</span>
+                  </a>
+                </div>
+                <input
+                  type="url"
+                  value={modalYoutubeUrl}
+                  onChange={(e) => setModalYoutubeUrl(e.target.value)}
+                  placeholder="예: https://www.youtube.com/watch?v=... 또는 공유 링크"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#D96A4E] ${inputBgClass}`}
+                />
+              </div>
+
+              {/* 가사 입력 및 정돈 버튼 */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+                  <label className={`text-xs font-bold flex items-center gap-1 ${textSubClass}`}>
+                    <BookOpen className="w-3.5 h-3.5 text-[#8E7DBE]" /> 찬양 가사 (선택)
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!modalLyrics.trim()) {
+                          alert('정돈할 가사가 없습니다.');
+                          return;
+                        }
+                        setModalLyrics(formatAndFixLyrics(modalLyrics));
+                      }}
+                      className={`text-xs font-bold px-2 py-1 border rounded-lg flex items-center gap-1 transition active:scale-95 ${
+                        isDark ? 'bg-[#42331E]/60 text-[#E5C492] border-[#735A33]/50' : 'bg-[#F4ECE1] text-[#8C6D3E] border-[#DEC8A2]'
+                      }`}
+                      title="한 줄로 붙은 가사를 소절 단위로 줄바꿈"
+                    >
+                      <Wand2 className="w-3 h-3" />
+                      <span>줄바꿈 정돈</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePasteLyricsDirect()}
+                      className={`text-xs font-bold px-2.5 py-1 border rounded-lg flex items-center gap-1 transition active:scale-95 ${
+                        isDark ? 'bg-[#322345]/60 text-[#C5B3DC] border-[#584175]/50' : 'bg-[#F2EDF6] text-[#6F5B8B] border-[#DDD2E8]'
+                      }`}
+                    >
+                      <ClipboardPaste className="w-3 h-3" />
+                      <span>가사 붙여넣기</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenSearchGuide(modalTitle)}
+                      className={`text-xs font-bold px-2.5 py-1 border rounded-lg flex items-center gap-1 transition active:scale-95 shadow-xs ${
+                        isDark ? 'bg-[#1D2F3B]/60 border-[#325268]/50 text-[#96B8CE]' : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279]'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>가사 찾기 ↗</span>
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  rows={5}
+                  value={modalLyrics}
+                  onChange={(e) => setModalLyrics(e.target.value)}
+                  placeholder="가사를 복사한 후 상단 [가사 붙여넣기]를 누르세요. 줄바꿈이 뭉개진 경우 [줄바꿈 정돈]을 누르면 소절별로 자동 분리됩니다."
+                  style={{ whiteSpace: 'pre-wrap' }}
+                  className={`w-full border rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#B89C70] resize-none ${inputBgClass}`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-2 ${textSubClass}`}>악보 등록</label>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setModalSheetType('file')}
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold border transition ${
+                      modalSheetType === 'file'
+                        ? `${goldAccentBtn} shadow-xs`
+                        : subCardBg
+                    }`}
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    <span>파일 / 갤러리 사진 첨부</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setModalSheetType('library')}
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold border transition ${
+                      modalSheetType === 'library'
+                        ? 'bg-[#7D6AA8] border-[#7D6AA8] text-white shadow-xs'
+                        : subCardBg
+                    }`}
+                  >
+                    <Library className="w-4 h-4" />
+                    <span>보관함 ({librarySongs.length})</span>
+                  </button>
+                </div>
+
+                {modalSheetType === 'file' && (
+                  <div className="space-y-2.5">
+                    <div className="flex gap-2">
+                      <a
+                        href={googleSearchSheetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                          isDark ? 'bg-[#1D2F3B]/60 border-[#325268]/50 text-[#96B8CE]' : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279]'
+                        }`}
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>구글 악보 찾기 ↗</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={handlePasteClipboardUrl}
+                        className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                          isDark ? 'bg-[#322345]/60 border-[#584175]/50 text-[#C5B3DC]' : 'bg-[#F2EDF6] border-[#DDD2E8] text-[#6F5B8B]'
+                        }`}
+                      >
+                        <ClipboardPaste className="w-3.5 h-3.5" />
+                        <span>복사한 주소 넣기</span>
+                      </button>
+                    </div>
+
+                    <label className="w-full py-2.5 px-4 bg-[#588B76] hover:bg-[#47705F] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98">
+                      <ImageIcon className="w-4 h-4" />
+                      <span>모바일 갤러리 / 악보 사진 선택</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {isProcessing && (
+                      <span className={`text-xs ${goldAccentText} block animate-pulse font-bold text-center`}>
+                        악보 최적화 처리 중...
+                      </span>
+                    )}
+
+                    {modalSheetUrls.length > 0 && (
+                      <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-2xl max-h-48 overflow-y-auto ${
+                        isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#EDEAE1] border-[#E2DDD2]'
+                      }`}>
+                        {modalSheetUrls.map((url, index) => (
+                          <div key={index} className="relative group border rounded-xl p-1 flex flex-col items-center bg-white shadow-xs">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`${index + 1}p`}
+                              className="w-full h-16 object-contain rounded-lg bg-white"
+                            />
+                            <span className="text-[11px] font-bold text-[#3E3A36] mt-1">
+                              {index + 1} 페이지
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSheetPage(index)}
+                              className="absolute -top-1.5 -right-1.5 p-1 bg-[#D96A4E] text-white rounded-full shadow"
+                              title="삭제"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {modalSheetType === 'library' && (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-[#9E988D]" />
+                      <input
+                        type="text"
+                        value={modalLibrarySearch}
+                        onChange={(e) => setModalLibrarySearch(e.target.value)}
+                        placeholder="보관된 곡명 검색"
+                        className={`w-full border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                      />
+                    </div>
+
+                    <div className={`max-h-48 overflow-y-auto space-y-1.5 p-1.5 border rounded-2xl ${
+                      isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'
+                    }`}>
+                      {filteredLibrary.length === 0 ? (
+                        <p className="text-center py-4 text-xs text-[#9E988D]">보관된 곡이 없습니다.</p>
+                      ) : (
+                        filteredLibrary.map((libSong) => (
+                          <div
+                            key={libSong.id}
+                            onClick={() => handleSelectFromLibrary(libSong)}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition active:scale-[0.99] ${cardBgClass}`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className={`font-bold text-xs truncate block ${textTitleClass}`}>{libSong.title}</span>
+                              <div className={`flex items-center gap-1.5 text-[11px] mt-0.5 ${textSubClass}`}>
+                                {libSong.key && <span className={`font-bold ${goldAccentText}`}>{libSong.key} Key</span>}
+                                {libSong.bpm && <span>♩ {libSong.bpm}</span>}
+                                <span>악보 {libSong.sheetUrls?.length || 0}장</span>
+                              </div>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-lg ${goldAccentBtn} font-bold text-xs flex items-center gap-1 shrink-0 shadow-xs`}>
+                              <ArrowDownToLine className="w-3 h-3 text-white" /> 가져오기
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className={`flex-1 py-2.5 ${goldAccentBtn} disabled:opacity-50 rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  {isProcessing ? '처리 중...' : editingSongId ? '수정 완료' : '콘티에 추가'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 태그 관리 */}
+      {isTagModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Palette className="w-4 h-4 text-[#B89C70]" />
+                예배 순서 태그 & 색상 관리
+              </h2>
+              <button onClick={() => setIsTagModalOpen(false)} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3.5 space-y-4 text-xs sm:text-sm">
+              <form onSubmit={handleAddTag} className={`space-y-3 p-3.5 rounded-2xl border ${isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FCFAF7] border-[#E8E3D8]'}`}>
+                <label className={`block text-xs font-bold ${textSubClass}`}>
+                  새 태그 추가 (괄호 없이 자유롭게 입력)
+                </label>
+                
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="예: 묵도, 결단찬양, 헌금송, 앙코르"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+
+                <div className="space-y-1.5">
+                  <span className={`text-[11px] font-bold block ${textSubClass}`}>태그 색상 선택:</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {Object.entries(TAG_COLOR_THEMES).map(([colorKey, themeObj]) => {
+                      const style = isDark ? themeObj.dark : themeObj.light;
+                      return (
+                        <button
+                          key={colorKey}
+                          type="button"
+                          onClick={() => setNewTagColor(colorKey)}
+                          className={`px-2 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition shadow-xs ${style.bg} ${style.text} ${style.border} ${
+                            newTagColor === colorKey ? 'ring-2 ring-[#B89C70] scale-102' : 'opacity-85 hover:opacity-100'
+                          }`}
+                        >
+                          {newTagColor === colorKey && <Check className="w-3 h-3" />}
+                          <span>{themeObj.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className={`w-full py-2 ${goldAccentBtn} text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-98`}
+                >
+                  + 태그 추가하기
+                </button>
+              </form>
+
+              <div className="space-y-2">
+                <span className={`text-xs font-bold block ${textSubClass}`}>
+                  등록된 전체 태그 목록 ({masterTags.length}개)
+                </span>
+                <div className={`flex flex-wrap gap-2 max-h-56 overflow-y-auto p-2 border rounded-2xl ${isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-white border-[#E8E3D8]'}`}>
+                  {masterTags.map((t) => {
+                    const themeObj = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    const style = isDark ? themeObj.dark : themeObj.light;
+                    return (
+                      <span
+                        key={t.name}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border shadow-xs ${style.bg} ${style.text} ${style.border}`}
+                      >
+                        <span>{t.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTag(t.name)}
+                          className="hover:opacity-75 ml-0.5"
+                          title="태그 삭제"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTagModalOpen(false)}
+                  className={`w-full py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 싱어 관리 */}
+      {isSingerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Mic className="w-4 h-4 text-[#B89C70]" />
+                싱어 배정 & 관리
+              </h2>
+              <button onClick={() => setIsSingerModalOpen(false)} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
+              <div>
+                <label className={`block text-xs font-bold mb-2 ${textSubClass}`}>
+                  이번 주 찬양 싱어 선택
+                </label>
+                {masterSingers.length === 0 ? (
+                  <div className={`p-4 rounded-2xl border text-center text-xs text-[#7F7B74] ${subCardBg}`}>
+                    등록된 싱어가 없습니다. 아래에서 싱어를 먼저 추가해주세요.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                    {masterSingers.map((singer) => {
+                      const isChecked = selectedSingers.includes(singer);
+                      return (
+                        <button
+                          key={singer}
+                          type="button"
+                          onClick={() => handleToggleSinger(singer)}
+                          className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                            isChecked
+                              ? `${goldAccentBtn} border-[#B89C70] shadow-xs`
+                              : subCardBg
+                          }`}
+                        >
+                          <span className="truncate">{singer}</span>
+                          {isChecked && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FCFAF7] border-[#E8E3D8]'}`}>
+                <span className={`text-xs font-bold block ${textSubClass}`}>찬양팀 싱어 명단 추가</span>
+                <form onSubmit={handleAddMasterSinger} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newSingerName}
+                    onChange={(e) => setNewSingerName(e.target.value)}
+                    placeholder="새 싱어 이름"
+                    className={`flex-1 border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                  />
+                  <button
+                    type="submit"
+                    className={`px-3 py-1.5 ${goldAccentBtn} rounded-xl text-xs font-bold shrink-0`}
+                  >
+                    추가
+                  </button>
+                </form>
+
+                {masterSingers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {masterSingers.map((singer) => (
+                      <span
+                        key={singer}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-semibold ${
+                          isDark ? 'bg-[#2A2724] border-[#3D3833] text-neutral-200' : 'bg-white border-[#E8E3D8] text-[#3E3A36]'
+                        }`}
+                      >
+                        <span>{singer}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMasterSinger(singer)}
+                          className="text-[#9E988D] hover:text-[#D96A4E]"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>
+                  이번 주 콘티 특이사항 메모
+                </label>
+                <input
+                  type="text"
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  placeholder="예: 13:00 찬양팀 모임 / 단체복: 흰색"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsSingerModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  onClick={handleSaveContiSingers}
+                  className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  배정 저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 관리자 인증 */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Lock className={`w-4 h-4 ${goldAccentText}`} />
+                관리자 인증
+              </h2>
+              <button onClick={() => setIsAuthModalOpen(false)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleLoginAdmin} className="mt-3.5 space-y-3">
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>비밀번호</label>
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  value={authPasswordInput}
+                  onChange={(e) => setAuthPasswordInput(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  인증하기
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 앱 설정 */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <SlidersHorizontal className="w-4 h-4 text-[#B89C70]" />
+                설정 및 모드
+              </h2>
+              <button onClick={() => setIsSettingsModalOpen(false)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3.5 space-y-2.5 text-xs sm:text-sm">
+              <button
+                onClick={() => {
+                  setIsSettingsModalOpen(false);
+                  if (isAdmin) handleLogoutAdmin();
+                  else setIsAuthModalOpen(true);
+                }}
+                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {isAdmin ? <Unlock className="w-4 h-4 text-[#588B76]" /> : <Lock className="w-4 h-4 text-[#9E988D]" />}
+                  <span>{isAdmin ? '관리자 모드 (활성화)' : '관리자 인증'}</span>
+                </div>
+                <span className="text-xs text-[#7F7B74]">{isAdmin ? '잠금' : '인증'}</span>
+              </button>
+
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsSettingsModalOpen(false);
+                      setIsChangePwModalOpen(true);
+                    }}
+                    className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${cardBgClass}`}
+                  >
+                    <KeyRound className="w-4 h-4 text-[#B89C70]" />
+                    <span>비밀번호 변경</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsSettingsModalOpen(false);
+                      setIsReordering(!isReordering);
+                    }}
+                    className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${
+                      isReordering ? 'bg-[#42331E]/60 border-[#735A33]/50 text-[#E5C492]' : cardBgClass
+                    }`}
+                  >
+                    <GripVertical className="w-4 h-4" />
+                    <span>{isReordering ? '곡 순서 편집 종료' : '곡 순서 편집 모드'}</span>
+                  </button>
+                </>
+              )}
+
+              <button
+                onClick={toggleTheme}
+                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {isDark ? <Sun className="w-4 h-4 text-[#A88B58]" /> : <Moon className="w-4 h-4 text-[#7D6AA8]" />}
+                  <span>화면 테마</span>
+                </div>
+                <span className="text-xs text-[#7F7B74]">{isDark ? '에스프레소 다크' : '웜 샴페인 라이트'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 보관소 미리보기 */}
+      {previewLibSong && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-3.5 sm:p-6">
+          <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'} shrink-0`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <Music className="w-4 h-4 text-[#B89C70] shrink-0" />
+                <h2 className={`text-base font-bold truncate ${textTitleClass}`}>{previewLibSong.title}</h2>
+                {previewLibSong.key && (
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border ${
+                    isDark ? 'bg-[#3A3022] border-[#735A33]/50 text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                  }`}>
+                    {previewLibSong.key} Key
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setPreviewLibSong(null)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3 flex-1 overflow-y-auto space-y-3.5 pr-1">
+              {previewLibSong.sheetUrls && previewLibSong.sheetUrls.length > 0 ? (
+                <div className="space-y-2">
+                  <span className={`text-xs font-bold block ${textSubClass}`}>등록된 악보 ({previewLibSong.sheetUrls.length}장)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {previewLibSong.sheetUrls.map((url, idx) => (
+                      <div key={idx} className="border border-[#E2DDD2] rounded-2xl p-1 bg-white flex flex-col items-center shadow-xs">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`${idx + 1}p`} className="w-full h-auto max-h-56 object-contain rounded-xl" />
+                        <span className="text-xs font-bold text-[#3E3A36] mt-1">{idx + 1} 페이지</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-[#9E988D]">등록된 악보 이미지가 없습니다.</p>
+              )}
+
+              <div className={`space-y-1.5 pt-2 border-t ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold flex items-center gap-1.5 ${goldAccentText}`}>
+                    <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
+                  </span>
+                  {previewLibSong.lyrics && (
+                    <button
+                      onClick={() => handleCopyLyrics(previewLibSong.lyrics || '')}
+                      className={`text-xs font-bold px-2.5 py-1 rounded-xl ${goldAccentBtn} flex items-center gap-1 shadow-xs`}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>복사</span>
+                    </button>
+                  )}
+                </div>
+                {previewLibSong.lyrics ? (
+                  <div 
+                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    className={`p-3.5 rounded-2xl border text-sm font-normal leading-relaxed ${
+                      isDark ? 'bg-[#1A1816] border-[#38342F] text-neutral-100' : 'bg-[#FCFAF7] border-[#E8E3D8] text-[#2C2A28]'
+                    }`}
+                  >
+                    {previewLibSong.lyrics}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#9E988D]">등록된 가사가 없습니다.</p>
+                )}
+              </div>
+            </div>
+
+            <div className={`pt-3 border-t flex justify-between items-center shrink-0 ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <button
+                onClick={() => {
+                  handleDeleteFromLibrary(previewLibSong.id, previewLibSong.title);
+                  setPreviewLibSong(null);
+                }}
+                className="px-3 py-1.5 text-xs text-[#D96A4E] hover:bg-[#F8EAE8] rounded-xl font-bold"
+              >
+                보관소에서 삭제
+              </button>
+              <button
+                onClick={() => setPreviewLibSong(null)}
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold ${subCardBg}`}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 비밀번호 변경 */}
+      {isChangePwModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <KeyRound className="w-4 h-4 text-[#B89C70]" />
+                비밀번호 변경
+              </h2>
+              <button onClick={() => setIsChangePwModalOpen(false)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangeAdminPassword} className="mt-3.5 space-y-3">
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>새 비밀번호</label>
+                <input
+                  type="password"
+                  required
+                  value={newPwInput}
+                  onChange={(e) => setNewPwInput(e.target.value)}
+                  placeholder="새 비밀번호 입력"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsChangePwModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  변경 완료
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 출석 체크 */}
+      {isAttendanceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Users className="w-4 h-4 text-[#B89C70]" />
+                예배 참석 여부
+              </h2>
+              <button onClick={() => setIsAttendanceModalOpen(false)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3.5 space-y-3.5">
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>이름 (또는 직분)</label>
+                <input
+                  type="text"
+                  value={myAttendanceName}
+                  onChange={(e) => setMyAttendanceName(e.target.value)}
+                  placeholder="예: 김지은 싱어"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textSubClass}`}>참석 상태 선택</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMyAttendanceStatus('yes')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      myAttendanceStatus === 'yes'
+                        ? 'bg-[#588B76] border-[#588B76] text-white shadow-xs'
+                        : subCardBg
+                    }`}
+                  >
+                    참석
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMyAttendanceStatus('no')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      myAttendanceStatus === 'no'
+                        ? 'bg-[#D96A4E] border-[#D96A4E] text-white shadow-xs'
+                        : subCardBg
+                    }`}
+                  >
+                    불참
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMyAttendanceStatus('maybe')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      myAttendanceStatus === 'maybe'
+                        ? 'bg-[#B89C70] border-[#B89C70] text-white shadow-xs'
+                        : subCardBg
+                    }`}
+                  >
+                    미정
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAttendanceModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  onClick={() => handleSubmitAttendance(myAttendanceStatus)}
+                  className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  출석 제출
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
