@@ -14,8 +14,12 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=4" />
-        <link rel="icon" href="/apple-touch-icon.png?v=4" />
+        {/* 일반 브라우저 탭 파비콘 (상대 경로 지정) */}
+        <link rel="icon" type="image/png" sizes="180x180" href="./apple-touch-icon.png?v=4" />
+        <link rel="shortcut icon" href="./apple-touch-icon.png?v=4" />
+
+        {/* 모바일 홈 화면 추가 아이콘 */}
+        <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=4" />
       </head>
       <body>{children}</body>
     </html>
