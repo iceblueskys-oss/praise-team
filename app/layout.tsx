@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '950 찬양팀 Hub',
+  title: '950 찬양팀',
   description: '950 예배 찬양팀 콘티 및 악보 뷰어',
 };
 
@@ -14,12 +14,10 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        {/* 일반 브라우저 탭 파비콘 (상대 경로 지정) */}
-        <link rel="icon" type="image/png" sizes="180x180" href="./apple-touch-icon.png?v=4" />
-        <link rel="shortcut icon" href="./apple-touch-icon.png?v=4" />
-
-        {/* 모바일 홈 화면 추가 아이콘 */}
-        <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=4" />
+        {/* GitHub Pages 서브경로(/praise-team/)를 포함한 명시적 경로 */}
+        <link rel="icon" type="image/png" sizes="180x180" href="/praise-team/apple-touch-icon.png?v=5" />
+        <link rel="shortcut icon" href="/praise-team/apple-touch-icon.png?v=5" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/praise-team/apple-touch-icon.png?v=5" />
       </head>
       <body>{children}</body>
     </html>
