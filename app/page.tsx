@@ -2184,7 +2184,7 @@ export default function Home() {
                 onError={(e) => {
                   const target = e.currentTarget;
                   if (!target.src.includes('/praise-team/')) {
-                    target.src = '/praise-team/apple-touch-icon.png?v=3';
+                    target.src = '/apple-touch-icon.png?v=3';
                   }
                 }}
               />
