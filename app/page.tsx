@@ -3268,6 +3268,8 @@ export default function Home() {
 
               <div>
                 <label className={`block text-xs font-bold mb-2 ${textSubClass}`}>악보 등록</label>
+                
+                {/* 상단: 등록 방식 선택 탭 (명확하게 구분) */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
                     type="button"
@@ -3279,9 +3281,9 @@ export default function Home() {
                     }`}
                   >
                     <ImageIcon className="w-4 h-4" />
-                    <span>파일 / 갤러리 사진 첨부</span>
+                    <span>직접 첨부 (PC/모바일)</span>
                   </button>
-
+              
                   <button
                     type="button"
                     onClick={() => setModalSheetType('library')}
@@ -3292,10 +3294,11 @@ export default function Home() {
                     }`}
                   >
                     <Library className="w-4 h-4" />
-                    <span>보관함 ({librarySongs.length})</span>
+                    <span>보관함에서 선택 ({librarySongs.length})</span>
                   </button>
                 </div>
-
+              
+                {/* 1. 직접 첨부 선택 시: 파일 업로드 버튼 딱 1개만 노출 */}
                 {modalSheetType === 'file' && (
                   <div className="space-y-2.5">
                     <div className="flex gap-2">
@@ -3321,11 +3324,11 @@ export default function Home() {
                         <span>복사한 주소 넣기</span>
                       </button>
                     </div>
-
-                    {/* 🌟 PC와 모바일 모두 확실히 동작하는 단일 통합 파일 첨부 버튼 (Label 구조) 🌟 */}
+              
+                    {/* 단일화된 실제 파일 첨부 버튼 (PC/모바일 공용) */}
                     <label className="w-full py-2.5 px-4 bg-[#588B76] hover:bg-[#47705F] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98">
                       <ImageIcon className="w-4 h-4" />
-                      <span>파일 / 갤러리 악보 사진 선택</span>
+                      <span>악보 사진 / 파일 선택 (PC·갤러리)</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -3334,13 +3337,13 @@ export default function Home() {
                         className="hidden"
                       />
                     </label>
-
+              
                     {isProcessing && (
                       <span className={`text-xs ${goldAccentText} block animate-pulse font-bold text-center`}>
                         악보 최적화 처리 중...
                       </span>
                     )}
-
+              
                     {modalSheetUrls.length > 0 && (
                       <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-2xl max-h-48 overflow-y-auto ${
                         isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#EDEAE1] border-[#E2DDD2]'
@@ -3370,7 +3373,8 @@ export default function Home() {
                     )}
                   </div>
                 )}
-
+              
+                {/* 2. 보관함 선택 시 */}
                 {modalSheetType === 'library' && (
                   <div className="space-y-2">
                     <div className="relative">
@@ -3383,7 +3387,7 @@ export default function Home() {
                         className={`w-full border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
                       />
                     </div>
-
+              
                     <div className={`max-h-48 overflow-y-auto space-y-1.5 p-1.5 border rounded-2xl ${
                       isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'
                     }`}>
