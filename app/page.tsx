@@ -295,7 +295,7 @@ export default function Home() {
   const [modalComment, setModalComment] = useState('');
   const [modalLyrics, setModalLyrics] = useState('');
   const [modalYoutubeUrl, setModalYoutubeUrl] = useState('');
-  const [modalSheetType, setModalSheetType] = useState<'file' | 'library'>('file');
+  const [isModalLibraryOpen, setIsModalLibraryOpen] = useState(false);
   const [modalSheetUrls, setModalSheetUrls] = useState<string[]>([]);
   const [modalLibrarySearch, setModalLibrarySearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1278,7 +1278,6 @@ export default function Home() {
       setModalLyrics(song.lyrics || '');
       setModalYoutubeUrl(song.youtubeUrl || '');
       setModalSheetUrls(Array.isArray(song.sheetUrls) ? song.sheetUrls : []);
-      setModalSheetType('file');
     } else {
       setEditingSongId(null);
       setModalHeaderTag('');
@@ -1288,9 +1287,9 @@ export default function Home() {
       setModalComment('');
       setModalLyrics('');
       setModalYoutubeUrl('');
-      setModalSheetType('file');
       setModalSheetUrls([]);
     }
+    setIsModalLibraryOpen(false);
     setModalLibrarySearch('');
     setIsProcessing(false);
     setIsModalOpen(true);
@@ -1304,6 +1303,7 @@ export default function Home() {
     setModalLyrics(libSong.lyrics || '');
     setModalYoutubeUrl(libSong.youtubeUrl || '');
     setModalSheetUrls(Array.isArray(libSong.sheetUrls) ? libSong.sheetUrls : []);
+    setIsModalLibraryOpen(false);
     alert(`[${libSong.title}] 정보가 불러와졌습니다.`);
   };
 
@@ -1651,7 +1651,6 @@ export default function Home() {
   }
 
   const isDark = theme === 'dark';
-  // 🌟 [웜 샴페인 & 크림 아이보리] 스타일 변수
   const bgClass = isDark ? 'bg-[#1A1816] text-[#EDEAE1]' : 'bg-[#F7F5F0] text-[#2C2A28]';
   const cardBgClass = isDark ? 'bg-[#242220] border-[#38342F] shadow-md' : 'bg-white border-[#E8E3D8] shadow-[0_4px_16px_rgba(160,145,120,0.08)]';
   const subCardBg = isDark ? 'bg-[#2F2C29] border-[#443F38] text-neutral-200 hover:bg-[#3A3630]' : 'bg-[#F0EDE5] border-[#E2DDD2] text-[#4A4641] hover:bg-[#E8E4DA]';
@@ -1677,7 +1676,6 @@ export default function Home() {
           isDark ? 'bg-[#181716] text-[#EDEAE1]' : 'bg-[#EDEAE1] text-[#2C2A28]'
         }`}
       >
-        {/* 상단 일체형 헤더 바 */}
         <header
           className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
@@ -1690,7 +1688,6 @@ export default function Home() {
         >
           <div className="max-w-4xl mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2">
             
-            {/* 좌측: 뒤로가기 + Key / BPM */}
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => {
@@ -1729,7 +1726,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* 중앙: 곡 제목 + 진행 순서 코멘트 */}
             <div className="min-w-0 flex-1 px-2 text-center flex flex-col items-center justify-center">
               <div className="flex items-center justify-center gap-1.5 max-w-full">
                 {currentSongs.length > 0 && currentSongIndex !== -1 && (
@@ -1752,7 +1748,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* 우측: 유튜브 PIP + 뷰 모드 + 필기 + 줌 컨트롤 */}
             <div className="flex items-center gap-1.5 shrink-0">
               {viewingSong.youtubeUrl && (
                 <button
@@ -1846,7 +1841,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 필기 전용 도구 바 */}
         {viewMode === 'sheet' && isDrawingMode && (
           <div
             className={`fixed top-16 sm:top-20 inset-x-0 z-40 flex justify-center transition-all duration-300 pointer-events-none ${
@@ -1895,7 +1889,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* 컬러 팔레트 */}
               <div className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border ${
                 isDark ? 'bg-[#2A2724] border-[#3D3833]' : 'bg-[#F0EDE5] border-[#E2DDD2]'
               }`}>
@@ -1911,7 +1904,6 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* 지우기 리셋 버튼 */}
               <button
                 onClick={handleClearDrawing}
                 className={`p-1.5 rounded-xl border transition ${
@@ -1927,7 +1919,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 악보 메인 영역 */}
         <main
           ref={containerRef}
           onTouchStart={handleTouchStartViewer}
@@ -1949,7 +1940,6 @@ export default function Home() {
                     <BookOpen className="w-4 h-4" /> 찬양 가사
                   </span>
                   <div className="flex items-center gap-2">
-                    {/* 🌟 악보 뷰어 가사 탭 내 [가사 찾기] 버튼 정상 연동 🌟 */}
                     <button
                       type="button"
                       onClick={() => handleOpenSearchGuide(viewingSong.title)}
@@ -2037,7 +2027,6 @@ export default function Home() {
           )}
         </main>
 
-        {/* 뷰어 하단 네비게이션 툴바 */}
         <footer
           className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
             showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
@@ -2093,7 +2082,6 @@ export default function Home() {
           </div>
         </footer>
 
-        {/* 플로팅 PIP 유튜브 플레이어 */}
         {activePipVideoId && (
           <div
             style={{
@@ -2177,7 +2165,6 @@ export default function Home() {
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
       <div className="max-w-xl mx-auto space-y-4 w-full">
         
-        {/* 헤더 */}
         <header className="flex items-center justify-between gap-2 px-1 pt-1">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md shadow-[#B89C70]/15 shrink-0 border border-[#DEC8A2]/50">
@@ -2217,7 +2204,6 @@ export default function Home() {
 
         {activeTab === 'conti' && viewLevel === 'home' && (
           <div className="space-y-4">
-            {/* 공지사항 카드 */}
             <div className={`rounded-3xl border p-4 space-y-3 ${cardBgClass}`}>
               <div className="flex items-start gap-3">
                 <div className={`w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${isDark ? 'bg-[#42331E]/60' : 'bg-[#F4ECE1]'}`}>
@@ -2268,7 +2254,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* 다가올 예배 일정 목록 */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
                 <h2 className={`text-sm font-bold flex items-center gap-1.5 ${textTitleClass}`}>
@@ -2330,7 +2315,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* 지난 콘티 보관함 */}
             {pastContis.length > 0 && (
               <div className="space-y-2.5 pt-2">
                 <button
@@ -2647,7 +2631,6 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* 가사 패널 */}
                         {isLyricsExpanded && (
                           <div className={`border-t px-4 py-3.5 space-y-3 ${
                             isDark ? 'bg-[#1C1B19] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'
@@ -2871,7 +2854,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 메인 화면용 플로팅 PIP 플레이어 */}
       {activePipVideoId && !viewingSongId && (
         <div
           style={{
@@ -3266,150 +3248,57 @@ export default function Home() {
                 />
               </div>
 
+              {/* 🌟 악보 등록 영역: 껍데기 탭 제거 및 깔끔한 원클릭 구조 🌟 */}
               <div>
-                <label className={`block text-xs font-bold mb-2 ${textSubClass}`}>악보 등록</label>
-                
-                {/* 상단: 등록 방식 선택 탭 (명확하게 구분) */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`text-xs font-bold ${textSubClass}`}>악보 등록</label>
                   <button
                     type="button"
-                    onClick={() => setModalSheetType('file')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold border transition ${
-                      modalSheetType === 'file'
-                        ? `${goldAccentBtn} shadow-xs`
+                    onClick={() => setIsModalLibraryOpen(!isModalLibraryOpen)}
+                    className={`text-xs font-bold px-2.5 py-1 rounded-xl border transition shadow-xs ${
+                      isModalLibraryOpen
+                        ? 'bg-[#7D6AA8] border-[#7D6AA8] text-white'
                         : subCardBg
                     }`}
                   >
-                    <ImageIcon className="w-4 h-4" />
-                    <span>직접 첨부 (PC/모바일)</span>
-                  </button>
-              
-                  <button
-                    type="button"
-                    onClick={() => setModalSheetType('library')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold border transition ${
-                      modalSheetType === 'library'
-                        ? 'bg-[#7D6AA8] border-[#7D6AA8] text-white shadow-xs'
-                        : subCardBg
-                    }`}
-                  >
-                    <Library className="w-4 h-4" />
-                    <span>보관함에서 선택 ({librarySongs.length})</span>
+                    <Library className="w-3.5 h-3.5 inline mr-1" />
+                    <span>{isModalLibraryOpen ? '보관함 닫기' : `보관함에서 불러오기 (${librarySongs.length})`}</span>
                   </button>
                 </div>
-              
-                {/* 1. 직접 첨부 선택 시: 파일 업로드 버튼 딱 1개만 노출 */}
-                {modalSheetType === 'file' && (
-                  <div className="space-y-2.5">
-                    <div className="flex gap-2">
-                      <a
-                        href={googleSearchSheetUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                          isDark ? 'bg-[#1D2F3B]/60 border-[#325268]/50 text-[#96B8CE]' : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279]'
-                        }`}
-                      >
-                        <Globe className="w-3.5 h-3.5" />
-                        <span>구글 악보 찾기 ↗</span>
-                      </a>
-                      <button
-                        type="button"
-                        onClick={handlePasteClipboardUrl}
-                        className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                          isDark ? 'bg-[#322345]/60 border-[#584175]/50 text-[#C5B3DC]' : 'bg-[#F2EDF6] border-[#DDD2E8] text-[#6F5B8B]'
-                        }`}
-                      >
-                        <ClipboardPaste className="w-3.5 h-3.5" />
-                        <span>복사한 주소 넣기</span>
-                      </button>
-                    </div>
-              
-                    {/* 단일화된 실제 파일 첨부 버튼 (PC/모바일 공용) */}
-                    <label className="w-full py-2.5 px-4 bg-[#588B76] hover:bg-[#47705F] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98">
-                      <ImageIcon className="w-4 h-4" />
-                      <span>악보 사진 / 파일 선택 (PC·갤러리)</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                    </label>
-              
-                    {isProcessing && (
-                      <span className={`text-xs ${goldAccentText} block animate-pulse font-bold text-center`}>
-                        악보 최적화 처리 중...
-                      </span>
-                    )}
-              
-                    {modalSheetUrls.length > 0 && (
-                      <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-2xl max-h-48 overflow-y-auto ${
-                        isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#EDEAE1] border-[#E2DDD2]'
-                      }`}>
-                        {modalSheetUrls.map((url, index) => (
-                          <div key={index} className="relative group border rounded-xl p-1 flex flex-col items-center bg-white shadow-xs">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={url}
-                              alt={`${index + 1}p`}
-                              className="w-full h-16 object-contain rounded-lg bg-white"
-                            />
-                            <span className="text-[11px] font-bold text-[#3E3A36] mt-1">
-                              {index + 1} 페이지
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSheetPage(index)}
-                              className="absolute -top-1.5 -right-1.5 p-1 bg-[#D96A4E] text-white rounded-full shadow"
-                              title="삭제"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              
-                {/* 2. 보관함 선택 시 */}
-                {modalSheetType === 'library' && (
-                  <div className="space-y-2">
+
+                {/* 보관함 열렸을 때 펼쳐지는 검색창 */}
+                {isModalLibraryOpen && (
+                  <div className={`p-2.5 rounded-2xl border mb-2.5 space-y-2 ${isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'}`}>
                     <div className="relative">
-                      <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-[#9E988D]" />
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#9E988D]" />
                       <input
                         type="text"
                         value={modalLibrarySearch}
                         onChange={(e) => setModalLibrarySearch(e.target.value)}
                         placeholder="보관된 곡명 검색"
-                        className={`w-full border rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                        className={`w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
                       />
                     </div>
-              
-                    <div className={`max-h-48 overflow-y-auto space-y-1.5 p-1.5 border rounded-2xl ${
-                      isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'
-                    }`}>
+
+                    <div className="max-h-40 overflow-y-auto space-y-1.5 pr-0.5">
                       {filteredLibrary.length === 0 ? (
-                        <p className="text-center py-4 text-xs text-[#9E988D]">보관된 곡이 없습니다.</p>
+                        <p className="text-center py-3 text-xs text-[#9E988D]">보관된 곡이 없습니다.</p>
                       ) : (
                         filteredLibrary.map((libSong) => (
                           <div
                             key={libSong.id}
                             onClick={() => handleSelectFromLibrary(libSong)}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition active:scale-[0.99] ${cardBgClass}`}
+                            className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition active:scale-[0.99] ${cardBgClass}`}
                           >
                             <div className="min-w-0 flex-1">
                               <span className={`font-bold text-xs truncate block ${textTitleClass}`}>{libSong.title}</span>
-                              <div className={`flex items-center gap-1.5 text-[11px] mt-0.5 ${textSubClass}`}>
+                              <div className={`flex items-center gap-1.5 text-[10px] mt-0.5 ${textSubClass}`}>
                                 {libSong.key && <span className={`font-bold ${goldAccentText}`}>{libSong.key} Key</span>}
-                                {libSong.bpm && <span>♩ {libSong.bpm}</span>}
                                 <span>악보 {libSong.sheetUrls?.length || 0}장</span>
                               </div>
                             </div>
-                            <span className={`px-2.5 py-1 rounded-lg ${goldAccentBtn} font-bold text-xs flex items-center gap-1 shrink-0 shadow-xs`}>
-                              <ArrowDownToLine className="w-3 h-3 text-white" /> 가져오기
+                            <span className={`px-2 py-0.5 rounded-lg ${goldAccentBtn} font-bold text-[11px] flex items-center gap-1 shrink-0 shadow-xs`}>
+                              <ArrowDownToLine className="w-3 h-3 text-white" /> 선택
                             </span>
                           </div>
                         ))
@@ -3417,6 +3306,80 @@ export default function Home() {
                     </div>
                   </div>
                 )}
+
+                {/* 실제 동작하는 악보 첨부 도구들 */}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <a
+                      href={googleSearchSheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                        isDark ? 'bg-[#1D2F3B]/60 border-[#325268]/50 text-[#96B8CE]' : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279]'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>구글 악보 찾기 ↗</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handlePasteClipboardUrl}
+                      className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                        isDark ? 'bg-[#322345]/60 border-[#584175]/50 text-[#C5B3DC]' : 'bg-[#F2EDF6] border-[#DDD2E8] text-[#6F5B8B]'
+                      }`}
+                    >
+                      <ClipboardPaste className="w-3.5 h-3.5" />
+                      <span>복사한 주소 넣기</span>
+                    </button>
+                  </div>
+
+                  {/* 누르면 바로 파일 탐색기 / 갤러리가 열리는 유일한 단일 버튼 */}
+                  <label className="w-full py-2.5 px-4 bg-[#588B76] hover:bg-[#47705F] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98">
+                    <ImageIcon className="w-4 h-4" />
+                    <span>악보 사진 / 파일 선택 (PC · 모바일)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {isProcessing && (
+                    <span className={`text-xs ${goldAccentText} block animate-pulse font-bold text-center`}>
+                      악보 최적화 처리 중...
+                    </span>
+                  )}
+
+                  {modalSheetUrls.length > 0 && (
+                    <div className={`grid grid-cols-3 gap-2 p-2.5 border rounded-2xl max-h-48 overflow-y-auto ${
+                      isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#EDEAE1] border-[#E2DDD2]'
+                    }`}>
+                      {modalSheetUrls.map((url, index) => (
+                        <div key={index} className="relative group border rounded-xl p-1 flex flex-col items-center bg-white shadow-xs">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`${index + 1}p`}
+                            className="w-full h-16 object-contain rounded-lg bg-white"
+                          />
+                          <span className="text-[11px] font-bold text-[#3E3A36] mt-1">
+                            {index + 1} 페이지
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSheetPage(index)}
+                            className="absolute -top-1.5 -right-1.5 p-1 bg-[#D96A4E] text-white rounded-full shadow"
+                            title="삭제"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-2 pt-2">
@@ -3789,7 +3752,7 @@ export default function Home() {
           <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${cardBgClass}`}>
             <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'} shrink-0`}>
               <div className="flex items-center gap-2 min-w-0">
-                <Music className="w-4 h-4 text-[#B89C70] shrink-0" />
+                <Music className="w-4 h-4 text-[#B89C70]" />
                 <h2 className={`text-base font-bold truncate ${textTitleClass}`}>{previewLibSong.title}</h2>
                 {previewLibSong.key && (
                   <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border ${
@@ -3846,7 +3809,7 @@ export default function Home() {
                     {previewLibSong.lyrics}
                   </div>
                 ) : (
-                  <p className="text-xs text-[#9E988D]">등록된 가사가 없습니다.</p>
+                  <p className="text-xs text-slate-400">등록된 가사가 없습니다.</p>
                 )}
               </div>
             </div>
