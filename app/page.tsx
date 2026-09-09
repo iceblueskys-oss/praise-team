@@ -107,34 +107,34 @@ interface Conti {
 
 const TAG_COLOR_THEMES: Record<string, { light: { bg: string; text: string; border: string }; dark: { bg: string; text: string; border: string }; label: string }> = {
   amber: {
-    light: { bg: 'bg-[#FFF3D6]', text: 'text-[#B45309]', border: 'border-[#FDE68A]' },
-    dark: { bg: 'bg-[#78350F]/50', text: 'text-[#FCD34D]', border: 'border-[#B45309]/50' },
-    label: '웜 앰버',
+    light: { bg: 'bg-[#FEF3E2]', text: 'text-[#D97706]', border: 'border-[#F39C12]/30' },
+    dark: { bg: 'bg-amber-950/60', text: 'text-amber-300', border: 'border-amber-700/50' },
+    label: '살구 앰버',
   },
   blue: {
-    light: { bg: 'bg-[#E0F2FE]', text: 'text-[#0369A1]', border: 'border-[#BAE6FD]' },
-    dark: { bg: 'bg-[#0C4A6E]/50', text: 'text-[#7DD3FC]', border: 'border-[#0284C7]/50' },
-    label: '소프트 블루',
+    light: { bg: 'bg-[#EBF3FB]', text: 'text-[#2B6CB0]', border: 'border-[#4A90E2]/30' },
+    dark: { bg: 'bg-blue-950/60', text: 'text-blue-300', border: 'border-blue-700/50' },
+    label: '스카이 블루',
   },
   purple: {
-    light: { bg: 'bg-[#F3E8FF]', text: 'text-[#7E22CE]', border: 'border-[#E9D5FF]' },
-    dark: { bg: 'bg-[#581C87]/50', text: 'text-[#D8B4FE]', border: 'border-[#9333EA]/50' },
-    label: '라벤더',
+    light: { bg: 'bg-[#F3E8FF]', text: 'text-[#6B46C1]', border: 'border-[#8E74AE]/30' },
+    dark: { bg: 'bg-purple-950/60', text: 'text-purple-300', border: 'border-purple-700/50' },
+    label: '라벤더 퍼플',
   },
   emerald: {
-    light: { bg: 'bg-[#DCFCE7]', text: 'text-[#15803D]', border: 'border-[#BBF7D0]' },
-    dark: { bg: 'bg-[#064E3B]/50', text: 'text-[#6EE7B7]', border: 'border-[#059669]/50' },
+    light: { bg: 'bg-[#E8F7EE]', text: 'text-[#2E7D32]', border: 'border-[#52B788]/30' },
+    dark: { bg: 'bg-emerald-950/60', text: 'text-emerald-300', border: 'border-emerald-700/50' },
     label: '세이지 그린',
   },
   rose: {
-    light: { bg: 'bg-[#FFE4E6]', text: 'text-[#BE123C]', border: 'border-[#FECDD3]' },
-    dark: { bg: 'bg-[#881337]/50', text: 'text-[#FDA4AF]', border: 'border-[#E11D48]/50' },
-    label: '로즈 핑크',
+    light: { bg: 'bg-[#FEECEC]', text: 'text-[#C53030]', border: 'border-[#EF4444]/30' },
+    dark: { bg: 'bg-rose-950/60', text: 'text-rose-300', border: 'border-rose-700/50' },
+    label: '파스텔 로즈',
   },
   indigo: {
-    light: { bg: 'bg-[#E0E7FF]', text: 'text-[#4338CA]', border: 'border-[#C7D2FE]' },
-    dark: { bg: 'bg-[#312E81]/50', text: 'text-[#A5B4FC]', border: 'border-[#4F46E5]/50' },
-    label: '로열 인디고',
+    light: { bg: 'bg-[#EEF2FF]', text: 'text-[#4F46E5]', border: 'border-[#6366F1]/30' },
+    dark: { bg: 'bg-indigo-950/60', text: 'text-indigo-300', border: 'border-indigo-700/50' },
+    label: '인디고 블루',
   },
 };
 
@@ -2821,7 +2821,6 @@ export default function Home() {
                       </button>
                     </div>
 
-                    {/* 🌟 PC와 모바일 모두 확실히 동작하는 단일 통합 파일 첨부 버튼 (Label 구조) 🌟 */}
                     <label className="w-full py-2.5 px-4 bg-[#52B788] hover:bg-[#40916C] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98">
                       <ImageIcon className="w-4 h-4" />
                       <span>파일 / 갤러리 악보 사진 선택</span>
