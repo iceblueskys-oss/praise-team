@@ -55,6 +55,7 @@ import {
   Youtube,
   Minimize2,
   Maximize2,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
@@ -151,6 +152,8 @@ const DEFAULT_CUSTOM_TAGS: CustomTag[] = [
   { name: '헌금', color: 'emerald' },
   { name: '파송', color: 'rose' },
   { name: '특송', color: 'amber' },
+  { name: '회중찬양', color: 'blue' },
+  { name: '결단곡', color: 'rose' },
 ];
 
 function getUpcomingSunday(): Date {
@@ -274,6 +277,10 @@ export default function Home() {
 
   const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 
+  // 에버노트 일괄 등록 모달
+  const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
+  const [batchImportInput, setBatchImportInput] = useState('');
+
   const [activePipVideoId, setActivePipVideoId] = useState<string | null>(null);
   const [activePipTitle, setActivePipTitle] = useState<string>('');
   const [isPipMinimized, setIsPipMinimized] = useState(false);
@@ -351,76 +358,6 @@ export default function Home() {
     setPosition({ x: 0, y: 0 });
     setSheetImgError(false);
   }, [viewingSongId, currentPageIndex]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !viewingSongId || viewMode === 'lyrics') return;
-
-    let startDist = 0;
-    let startScale = 1.0;
-    let lastTap = 0;
-
-    const onGestureStart = (e: any) => e.preventDefault();
-    const onGestureChange = (e: any) => e.preventDefault();
-
-    const onTouchStartNative = (e: TouchEvent) => {
-      if (isDrawingMode) return;
-
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        startDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        startScale = scale;
-        return;
-      }
-
-      if (e.touches.length === 1) {
-        const now = Date.now();
-        if (now - lastTap < 300) {
-          e.preventDefault();
-          setScale((prev) => (prev > 1.05 ? 1.0 : 1.8));
-          setPosition({ x: 0, y: 0 });
-          lastTap = 0;
-          return;
-        }
-        lastTap = now;
-      }
-    };
-
-    const onTouchMoveNative = (e: TouchEvent) => {
-      if (isDrawingMode) return;
-
-      if (e.touches.length === 2 && startDist > 0) {
-        e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        const factor = dist / startDist;
-        const nextScale = Math.max(0.8, Math.min(3.5, startScale * factor));
-        setScale(nextScale);
-        if (nextScale <= 1.0) setPosition({ x: 0, y: 0 });
-      }
-    };
-
-    const onTouchEndNative = (e: TouchEvent) => {
-      if (e.touches.length < 2) startDist = 0;
-    };
-
-    container.addEventListener('touchstart', onTouchStartNative, { passive: false });
-    container.addEventListener('touchmove', onTouchMoveNative, { passive: false });
-    container.addEventListener('touchend', onTouchEndNative);
-    container.addEventListener('gesturestart', onGestureStart, { passive: false });
-    container.addEventListener('gesturechange', onGestureChange, { passive: false });
-
-    return () => {
-      container.removeEventListener('touchstart', onTouchStartNative);
-      container.removeEventListener('touchmove', onTouchMoveNative);
-      container.removeEventListener('touchend', onTouchEndNative);
-      container.removeEventListener('gesturestart', onGestureStart);
-      container.removeEventListener('gesturechange', onGestureChange);
-    };
-  }, [viewingSongId, viewMode, isDrawingMode, scale]);
 
   const handleToggleLyricsExpand = (songId: string) => {
     setExpandedLyricsSongId((prev) => (prev === songId ? null : songId));
@@ -599,6 +536,138 @@ export default function Home() {
       console.error('보관소 동기화 오류:', e);
     } finally {
       setIsSyncingLib(false);
+    }
+  };
+
+  // 🌟 에버노트 스마트 일괄 파싱 및 등록 로직
+  const handleBatchImportEvernote = async () => {
+    if (!batchImportInput.trim() || !currentConti) {
+      alert('붙여넣을 에버노트 텍스트가 없습니다.');
+      return;
+    }
+
+    const lines = batchImportInput.split('\n').map((l) => l.trim()).filter(Boolean);
+    const ignoreKeywords = ['기도', '멘트', '설교', '축도', '사회자', '목사님', '성경봉독'];
+    const keyRegex = /\b([A-G][b#]?(?:m)?)\s*(?:Key|키)?\b/i;
+    const tagRegex = /^<([^>]+)>|^\[([^\]]+)\]/;
+    const songFormRegex = /^(?:IN|INTRO|OUT|OUTRO|V\d*|C|CHORUS|B|BRIDGE|RIT|\-|\s)+$/i;
+
+    const parsedList: { title: string; key: string | null; headerTag: string; comment: string }[] = [];
+    let currentTag = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+
+      // 1. 순수 태그 라인인지 확인 (예: <회중찬양>, <결단곡>)
+      const tagMatch = line.match(tagRegex);
+      if (tagMatch && line.replace(tagRegex, '').trim() === '') {
+        currentTag = tagMatch[1] || tagMatch[2] || '';
+        continue;
+      }
+
+      // 2. 송폼/메모 라인인 경우 직전 곡의 comment로 추가 (예: IN - V C C)
+      if (songFormRegex.test(line) && parsedList.length > 0) {
+        const lastSong = parsedList[parsedList.length - 1];
+        lastSong.comment = lastSong.comment ? `${lastSong.comment} / ${line}` : line;
+        continue;
+      }
+
+      // 3. 사회자 멘트, 기도 등 식순 건너뛰기
+      if (ignoreKeywords.some((kw) => line.includes(kw))) {
+        continue;
+      }
+
+      // 4. 인라인 태그 추출 (예: <입례> 지금까지 에벤에셀)
+      let songTag = currentTag;
+      if (tagMatch) {
+        songTag = tagMatch[1] || tagMatch[2] || currentTag;
+        line = line.replace(tagRegex, '').trim();
+      }
+
+      // 5. 순번 숫자 제거 (예: 1. 2.)
+      line = line.replace(/^[0-9]+[\.\)\-\s]+/, '').trim();
+
+      // 6. 하이픈 뒤 메모 분리
+      let comment = '';
+      if (line.includes(' - ')) {
+        const parts = line.split(' - ');
+        line = parts[0].trim();
+        comment = parts.slice(1).join(' - ').trim();
+      }
+
+      // 7. Key 추출 (예: 우릴 사용하소서 Bb, 축복합니다 E)
+      let songKey: string | null = null;
+      const keyMatch = line.match(keyRegex);
+      if (keyMatch) {
+        songKey = keyMatch[1].toUpperCase();
+        line = line.replace(keyRegex, '').trim();
+      }
+
+      const cleanTitle = line.trim();
+      if (!cleanTitle) continue;
+
+      parsedList.push({
+        title: cleanTitle,
+        key: songKey,
+        headerTag: songTag,
+        comment,
+      });
+    }
+
+    if (parsedList.length === 0) {
+      alert('인식 가능한 찬양 곡을 찾지 못했습니다.');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const batch = writeBatch(db);
+      let startOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order || 0)) + 10 : 10;
+
+      parsedList.forEach((item, idx) => {
+        const songDocId = `song_${Date.now()}_${idx}`;
+        const newSongRef = doc(db, 'songs_v2', songDocId);
+
+        batch.set(newSongRef, {
+          id: songDocId,
+          contiId: currentConti.id,
+          headerTag: item.headerTag,
+          title: item.title,
+          key: item.key,
+          bpm: null,
+          comment: item.comment,
+          lyrics: '',
+          youtubeUrl: '',
+          sheetUrls: [],
+          order: startOrder + idx * 10,
+        });
+
+        const libDocId = getSafeDocId(item.title, item.key);
+        batch.set(
+          doc(db, 'song_library', libDocId),
+          {
+            id: libDocId,
+            title: item.title,
+            key: item.key,
+            bpm: null,
+            comment: item.comment,
+            lyrics: '',
+            youtubeUrl: '',
+            sheetUrls: [],
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      });
+
+      await batch.commit();
+      setIsBatchImportModalOpen(false);
+      setBatchImportInput('');
+      alert(`${parsedList.length}곡이 에버노트에서 콘티로 자동 등록되었습니다!`);
+    } catch (err: any) {
+      alert('일괄 등록 중 오류 발생: ' + err?.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -2380,7 +2449,7 @@ export default function Home() {
         {/* 콘티 상세 곡 목록 */}
         {activeTab === 'conti' && viewLevel === 'detail' && currentConti && (
           <div className="space-y-3.5">
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between px-1 flex-wrap gap-2">
               <button
                 onClick={() => setViewLevel('home')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 ${subCardBg}`}
@@ -2389,13 +2458,27 @@ export default function Home() {
                 <span>목록으로</span>
               </button>
 
-              <button
-                onClick={() => handleOpenModal()}
-                className={`flex items-center gap-1 px-3.5 py-1.5 ${goldAccentBtn} rounded-2xl text-xs font-bold shadow-xs transition active:scale-95`}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>곡 추가</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {/* 🌟 에버노트 텍스트 일괄 등록 버튼 🌟 */}
+                <button
+                  onClick={() => setIsBatchImportModalOpen(true)}
+                  className={`flex items-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
+                    isDark ? 'bg-[#3A3022] border-[#735A33] text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                  }`}
+                  title="에버노트 텍스트 붙여넣기로 일괄 생성"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>에버노트 일괄등록</span>
+                </button>
+
+                <button
+                  onClick={() => handleOpenModal()}
+                  className={`flex items-center gap-1 px-3.5 py-1.5 ${goldAccentBtn} rounded-2xl text-xs font-bold shadow-xs transition active:scale-95`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>곡 추가</span>
+                </button>
+              </div>
             </div>
 
             <div className={`p-4 rounded-3xl border space-y-2.5 ${cardBgClass}`}>
@@ -2453,7 +2536,7 @@ export default function Home() {
             <div className="space-y-2.5 relative select-none w-full">
               {currentSongs.length === 0 ? (
                 <div className={`text-center py-12 border rounded-3xl text-sm px-4 ${cardBgClass} ${textSubClass}`}>
-                  등록된 찬양 곡이 없습니다. 상단 <span className="text-[#A88B58] font-bold">[+ 곡 추가]</span>를 눌러보세요.
+                  등록된 찬양 곡이 없습니다. 상단 <span className="text-[#A88B58] font-bold">[에버노트 일괄등록]</span>을 눌러 콘티를 바로 붙여넣어 보세요.
                 </div>
               ) : (
                 currentSongs.map((song, idx) => {
@@ -2631,6 +2714,7 @@ export default function Home() {
                           </div>
                         </div>
 
+                        {/* 가사 패널 */}
                         {isLyricsExpanded && (
                           <div className={`border-t px-4 py-3.5 space-y-3 ${
                             isDark ? 'bg-[#1C1B19] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'
@@ -2854,6 +2938,7 @@ export default function Home() {
         </div>
       </nav>
 
+      {/* 플로팅 PIP 플레이어 */}
       {activePipVideoId && !viewingSongId && (
         <div
           style={{
@@ -2910,6 +2995,54 @@ export default function Home() {
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* 모달: 에버노트 텍스트 일괄 등록 */}
+      {isBatchImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-lg p-5 shadow-2xl border space-y-3.5 ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-2 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h3 className={`font-bold text-base flex items-center gap-2 ${textTitleClass}`}>
+                <FileSpreadsheet className={`w-5 h-5 ${goldAccentText}`} />
+                에버노트 콘티 텍스트 일괄 등록
+              </h3>
+              <button onClick={() => setIsBatchImportModalOpen(false)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className={`text-xs leading-relaxed ${textSubClass}`}>
+              에버노트 본문 전체를 복사해서 아래에 붙여넣으세요. <br />
+              <span className={`font-bold ${goldAccentText}`}>태그(&lt;입례&gt;, &lt;회중찬양&gt; 등), 곡명, Key(Bb, E 등), 송폼(IN - V C C)</span>이 자동으로 완벽히 분리되어 등록됩니다.
+            </p>
+
+            <textarea
+              rows={8}
+              value={batchImportInput}
+              onChange={(e) => setBatchImportInput(e.target.value)}
+              placeholder={`<입례> 지금까지 에벤에셀\n<회중찬양>\n1.주 믿는 사람 일어나(찬357)\n2.우릴 사용하소서 Bb\nIN - V C C\n<기도송>주께 기도드리오니\n축복합니다 E\n<결단곡>\n교회여일어나라 A`}
+              className={`w-full border rounded-2xl p-3.5 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#B89C70] resize-none ${inputBgClass}`}
+            />
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsBatchImportModalOpen(false)}
+                className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={handleBatchImportEvernote}
+                className={`flex-1 py-2.5 ${goldAccentBtn} disabled:opacity-50 rounded-xl font-bold text-xs text-white shadow-xs`}
+              >
+                {isProcessing ? '자동 등록 중...' : '콘티 곡으로 한 번에 생성'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -3248,7 +3381,7 @@ export default function Home() {
                 />
               </div>
 
-              {/* 🌟 악보 등록 영역: 껍데기 탭 제거 및 깔끔한 원클릭 구조 🌟 */}
+              {/* 🌟 악보 등록 영역: 탭 제거 및 깔끔한 원클릭 버튼 구조 🌟 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className={`text-xs font-bold ${textSubClass}`}>악보 등록</label>
@@ -3266,7 +3399,6 @@ export default function Home() {
                   </button>
                 </div>
 
-                {/* 보관함 열렸을 때 펼쳐지는 검색창 */}
                 {isModalLibraryOpen && (
                   <div className={`p-2.5 rounded-2xl border mb-2.5 space-y-2 ${isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'}`}>
                     <div className="relative">
@@ -3307,7 +3439,6 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* 실제 동작하는 악보 첨부 도구들 */}
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <a
@@ -3333,7 +3464,6 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {/* 누르면 바로 파일 탐색기 / 갤러리가 열리는 유일한 단일 버튼 */}
                   <label className="w-full py-2.5 px-4 bg-[#588B76] hover:bg-[#47705F] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98">
                     <ImageIcon className="w-4 h-4" />
                     <span>악보 사진 / 파일 선택 (PC · 모바일)</span>
