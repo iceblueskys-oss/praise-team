@@ -277,7 +277,6 @@ export default function Home() {
 
   const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 
-  // 에버노트 일괄 등록 모달
   const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
   const [batchImportInput, setBatchImportInput] = useState('');
 
@@ -332,6 +331,27 @@ export default function Home() {
   const initialScaleOnPinch = useRef<number>(1.0);
   const lastTapTime = useRef<number>(0);
 
+  // 🌟 [추가된 기능 4]: 악보 뷰어 실행 시 화면 꺼짐 방지 (Wake Lock API)
+  useEffect(() => {
+    let wakeLock: any = null;
+    async function requestWakeLock() {
+      if (viewingSongId && 'wakeLock' in navigator) {
+        try {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        } catch (err) {
+          console.warn('Wake Lock 에러:', err);
+        }
+      }
+    }
+    requestWakeLock();
+
+    return () => {
+      if (wakeLock) {
+        wakeLock.release().catch(() => {});
+      }
+    };
+  }, [viewingSongId]);
+
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark';
@@ -358,6 +378,76 @@ export default function Home() {
     setPosition({ x: 0, y: 0 });
     setSheetImgError(false);
   }, [viewingSongId, currentPageIndex]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !viewingSongId || viewMode === 'lyrics') return;
+
+    let startDist = 0;
+    let startScale = 1.0;
+    let lastTap = 0;
+
+    const onGestureStart = (e: any) => e.preventDefault();
+    const onGestureChange = (e: any) => e.preventDefault();
+
+    const onTouchStartNative = (e: TouchEvent) => {
+      if (isDrawingMode) return;
+
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        startDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        startScale = scale;
+        return;
+      }
+
+      if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+          e.preventDefault();
+          setScale((prev) => (prev > 1.05 ? 1.0 : 1.8));
+          setPosition({ x: 0, y: 0 });
+          lastTap = 0;
+          return;
+        }
+        lastTap = now;
+      }
+    };
+
+    const onTouchMoveNative = (e: TouchEvent) => {
+      if (isDrawingMode) return;
+
+      if (e.touches.length === 2 && startDist > 0) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const factor = dist / startDist;
+        const nextScale = Math.max(0.8, Math.min(3.5, startScale * factor));
+        setScale(nextScale);
+        if (nextScale <= 1.0) setPosition({ x: 0, y: 0 });
+      }
+    };
+
+    const onTouchEndNative = (e: TouchEvent) => {
+      if (e.touches.length < 2) startDist = 0;
+    };
+
+    container.addEventListener('touchstart', onTouchStartNative, { passive: false });
+    container.addEventListener('touchmove', onTouchMoveNative, { passive: false });
+    container.addEventListener('touchend', onTouchEndNative);
+    container.addEventListener('gesturestart', onGestureStart, { passive: false });
+    container.addEventListener('gesturechange', onGestureChange, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStartNative);
+      container.removeEventListener('touchmove', onTouchMoveNative);
+      container.removeEventListener('touchend', onTouchEndNative);
+      container.removeEventListener('gesturestart', onGestureStart);
+      container.removeEventListener('gesturechange', onGestureChange);
+    };
+  }, [viewingSongId, viewMode, isDrawingMode, scale]);
 
   const handleToggleLyricsExpand = (songId: string) => {
     setExpandedLyricsSongId((prev) => (prev === songId ? null : songId));
@@ -558,36 +648,30 @@ export default function Home() {
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
 
-      // 1. 순수 태그 라인인지 확인 (예: <회중찬양>, <결단곡>)
       const tagMatch = line.match(tagRegex);
       if (tagMatch && line.replace(tagRegex, '').trim() === '') {
         currentTag = tagMatch[1] || tagMatch[2] || '';
         continue;
       }
 
-      // 2. 송폼/메모 라인인 경우 직전 곡의 comment로 추가 (예: IN - V C C)
       if (songFormRegex.test(line) && parsedList.length > 0) {
         const lastSong = parsedList[parsedList.length - 1];
         lastSong.comment = lastSong.comment ? `${lastSong.comment} / ${line}` : line;
         continue;
       }
 
-      // 3. 사회자 멘트, 기도 등 식순 건너뛰기
       if (ignoreKeywords.some((kw) => line.includes(kw))) {
         continue;
       }
 
-      // 4. 인라인 태그 추출 (예: <입례> 지금까지 에벤에셀)
       let songTag = currentTag;
       if (tagMatch) {
         songTag = tagMatch[1] || tagMatch[2] || currentTag;
         line = line.replace(tagRegex, '').trim();
       }
 
-      // 5. 순번 숫자 제거 (예: 1. 2.)
       line = line.replace(/^[0-9]+[\.\)\-\s]+/, '').trim();
 
-      // 6. 하이픈 뒤 메모 분리
       let comment = '';
       if (line.includes(' - ')) {
         const parts = line.split(' - ');
@@ -595,7 +679,6 @@ export default function Home() {
         comment = parts.slice(1).join(' - ').trim();
       }
 
-      // 7. Key 추출 (예: 우릴 사용하소서 Bb, 축복합니다 E)
       let songKey: string | null = null;
       const keyMatch = line.match(keyRegex);
       if (keyMatch) {
@@ -1385,6 +1468,7 @@ export default function Home() {
     }
   };
 
+  // 🌟 [추가된 개선 1]: 악보 이미지 업로드 시 MAX_WIDTH 1000px, 퀄리티 0.68로 용량 최적화
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1402,7 +1486,7 @@ export default function Home() {
             try {
               const canvas = document.createElement('canvas');
               let { width, height } = img;
-              const MAX_WIDTH = 1200;
+              const MAX_WIDTH = 1000;
               if (width > MAX_WIDTH) {
                 height = Math.round((height * MAX_WIDTH) / width);
                 width = MAX_WIDTH;
@@ -1414,7 +1498,7 @@ export default function Home() {
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.75));
+                resolve(canvas.toDataURL('image/jpeg', 0.68));
               } else {
                 resolve(rawData);
               }
@@ -2459,7 +2543,6 @@ export default function Home() {
               </button>
 
               <div className="flex items-center gap-2">
-                {/* 🌟 에버노트 텍스트 일괄 등록 버튼 🌟 */}
                 <button
                   onClick={() => setIsBatchImportModalOpen(true)}
                   className={`flex items-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
@@ -2938,7 +3021,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 플로팅 PIP 플레이어 */}
       {activePipVideoId && !viewingSongId && (
         <div
           style={{
@@ -2998,7 +3080,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 에버노트 텍스트 일괄 등록 */}
+      {/* 모달: 에버노트 일괄 등록 */}
       {isBatchImportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-lg p-5 shadow-2xl border space-y-3.5 ${cardBgClass}`}>
@@ -3381,7 +3463,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* 🌟 악보 등록 영역: 탭 제거 및 깔끔한 원클릭 버튼 구조 🌟 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className={`text-xs font-bold ${textSubClass}`}>악보 등록</label>
