@@ -65,9 +65,11 @@ import {
   deleteDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   writeBatch,
   getDoc,
+  getDocs,
 } from 'firebase/firestore';
 
 interface CustomTag {
@@ -230,7 +232,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [contis, setContis] = useState<Conti[]>([]);
-  const [allSongs, setAllSongs] = useState<SongItem[]>([]);
+  const [currentSongs, setCurrentSongs] = useState<SongItem[]>([]);
   const [librarySongs, setLibrarySongs] = useState<LibrarySong[]>([]);
   const [selectedContiId, setSelectedContiId] = useState<string>('');
   const [isReordering, setIsReordering] = useState(false);
@@ -257,6 +259,7 @@ export default function Home() {
 
   const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [isSyncingLib, setIsSyncingLib] = useState(false);
+  const [isLibraryLoaded, setIsLibraryLoaded] = useState(false);
   const [previewLibSong, setPreviewLibSong] = useState<LibrarySong | null>(null);
 
   const [isNewContiModalOpen, setIsNewContiModalOpen] = useState(false);
@@ -331,7 +334,6 @@ export default function Home() {
   const initialScaleOnPinch = useRef<number>(1.0);
   const lastTapTime = useRef<number>(0);
 
-  // 🌟 [추가된 기능 4]: 악보 뷰어 실행 시 화면 꺼짐 방지 (Wake Lock API)
   useEffect(() => {
     let wakeLock: any = null;
     async function requestWakeLock() {
@@ -545,7 +547,7 @@ export default function Home() {
     if (targetSongId) {
       try {
         await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: fixedText }, { merge: true });
-        const targetSong = allSongs.find((s) => s.id === targetSongId);
+        const targetSong = currentSongs.find((s) => s.id === targetSongId);
         if (targetSong) {
           const libDocId = getSafeDocId(targetSong.title, targetSong.key);
           await setDoc(doc(db, 'song_library', libDocId), { lyrics: fixedText, updatedAt: Date.now() }, { merge: true });
@@ -588,15 +590,55 @@ export default function Home() {
     }
   };
 
+  const loadLibrarySongs = useCallback(async () => {
+    try {
+      const qLib = query(collection(db, 'song_library'), orderBy('updatedAt', 'desc'));
+      const snapshot = await getDocs(qLib);
+      const libList: LibrarySong[] = [];
+      snapshot.forEach((d) => {
+        const data = d.data();
+        let sheets: string[] = [];
+        if (Array.isArray(data?.sheetUrls)) {
+          sheets = data.sheetUrls.map(formatImageUrl).filter(Boolean);
+        } else if (data?.sheetUrl && typeof data.sheetUrl === 'string') {
+          sheets = [formatImageUrl(data.sheetUrl.trim())].filter(Boolean);
+        }
+        libList.push({
+          id: d.id,
+          title: data?.title || '',
+          key: data?.key || null,
+          bpm: data?.bpm || null,
+          comment: data?.comment || '',
+          lyrics: data?.lyrics || '',
+          youtubeUrl: data?.youtubeUrl || '',
+          sheetUrls: sheets,
+          updatedAt: data?.updatedAt || Date.now(),
+        });
+      });
+      setLibrarySongs(libList);
+      setIsLibraryLoaded(true);
+      return libList;
+    } catch (e) {
+      console.error('보관소 불러오기 실패:', e);
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'library' && !isLibraryLoaded) {
+      loadLibrarySongs();
+    }
+  }, [activeTab, isLibraryLoaded, loadLibrarySongs]);
+
   const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
-    if (allSongs.length === 0) {
-      if (showSuccessAlert) alert('동기화할 기존 콘티 곡이 없습니다.');
+    if (currentSongs.length === 0) {
+      if (showSuccessAlert) alert('동기화할 콘티 곡이 없습니다.');
       return;
     }
     setIsSyncingLib(true);
     try {
       const batch = writeBatch(db);
-      allSongs.forEach((song) => {
+      currentSongs.forEach((song) => {
         const cleanTitle = (song.title || '').trim();
         if (!cleanTitle) return;
         const libDocId = getSafeDocId(cleanTitle, song.key);
@@ -619,6 +661,7 @@ export default function Home() {
         );
       });
       await batch.commit();
+      await loadLibrarySongs();
       if (showSuccessAlert) {
         alert('찬양이 보관소로 안전하게 동기화되었습니다!');
       }
@@ -629,7 +672,6 @@ export default function Home() {
     }
   };
 
-  // 🌟 에버노트 스마트 일괄 파싱 및 등록 로직
   const handleBatchImportEvernote = async () => {
     if (!batchImportInput.trim() || !currentConti) {
       alert('붙여넣을 에버노트 텍스트가 없습니다.');
@@ -704,39 +746,68 @@ export default function Home() {
 
     setIsProcessing(true);
     try {
+      const activeLib = isLibraryLoaded ? librarySongs : await loadLibrarySongs();
       const batch = writeBatch(db);
       let startOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order || 0)) + 10 : 10;
+      let matchedCount = 0;
 
       parsedList.forEach((item, idx) => {
         const songDocId = `song_${Date.now()}_${idx}`;
         const newSongRef = doc(db, 'songs_v2', songDocId);
+
+        const libDocId = getSafeDocId(item.title, item.key);
+        const foundInLib = activeLib.find((l) => {
+          if (l.id === libDocId) return true;
+          const cleanA = (l.title || '').replace(/\s+/g, '').toLowerCase();
+          const cleanB = item.title.replace(/\s+/g, '').toLowerCase();
+          if (cleanA === cleanB) {
+            if (!item.key || !l.key || item.key.toUpperCase() === l.key.toUpperCase()) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        let finalKey = item.key;
+        let finalSheets: string[] = [];
+        let finalLyrics = '';
+        let finalYoutubeUrl = '';
+        let finalBpm: number | null = null;
+
+        if (foundInLib) {
+          matchedCount++;
+          if (!finalKey && foundInLib.key) finalKey = foundInLib.key;
+          finalSheets = foundInLib.sheetUrls || [];
+          finalLyrics = foundInLib.lyrics || '';
+          finalYoutubeUrl = foundInLib.youtubeUrl || '';
+          finalBpm = foundInLib.bpm || null;
+        }
 
         batch.set(newSongRef, {
           id: songDocId,
           contiId: currentConti.id,
           headerTag: item.headerTag,
           title: item.title,
-          key: item.key,
-          bpm: null,
+          key: finalKey,
+          bpm: finalBpm,
           comment: item.comment,
-          lyrics: '',
-          youtubeUrl: '',
-          sheetUrls: [],
+          lyrics: finalLyrics,
+          youtubeUrl: finalYoutubeUrl,
+          sheetUrls: finalSheets,
           order: startOrder + idx * 10,
         });
 
-        const libDocId = getSafeDocId(item.title, item.key);
         batch.set(
           doc(db, 'song_library', libDocId),
           {
             id: libDocId,
             title: item.title,
-            key: item.key,
-            bpm: null,
+            key: finalKey,
+            bpm: finalBpm,
             comment: item.comment,
-            lyrics: '',
-            youtubeUrl: '',
-            sheetUrls: [],
+            lyrics: finalLyrics,
+            youtubeUrl: finalYoutubeUrl,
+            sheetUrls: finalSheets,
             updatedAt: Date.now(),
           },
           { merge: true }
@@ -746,7 +817,9 @@ export default function Home() {
       await batch.commit();
       setIsBatchImportModalOpen(false);
       setBatchImportInput('');
-      alert(`${parsedList.length}곡이 에버노트에서 콘티로 자동 등록되었습니다!`);
+      alert(
+        `${parsedList.length}곡이 등록되었습니다!\n(보관소에서 악보/정보 자동 매칭: ${matchedCount}곡)`
+      );
     } catch (err: any) {
       alert('일괄 등록 중 오류 발생: ' + err?.message);
     } finally {
@@ -784,8 +857,6 @@ export default function Home() {
     if (!mounted) return;
 
     let unsubContis = () => {};
-    let unsubSongs = () => {};
-    let unsubLib = () => {};
     let unsubSingers = () => {};
     let unsubTags = () => {};
 
@@ -814,60 +885,6 @@ export default function Home() {
         }
       });
 
-      const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
-      unsubSongs = onSnapshot(qSongs, (snapshot) => {
-        const sList: SongItem[] = [];
-        snapshot.forEach((d) => {
-          const data = d.data();
-          let sheets: string[] = [];
-          if (Array.isArray(data?.sheetUrls)) {
-            sheets = data.sheetUrls.map(formatImageUrl).filter(Boolean);
-          } else if (data?.sheetUrl && typeof data.sheetUrl === 'string') {
-            sheets = [formatImageUrl(data.sheetUrl.trim())].filter(Boolean);
-          }
-          sList.push({
-            id: d.id,
-            contiId: data?.contiId || '',
-            headerTag: data?.headerTag || '',
-            title: data?.title || '',
-            key: data?.key || null,
-            bpm: data?.bpm || null,
-            comment: data?.comment || '',
-            lyrics: data?.lyrics || '',
-            youtubeUrl: data?.youtubeUrl || '',
-            sheetUrls: sheets,
-            order: data?.order ?? 0,
-          });
-        });
-        setAllSongs(sList);
-      });
-
-      const qLib = query(collection(db, 'song_library'), orderBy('updatedAt', 'desc'));
-      unsubLib = onSnapshot(qLib, (snapshot) => {
-        const libList: LibrarySong[] = [];
-        snapshot.forEach((d) => {
-          const data = d.data();
-          let sheets: string[] = [];
-          if (Array.isArray(data?.sheetUrls)) {
-            sheets = data.sheetUrls.map(formatImageUrl).filter(Boolean);
-          } else if (data?.sheetUrl && typeof data.sheetUrl === 'string') {
-            sheets = [formatImageUrl(data.sheetUrl.trim())].filter(Boolean);
-          }
-          libList.push({
-            id: d.id,
-            title: data?.title || '',
-            key: data?.key || null,
-            bpm: data?.bpm || null,
-            comment: data?.comment || '',
-            lyrics: data?.lyrics || '',
-            youtubeUrl: data?.youtubeUrl || '',
-            sheetUrls: sheets,
-            updatedAt: data?.updatedAt || Date.now(),
-          });
-        });
-        setLibrarySongs(libList);
-      });
-
       unsubSingers = onSnapshot(doc(db, 'settings', 'singers_pool'), (snap) => {
         if (snap.exists()) {
           const rawList = snap.data()?.list;
@@ -893,12 +910,52 @@ export default function Home() {
 
     return () => {
       unsubContis();
-      unsubSongs();
-      unsubLib();
       unsubSingers();
       unsubTags();
     };
   }, [mounted]);
+
+  useEffect(() => {
+    if (!mounted || !selectedContiId) {
+      setCurrentSongs([]);
+      return;
+    }
+
+    const qSongs = query(
+      collection(db, 'songs_v2'),
+      where('contiId', '==', selectedContiId),
+      orderBy('order', 'asc')
+    );
+
+    const unsubSongs = onSnapshot(qSongs, (snapshot) => {
+      const sList: SongItem[] = [];
+      snapshot.forEach((d) => {
+        const data = d.data();
+        let sheets: string[] = [];
+        if (Array.isArray(data?.sheetUrls)) {
+          sheets = data.sheetUrls.map(formatImageUrl).filter(Boolean);
+        } else if (data?.sheetUrl && typeof data.sheetUrl === 'string') {
+          sheets = [formatImageUrl(data.sheetUrl.trim())].filter(Boolean);
+        }
+        sList.push({
+          id: d.id,
+          contiId: data?.contiId || '',
+          headerTag: data?.headerTag || '',
+          title: data?.title || '',
+          key: data?.key || null,
+          bpm: data?.bpm || null,
+          comment: data?.comment || '',
+          lyrics: data?.lyrics || '',
+          youtubeUrl: data?.youtubeUrl || '',
+          sheetUrls: sheets,
+          order: data?.order ?? 0,
+        });
+      });
+      setCurrentSongs(sList);
+    });
+
+    return () => unsubSongs();
+  }, [mounted, selectedContiId]);
 
   useEffect(() => {
     if (!viewingSongId || viewMode === 'lyrics') return;
@@ -932,12 +989,7 @@ export default function Home() {
   }, [viewingSongId, currentPageIndex, viewMode]);
 
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
-  const viewingSong = allSongs.find((s) => s.id === viewingSongId) || null;
-
-  const activeViewerContiId = viewingSong?.contiId || currentConti?.id;
-  const currentSongs = allSongs
-    .filter((s) => s.contiId === activeViewerContiId)
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
   const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
@@ -1419,7 +1471,11 @@ export default function Home() {
     }
   };
 
-  const handleOpenModal = (song?: SongItem) => {
+  const handleOpenModal = async (song?: SongItem) => {
+    if (!isLibraryLoaded) {
+      loadLibrarySongs();
+    }
+
     if (song) {
       setEditingSongId(song.id);
       setModalHeaderTag(song.headerTag || '');
@@ -1463,12 +1519,12 @@ export default function Home() {
     if (!confirm(`찬양 보관소에서 [${libTitle}] 곡을 삭제하시겠습니까?`)) return;
     try {
       await deleteDoc(doc(db, 'song_library', libId));
+      setLibrarySongs((prev) => prev.filter((s) => s.id !== libId));
     } catch (e) {
       alert('보관소 삭제 실패');
     }
   };
 
-  // 🌟 [추가된 개선 1]: 악보 이미지 업로드 시 MAX_WIDTH 1000px, 퀄리티 0.68로 용량 최적화
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1560,7 +1616,7 @@ export default function Home() {
       const finalSheets = modalSheetUrls.map(formatImageUrl).filter(Boolean);
 
       if (editingSongId) {
-        const oldSong = allSongs.find((s) => s.id === editingSongId);
+        const oldSong = currentSongs.find((s) => s.id === editingSongId);
         if (oldSong && (oldSong.title !== modalTitle.trim() || oldSong.key !== (modalKey.trim() || null))) {
           const oldLibDocId = getSafeDocId(oldSong.title, oldSong.key);
           const newLibDocId = getSafeDocId(modalTitle.trim(), modalKey.trim());
@@ -1575,7 +1631,7 @@ export default function Home() {
       const songDocId = editingSongId || `song_${Date.now()}`;
       const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order || 0)) : 0;
       const songOrder = editingSongId
-        ? allSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
+        ? currentSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
         : maxOrder + 10;
 
       const cleanTitle = modalTitle.trim();
@@ -1613,6 +1669,26 @@ export default function Home() {
         },
         { merge: true }
       );
+
+      if (isLibraryLoaded) {
+        setLibrarySongs((prev) => {
+          const filtered = prev.filter((s) => s.id !== libDocId);
+          return [
+            {
+              id: libDocId,
+              title: cleanTitle,
+              key: modalKey.trim() ? modalKey.trim() : null,
+              bpm: modalBpm.trim() ? parseInt(modalBpm.trim(), 10) : null,
+              comment: modalComment.trim(),
+              lyrics: modalLyrics,
+              youtubeUrl: modalYoutubeUrl.trim(),
+              sheetUrls: finalSheets,
+              updatedAt: Date.now(),
+            },
+            ...filtered,
+          ];
+        });
+      }
 
       setIsModalOpen(false);
     } catch (err: any) {
@@ -1814,9 +1890,6 @@ export default function Home() {
   const goldAccentText = isDark ? 'text-[#D4AF77]' : 'text-[#9C7E52]';
   const goldAccentBtn = 'bg-[#B89C70] hover:bg-[#A88B58] text-white';
 
-  // ==========================================
-  // 1. 악보 & 가사 뷰어 화면
-  // ==========================================
   if (viewingSong) {
     const validSheets = (viewingSong.sheetUrls || []).map(formatImageUrl).filter(Boolean);
     const totalPages = validSheets.length;
@@ -1840,7 +1913,6 @@ export default function Home() {
           style={{ paddingTop: 'max(env(safe-area-inset-top), 10px)' }}
         >
           <div className="max-w-4xl mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2">
-            
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => {
@@ -1990,7 +2062,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-
           </div>
         </header>
 
@@ -2297,9 +2368,6 @@ export default function Home() {
     );
   }
 
-  // ==========================================
-  // 2. 메인 화면
-  // ==========================================
   const filteredLibrary = librarySongs.filter((s) => {
     const term = (librarySearchTerm || modalLibrarySearch).toLowerCase().trim();
     if (!term) return true;
@@ -2317,7 +2385,6 @@ export default function Home() {
   return (
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
       <div className="max-w-xl mx-auto space-y-4 w-full">
-        
         <header className="flex items-center justify-between gap-2 px-1 pt-1">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md shadow-[#B89C70]/15 shrink-0 border border-[#DEC8A2]/50">
@@ -2424,9 +2491,6 @@ export default function Home() {
                 </div>
               ) : (
                 upcomingContis.map((c) => {
-                  const songCount = allSongs.filter((s) => s.contiId === c.id).length;
-                  const singers = c.assignedSingers || [];
-
                   return (
                     <div
                       key={c.id}
@@ -2441,19 +2505,16 @@ export default function Home() {
                           <span className={`px-2 py-0.5 text-xs font-bold rounded-lg ${isDark ? 'bg-[#42331E]/60 text-[#E5C492]' : 'bg-[#F4ECE1] text-[#8C6D3E]'}`}>
                             {c.date}
                           </span>
-                          <span className={`text-xs font-semibold ${textSubClass}`}>
-                            {songCount}곡 수록
-                          </span>
                         </div>
 
                         <h3 className={`text-base font-bold truncate ${goldAccentText}`}>
                           {c.title}
                         </h3>
 
-                        {singers.length > 0 && (
+                        {c.assignedSingers && c.assignedSingers.length > 0 && (
                           <div className={`flex items-center gap-1.5 text-xs truncate ${textSubClass}`}>
                             <Mic className="w-3.5 h-3.5 text-[#B89C70] shrink-0" />
-                            <span className="truncate">싱어: {singers.join(', ')}</span>
+                            <span className="truncate">싱어: {c.assignedSingers.join(', ')}</span>
                           </div>
                         )}
                       </div>
@@ -2491,7 +2552,6 @@ export default function Home() {
                 {showPastContis && (
                   <div className="space-y-2 pl-1">
                     {pastContis.map((c) => {
-                      const songCount = allSongs.filter((s) => s.contiId === c.id).length;
                       return (
                         <div
                           key={c.id}
@@ -2505,9 +2565,6 @@ export default function Home() {
                             <div className="flex items-center gap-2">
                               <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md ${isDark ? 'bg-[#2A2724] text-neutral-300' : 'bg-[#EFECE4] text-[#7F7B74]'}`}>
                                 {c.date}
-                              </span>
-                              <span className="text-[11px] text-[#9E988D]">
-                                {songCount}곡
                               </span>
                             </div>
                             <h4 className={`text-sm font-bold truncate ${textTitleClass}`}>
@@ -2526,11 +2583,9 @@ export default function Home() {
                 )}
               </div>
             )}
-
           </div>
         )}
 
-        {/* 콘티 상세 곡 목록 */}
         {activeTab === 'conti' && viewLevel === 'detail' && currentConti && (
           <div className="space-y-3.5">
             <div className="flex items-center justify-between px-1 flex-wrap gap-2">
@@ -2548,7 +2603,7 @@ export default function Home() {
                   className={`flex items-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
                     isDark ? 'bg-[#3A3022] border-[#735A33] text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
                   }`}
-                  title="에버노트 텍스트 붙여넣기로 일괄 생성"
+                  title="에버노트 텍스트 붙여넣기로 일괄 생성 및 보관소 자동 매칭"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>에버노트 일괄등록</span>
@@ -2646,7 +2701,6 @@ export default function Home() {
                         <div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
                           <div
                             onClick={() => {
-                              setSelectedContiId(song.contiId);
                               setViewingSongId(song.id);
                               setCurrentPageIndex(0);
                               setViewMode('sheet');
@@ -2719,7 +2773,6 @@ export default function Home() {
                                 </div>
                               )}
                             </div>
-
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -2797,7 +2850,6 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* 가사 패널 */}
                         {isLyricsExpanded && (
                           <div className={`border-t px-4 py-3.5 space-y-3 ${
                             isDark ? 'bg-[#1C1B19] border-[#38342F]' : 'bg-[#FAF8F5] border-[#E8E3D8]'
@@ -2891,7 +2943,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 찬양 보관소 뷰 */}
         {activeTab === 'library' && (
           <div className="space-y-3.5">
             <div className="flex items-center justify-between px-1">
@@ -2984,10 +3035,8 @@ export default function Home() {
             </div>
           </div>
         )}
-
       </div>
 
-      {/* 하단 플로팅 탭바 */}
       <nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
         <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
           isDark ? 'bg-[#242220]/95 border-[#38342F]' : 'bg-white/95 border-[#E2DDD2]'
@@ -3080,7 +3129,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 에버노트 일괄 등록 */}
       {isBatchImportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-lg p-5 shadow-2xl border space-y-3.5 ${cardBgClass}`}>
@@ -3096,7 +3144,7 @@ export default function Home() {
 
             <p className={`text-xs leading-relaxed ${textSubClass}`}>
               에버노트 본문 전체를 복사해서 아래에 붙여넣으세요. <br />
-              <span className={`font-bold ${goldAccentText}`}>태그(&lt;입례&gt;, &lt;회중찬양&gt; 등), 곡명, Key(Bb, E 등), 송폼(IN - V C C)</span>이 자동으로 완벽히 분리되어 등록됩니다.
+              보관소에 있는 곡은 <span className={`font-bold ${goldAccentText}`}>악보, 가사, 유튜브 링크</span>가 자동으로 연결됩니다.
             </p>
 
             <textarea
@@ -3121,14 +3169,13 @@ export default function Home() {
                 onClick={handleBatchImportEvernote}
                 className={`flex-1 py-2.5 ${goldAccentBtn} disabled:opacity-50 rounded-xl font-bold text-xs text-white shadow-xs`}
               >
-                {isProcessing ? '자동 등록 중...' : '콘티 곡으로 한 번에 생성'}
+                {isProcessing ? '자동 등록 및 보관소 매칭 중...' : '콘티 곡으로 한 번에 생성'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Safari PWA 안전 가사 검색 안내 모달 */}
       {searchModalTitle && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border space-y-4 ${cardBgClass}`}>
@@ -3168,7 +3215,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 새 콘티 추가 */}
       {isNewContiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
@@ -3258,7 +3304,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 곡 추가/수정 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
@@ -3407,7 +3452,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* 가사 입력 및 정돈 버튼 */}
               <div>
                 <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                   <label className={`text-xs font-bold flex items-center gap-1 ${textSubClass}`}>
@@ -3614,7 +3658,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 태그 관리 */}
       {isTagModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
@@ -3714,7 +3757,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 싱어 관리 */}
       {isSingerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
@@ -3836,7 +3878,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 관리자 인증 */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${cardBgClass}`}>
@@ -3884,7 +3925,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 앱 설정 */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
           <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
@@ -3957,7 +3997,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 보관소 미리보기 */}
       {previewLibSong && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-3.5 sm:p-6">
           <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${cardBgClass}`}>
@@ -4046,7 +4085,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 비밀번호 변경 */}
       {isChangePwModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${cardBgClass}`}>
@@ -4093,7 +4131,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 모달: 출석 체크 */}
       {isAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
