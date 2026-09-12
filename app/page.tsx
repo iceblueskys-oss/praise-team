@@ -1283,11 +1283,11 @@ export default function Home() {
       };
 
       await setDoc(doc(db, 'contis_v2', newId), newConti);
+      setIsNewContiModalOpen(false); // 🌟 모달 닫기
       setSelectedContiId(newId);
-      setViewLevel('detail');
-      setIsNewContiModalOpen(false);
-    } catch (err) {
-      alert('콘티 생성 중 오류가 발생했습니다.');
+      setViewLevel('detail');       // 🌟 상세 보기로 이동
+    } catch (err: any) {
+      alert('콘티 생성 실패: ' + err.message);
     }
   };
 
