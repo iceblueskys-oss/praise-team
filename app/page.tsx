@@ -244,6 +244,7 @@ const [showPastContis, setShowPastContis] = useState(false);
 const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
 const [noticeInput, setNoticeInput] = useState('');
+const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
 const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
 const [myAttendanceName, setMyAttendanceName] = useState('');
 const [myAttendanceStatus, setMyAttendanceStatus] = useState<'yes' | 'no' | 'maybe'>('yes');
@@ -2464,11 +2465,25 @@ title="설정 및 관리"
 <Bell className="w-4 h-4 text-[#A88B58]" />
 </div>
 <div className="min-w-0 flex-1">
-<div className="flex items-center justify-between">
+<div
+role="button"
+tabIndex={0}
+onClick={() => setIsNoticeExpanded((prev) => !prev)}
+onKeyDown={(e) => {
+if (e.key === 'Enter' || e.key === ' ') {
+e.preventDefault();
+setIsNoticeExpanded((prev) => !prev);
+}
+}}
+className="flex items-center justify-between w-full text-left cursor-pointer"
+>
 <span className={`text-xs font-bold ${textSubClass}`}>찬양팀 공지사항</span>
+<div className="flex items-center gap-2 shrink-0">
 {currentConti && (
 <button
-onClick={() => {
+type="button"
+onClick={(e) => {
+e.stopPropagation();
 setNoticeInput(currentNotice);
 setIsNoticeModalOpen(true);
 }}
@@ -2477,10 +2492,22 @@ className={`text-xs font-bold ${goldAccentText} hover:underline`}
 공지 작성 ↗
 </button>
 )}
+{isNoticeExpanded ? (
+<ChevronUp className={`w-3.5 h-3.5 ${textSubClass}`} />
+) : (
+<ChevronDown className={`w-3.5 h-3.5 ${textSubClass}`} />
+)}
 </div>
+</div>
+{isNoticeExpanded ? (
 <p className={`text-sm font-medium mt-1 whitespace-pre-wrap leading-relaxed ${textTitleClass}`}>
 {currentNotice || '등록된 예배 공지사항이 없습니다.'}
 </p>
+) : (
+<p className={`text-xs mt-1 truncate ${textSubClass}`}>
+{currentNotice || '등록된 예배 공지사항이 없습니다.'}
+</p>
+)}
 </div>
 </div>
 
