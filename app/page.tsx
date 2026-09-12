@@ -233,7 +233,6 @@ const [mounted, setMounted] = useState(false);
 const [theme, setTheme] = useState<'dark' | 'light'>('light');
 const [contis, setContis] = useState<Conti[]>([]);
   const [allSongs, setAllSongs] = useState<SongItem[]>([]);
-  const [currentSongs, setCurrentSongs] = useState<SongItem[]>([]);
 const [librarySongs, setLibrarySongs] = useState<LibrarySong[]>([]);
 const [selectedContiId, setSelectedContiId] = useState<string>('');
 const [isReordering, setIsReordering] = useState(false);
@@ -549,7 +548,6 @@ const fixedText = formatAndFixLyrics(rawText);
 if (targetSongId) {
 try {
 await setDoc(doc(db, 'songs_v2', targetSongId), { lyrics: fixedText }, { merge: true });
-        const targetSong = allSongs.find((s) => s.id === targetSongId);
         const targetSong = currentSongs.find((s) => s.id === targetSongId);
 if (targetSong) {
 const libDocId = getSafeDocId(targetSong.title, targetSong.key);
@@ -634,8 +632,6 @@ setModalSheetUrls((prev) => [...prev, formatted]);
   }, [activeTab, isLibraryLoaded, loadLibrarySongs]);
 
 const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
-    if (allSongs.length === 0) {
-      if (showSuccessAlert) alert('동기화할 기존 콘티 곡이 없습니다.');
     if (currentSongs.length === 0) {
       if (showSuccessAlert) alert('동기화할 콘티 곡이 없습니다.');
 return;
@@ -643,7 +639,6 @@ return;
 setIsSyncingLib(true);
 try {
 const batch = writeBatch(db);
-      allSongs.forEach((song) => {
       currentSongs.forEach((song) => {
 const cleanTitle = (song.title || '').trim();
 if (!cleanTitle) return;
@@ -795,34 +790,23 @@ id: songDocId,
 contiId: currentConti.id,
 headerTag: item.headerTag,
 title: item.title,
-          key: item.key,
-          bpm: null,
           key: finalKey,
           bpm: finalBpm,
 comment: item.comment,
-          lyrics: '',
-          youtubeUrl: '',
-          sheetUrls: [],
           lyrics: finalLyrics,
           youtubeUrl: finalYoutubeUrl,
           sheetUrls: finalSheets,
 order: startOrder + idx * 10,
 });
 
-        const libDocId = getSafeDocId(item.title, item.key);
 batch.set(
 doc(db, 'song_library', libDocId),
 {
 id: libDocId,
 title: item.title,
-            key: item.key,
-            bpm: null,
             key: finalKey,
             bpm: finalBpm,
 comment: item.comment,
-            lyrics: '',
-            youtubeUrl: '',
-            sheetUrls: [],
             lyrics: finalLyrics,
             youtubeUrl: finalYoutubeUrl,
             sheetUrls: finalSheets,
@@ -992,48 +976,6 @@ unsubTags();
 };
 }, [mounted]);
 
-  useEffect(() => {
-    if (!mounted || !selectedContiId) {
-      setCurrentSongs([]);
-      return;
-    }
-
-    const qSongs = query(
-      collection(db, 'songs_v2'),
-      where('contiId', '==', selectedContiId),
-      orderBy('order', 'asc')
-    );
-
-    const unsubSongs = onSnapshot(qSongs, (snapshot) => {
-      const sList: SongItem[] = [];
-      snapshot.forEach((d) => {
-        const data = d.data();
-        let sheets: string[] = [];
-        if (Array.isArray(data?.sheetUrls)) {
-          sheets = data.sheetUrls.map(formatImageUrl).filter(Boolean);
-        } else if (data?.sheetUrl && typeof data.sheetUrl === 'string') {
-          sheets = [formatImageUrl(data.sheetUrl.trim())].filter(Boolean);
-        }
-        sList.push({
-          id: d.id,
-          contiId: data?.contiId || '',
-          headerTag: data?.headerTag || '',
-          title: data?.title || '',
-          key: data?.key || null,
-          bpm: data?.bpm || null,
-          comment: data?.comment || '',
-          lyrics: data?.lyrics || '',
-          youtubeUrl: data?.youtubeUrl || '',
-          sheetUrls: sheets,
-          order: data?.order ?? 0,
-        });
-      });
-      setCurrentSongs(sList);
-    });
-
-    return () => unsubSongs();
-  }, [mounted, selectedContiId]);
-
 useEffect(() => {
 if (!viewingSongId || viewMode === 'lyrics') return;
 
@@ -1072,7 +1014,6 @@ const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const currentSongs = allSongs
     .filter((s) => s.contiId === activeViewerContiId)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
-  const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
 const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
 
 const assignedSingers = Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : [];
@@ -1554,7 +1495,6 @@ alert('콘티 제목 수정 오류');
 }
 };
 
-  const handleOpenModal = (song?: SongItem) => {
   const handleOpenModal = async (song?: SongItem) => {
     if (!isLibraryLoaded) {
       loadLibrarySongs();
@@ -1701,7 +1641,6 @@ setSelectedContiId(activeContiId);
 const finalSheets = modalSheetUrls.map(formatImageUrl).filter(Boolean);
 
 if (editingSongId) {
-        const oldSong = allSongs.find((s) => s.id === editingSongId);
         const oldSong = currentSongs.find((s) => s.id === editingSongId);
 if (oldSong && (oldSong.title !== modalTitle.trim() || oldSong.key !== (modalKey.trim() || null))) {
 const oldLibDocId = getSafeDocId(oldSong.title, oldSong.key);
@@ -1717,7 +1656,6 @@ await deleteDoc(doc(db, 'song_library', oldLibDocId));
 const songDocId = editingSongId || `song_${Date.now()}`;
 const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order || 0)) : 0;
 const songOrder = editingSongId
-        ? allSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
         ? currentSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
 : maxOrder + 10;
 
@@ -2614,11 +2552,9 @@ className={`p-4 rounded-3xl border transition active:scale-[0.99] cursor-pointer
 </h3>
 
                         {singers.length > 0 && (
-                        {c.assignedSingers && c.assignedSingers.length > 0 && (
 <div className={`flex items-center gap-1.5 text-xs truncate ${textSubClass}`}>
 <Mic className="w-3.5 h-3.5 text-[#B89C70] shrink-0" />
                             <span className="truncate">싱어: {singers.join(', ')}</span>
-                            <span className="truncate">싱어: {c.assignedSingers.join(', ')}</span>
 </div>
 )}
 </div>
@@ -2713,7 +2649,6 @@ onClick={() => setIsBatchImportModalOpen(true)}
 className={`flex items-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
                    isDark ? 'bg-[#3A3022] border-[#735A33] text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
                  }`}
-                  title="에버노트 텍스트 붙여넣기로 일괄 생성"
                   title="에버노트 텍스트 붙여넣기로 일괄 생성 및 보관소 자동 매칭"
 >
 <FileSpreadsheet className="w-3.5 h-3.5" />
