@@ -7,9 +7,10 @@ const firebaseConfig = {
   apiKey: "AIzaSyDi9jZ5a3q01LUqCiR6d-4OELjtpAFTLQo",
   authDomain: "praisesheet-66fe5.firebaseapp.com",
   projectId: "praisesheet-66fe5",
-  storageBucket: "praisesheet-66fe5.appspot.com",
+  storageBucket: "praisesheet-66fe5.firebasestorage.app",
   messagingSenderId: "921722710189",
-  appId: "1:921722710189:web:52e992a5ce8daf5c5f3e24"
+  appId: "1:921722710189:web:52e992a5ce8daf5c5f3e24",
+  measurementId: "G-DB4VV52N6L"
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
