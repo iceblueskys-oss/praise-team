@@ -1053,9 +1053,8 @@ export default function Home() {
   const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
   const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
 
-  const todayStr = formatDateToStr(new Date());
-  // 날짜로 거르지 않고 DB에 있는 모든 콘티를 보여주도록 변경
-  const upcomingContis = contis; 
+  // 날짜로 걸러서 숨기지 않고, DB에 있는 모든 콘티를 다 표시합니다.
+  const upcomingContis = contis;
   const pastContis: Conti[] = [];
 
   const handleOpenSingerModal = () => {
@@ -1284,11 +1283,11 @@ export default function Home() {
       };
 
       await setDoc(doc(db, 'contis_v2', newId), newConti);
-      setIsNewContiModalOpen(false); // 🌟 모달 닫기
+      setIsNewContiModalOpen(false); // 팝업 닫기
       setSelectedContiId(newId);
-      setViewLevel('detail');       // 🌟 상세 보기로 이동
+      setViewLevel('home'); // 생성 후 메인 홈 목록에서 바로 확인
     } catch (err: any) {
-      alert('콘티 생성 실패: ' + err.message);
+      alert('콘티 생성 중 오류: ' + err.message);
     }
   };
 
