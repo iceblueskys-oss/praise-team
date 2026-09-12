@@ -1357,10 +1357,7 @@ setCurrentSongs([]);
 return;
 }
 
-const qSongs = query(
-collection(db, 'songs_v2'),
-where('contiId', '==', selectedContiId)
-);
+const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
 
 const unsubSongs = onSnapshot(qSongs, (snapshot) => {
 const sList: SongItem[] = [];
