@@ -334,7 +334,17 @@ export default function Home() {
   const initialScaleOnPinch = useRef<number>(1.0);
   const lastTapTime = useRef<number>(0);
 
-  // 🌟 핵심 상태 계산 변수 (에러 방지용 최상단 선언)
+  // 🌟 [변수 선언 최상단 배치]: 빌드 시 ReferenceError 방지
+  const isDark = theme === 'dark';
+  const bgClass = isDark ? 'bg-[#1A1816] text-[#EDEAE1]' : 'bg-[#F7F5F0] text-[#2C2A28]';
+  const cardBgClass = isDark ? 'bg-[#242220] border-[#38342F] shadow-md' : 'bg-white border-[#E8E3D8] shadow-[0_4px_16px_rgba(160,145,120,0.08)]';
+  const subCardBg = isDark ? 'bg-[#2F2C29] border-[#443F38] text-neutral-200 hover:bg-[#3A3630]' : 'bg-[#F0EDE5] border-[#E2DDD2] text-[#4A4641] hover:bg-[#E8E4DA]';
+  const inputBgClass = isDark ? 'bg-[#2A2724] border-[#3D3833] text-white placeholder-neutral-500' : 'bg-[#FCFAF7] border-[#DDD7CB] text-[#2C2A28] placeholder-[#9E988D]';
+  const textTitleClass = isDark ? 'text-[#EDEAE1]' : 'text-[#2C2A28]';
+  const textSubClass = isDark ? 'text-[#9E988D]' : 'text-[#7F7B74]';
+  const goldAccentText = isDark ? 'text-[#D4AF77]' : 'text-[#9C7E52]';
+  const goldAccentBtn = 'bg-[#B89C70] hover:bg-[#A88B58] text-white';
+
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const viewingSong = currentSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongIndex = currentSongs.findIndex((s) => s.id === viewingSongId);
@@ -1258,7 +1268,7 @@ export default function Home() {
     touchStartPos.current = null;
   };
 
-  // 🌟 1. 전체 콘티 목록 실시간 리스너
+  // 🌟 전체 콘티 목록 실시간 리스너
   useEffect(() => {
     if (!mounted) return;
 
@@ -1321,7 +1331,7 @@ export default function Home() {
     };
   }, [mounted]);
 
-  // 🌟 2. 복합 색인(Index) 에러 방지: where로만 필터링 후 자바스크립트 메모리에서 order 정렬
+  // 🌟 색인 에러 없는 안전한 곡 구독 및 메모리 정렬
   useEffect(() => {
     if (!mounted || !selectedContiId) {
       setCurrentSongs([]);
@@ -1357,7 +1367,6 @@ export default function Home() {
           order: data?.order ?? 0,
         });
       });
-      // 메모리 내 정렬로 색인 없이 즉시 고속 렌더링
       sList.sort((a, b) => (a.order || 0) - (b.order || 0));
       setCurrentSongs(sList);
     });
@@ -1365,7 +1374,7 @@ export default function Home() {
     return () => unsubSongs();
   }, [mounted, selectedContiId]);
 
-  // 🌟 3. 악보 드로잉 실시간 동기화 리스너
+  // 🌟 드로잉 실시간 동기화 리스너
   useEffect(() => {
     if (!viewingSongId || viewMode === 'lyrics') return;
 
@@ -1795,6 +1804,11 @@ export default function Home() {
       alert('보관소 삭제 실패');
     }
   };
+
+  // 마운트 완료
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
@@ -2451,7 +2465,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 🌟 공지사항 작성 모달 🌟 */}
+      {/* 공지사항 작성 모달 */}
       {isNoticeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className={`rounded-3xl w-full max-w-sm p-5 shadow-2xl border space-y-3.5 ${cardBgClass}`}>
@@ -3108,6 +3122,485 @@ export default function Home() {
                   className={`flex-1 py-2.5 ${goldAccentBtn} disabled:opacity-50 rounded-xl font-bold text-xs text-white shadow-xs`}
                 >
                   {isProcessing ? '처리 중...' : editingSongId ? '수정 완료' : '콘티에 추가'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 태그 관리 */}
+      {isTagModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Palette className="w-4 h-4 text-[#B89C70]" />
+                예배 순서 태그 & 색상 관리
+              </h2>
+              <button onClick={() => setIsTagModalOpen(false)} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3.5 space-y-4 text-xs sm:text-sm">
+              <form onSubmit={handleAddTag} className={`space-y-3 p-3.5 rounded-2xl border ${isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FCFAF7] border-[#E8E3D8]'}`}>
+                <label className={`block text-xs font-bold ${textSubClass}`}>
+                  새 태그 추가 (괄호 없이 자유롭게 입력)
+                </label>
+                
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="예: 묵도, 결단찬양, 헌금송, 앙코르"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+
+                <div className="space-y-1.5">
+                  <span className={`text-[11px] font-bold block ${textSubClass}`}>태그 색상 선택:</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {Object.entries(TAG_COLOR_THEMES).map(([colorKey, themeObj]) => {
+                      const style = isDark ? themeObj.dark : themeObj.light;
+                      return (
+                        <button
+                          key={colorKey}
+                          type="button"
+                          onClick={() => setNewTagColor(colorKey)}
+                          className={`px-2 py-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition shadow-xs ${style.bg} ${style.text} ${style.border} ${
+                            newTagColor === colorKey ? 'ring-2 ring-[#B89C70] scale-102' : 'opacity-85 hover:opacity-100'
+                          }`}
+                        >
+                          {newTagColor === colorKey && <Check className="w-3 h-3" />}
+                          <span>{themeObj.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className={`w-full py-2 ${goldAccentBtn} text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-98`}
+                >
+                  + 태그 추가하기
+                </button>
+              </form>
+
+              <div className="space-y-2">
+                <span className={`text-xs font-bold block ${textSubClass}`}>
+                  등록된 전체 태그 목록 ({masterTags.length}개)
+                </span>
+                <div className={`flex flex-wrap gap-2 max-h-56 overflow-y-auto p-2 border rounded-2xl ${isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-white border-[#E8E3D8]'}`}>
+                  {masterTags.map((t) => {
+                    const themeObj = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
+                    const style = isDark ? themeObj.dark : themeObj.light;
+                    return (
+                      <span
+                        key={t.name}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border shadow-xs ${style.bg} ${style.text} ${style.border}`}
+                      >
+                        <span>{t.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTag(t.name)}
+                          className="hover:opacity-75 ml-0.5"
+                          title="태그 삭제"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTagModalOpen(false)}
+                  className={`w-full py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 싱어 관리 */}
+      {isSingerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Mic className="w-4 h-4 text-[#B89C70]" />
+                싱어 배정 & 관리
+              </h2>
+              <button onClick={() => setIsSingerModalOpen(false)} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
+              <div>
+                <label className={`block text-xs font-bold mb-2 ${textSubClass}`}>
+                  이번 주 찬양 싱어 선택
+                </label>
+                {masterSingers.length === 0 ? (
+                  <div className={`p-4 rounded-2xl border text-center text-xs text-[#7F7B74] ${subCardBg}`}>
+                    등록된 싱어가 없습니다. 아래에서 싱어를 먼저 추가해주세요.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                    {masterSingers.map((singer) => {
+                      const isChecked = selectedSingers.includes(singer);
+                      return (
+                        <button
+                          key={singer}
+                          type="button"
+                          onClick={() => handleToggleSinger(singer)}
+                          className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                            isChecked
+                              ? `${goldAccentBtn} border-[#B89C70] shadow-xs`
+                              : subCardBg
+                          }`}
+                        >
+                          <span className="truncate">{singer}</span>
+                          {isChecked && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className={`p-3.5 rounded-2xl border space-y-2.5 ${isDark ? 'bg-[#1A1816] border-[#38342F]' : 'bg-[#FCFAF7] border-[#E8E3D8]'}`}>
+                <span className={`text-xs font-bold block ${textSubClass}`}>찬양팀 싱어 명단 추가</span>
+                <form onSubmit={handleAddMasterSinger} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newSingerName}
+                    onChange={(e) => setNewSingerName(e.target.value)}
+                    placeholder="새 싱어 이름"
+                    className={`flex-1 border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                  />
+                  <button
+                    type="submit"
+                    className={`px-3 py-1.5 ${goldAccentBtn} rounded-xl text-xs font-bold shrink-0`}
+                  >
+                    추가
+                  </button>
+                </form>
+
+                {masterSingers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {masterSingers.map((singer) => (
+                      <span
+                        key={singer}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border font-semibold ${
+                          isDark ? 'bg-[#2A2724] border-[#3D3833] text-neutral-200' : 'bg-white border-[#E8E3D8] text-[#3E3A36]'
+                        }`}
+                      >
+                        <span>{singer}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMasterSinger(singer)}
+                          className="text-[#9E988D] hover:text-[#D96A4E]"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>
+                  이번 주 콘티 특이사항 메모
+                </label>
+                <input
+                  type="text"
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  placeholder="예: 13:00 찬양팀 모임 / 단체복: 흰색"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsSingerModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  onClick={handleSaveContiSingers}
+                  className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  배정 저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 관리자 인증 */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <Lock className={`w-4 h-4 ${goldAccentText}`} />
+                관리자 인증
+              </h2>
+              <button onClick={() => setIsAuthModalOpen(false)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleLoginAdmin} className="mt-3.5 space-y-3">
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>비밀번호</label>
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  value={authPasswordInput}
+                  onChange={(e) => setAuthPasswordInput(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  인증하기
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 앱 설정 */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <SlidersHorizontal className="w-4 h-4 text-[#B89C70]" />
+                설정 및 모드
+              </h2>
+              <button onClick={() => setIsSettingsModalOpen(false)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3.5 space-y-2.5 text-xs sm:text-sm">
+              <button
+                onClick={() => {
+                  setIsSettingsModalOpen(false);
+                  if (isAdmin) handleLogoutAdmin();
+                  else setIsAuthModalOpen(true);
+                }}
+                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {isAdmin ? <Unlock className="w-4 h-4 text-[#588B76]" /> : <Lock className="w-4 h-4 text-[#9E988D]" />}
+                  <span>{isAdmin ? '관리자 모드 (활성화)' : '관리자 인증'}</span>
+                </div>
+                <span className="text-xs text-[#7F7B74]">{isAdmin ? '잠금' : '인증'}</span>
+              </button>
+
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsSettingsModalOpen(false);
+                      setIsChangePwModalOpen(true);
+                    }}
+                    className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${cardBgClass}`}
+                  >
+                    <KeyRound className="w-4 h-4 text-[#B89C70]" />
+                    <span>비밀번호 변경</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsSettingsModalOpen(false);
+                      setIsReordering(!isReordering);
+                    }}
+                    className={`w-full p-3 rounded-2xl border flex items-center gap-2.5 font-bold transition ${
+                      isReordering ? 'bg-[#42331E]/60 border-[#735A33]/50 text-[#E5C492]' : cardBgClass
+                    }`}
+                  >
+                    <GripVertical className="w-4 h-4" />
+                    <span>{isReordering ? '곡 순서 편집 종료' : '곡 순서 편집 모드'}</span>
+                  </button>
+                </>
+              )}
+
+              <button
+                onClick={toggleTheme}
+                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition ${cardBgClass}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {isDark ? <Sun className="w-4 h-4 text-[#A88B58]" /> : <Moon className="w-4 h-4 text-[#7D6AA8]" />}
+                  <span>화면 테마</span>
+                </div>
+                <span className="text-xs text-[#7F7B74]">{isDark ? '에스프레소 다크' : '웜 샴페인 라이트'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 보관소 미리보기 */}
+      {previewLibSong && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-3.5 sm:p-6">
+          <div className={`rounded-3xl w-full max-w-xl p-5 shadow-2xl border flex flex-col max-h-[90vh] ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'} shrink-0`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <Music className="w-4 h-4 text-[#B89C70]" />
+                <h2 className={`text-base font-bold truncate ${textTitleClass}`}>{previewLibSong.title}</h2>
+                {previewLibSong.key && (
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg border ${
+                    isDark ? 'bg-[#3A3022] border-[#735A33]/50 text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                  }`}>
+                    {previewLibSong.key} Key
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setPreviewLibSong(null)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3 flex-1 overflow-y-auto space-y-3.5 pr-1">
+              {previewLibSong.sheetUrls && previewLibSong.sheetUrls.length > 0 ? (
+                <div className="space-y-2">
+                  <span className={`text-xs font-bold block ${textSubClass}`}>등록된 악보 ({previewLibSong.sheetUrls.length}장)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {previewLibSong.sheetUrls.map((url, idx) => (
+                      <div key={idx} className="border border-[#E2DDD2] rounded-2xl p-1 bg-white flex flex-col items-center shadow-xs">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`${idx + 1}p`} className="w-full h-auto max-h-56 object-contain rounded-xl" />
+                        <span className="text-xs font-bold text-[#3E3A36] mt-1">{idx + 1} 페이지</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-[#9E988D]">등록된 악보 이미지가 없습니다.</p>
+              )}
+
+              <div className={`space-y-1.5 pt-2 border-t ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold flex items-center gap-1.5 ${goldAccentText}`}>
+                    <BookOpen className="w-3.5 h-3.5" /> 찬양 가사
+                  </span>
+                  {previewLibSong.lyrics && (
+                    <button
+                      onClick={() => handleCopyLyrics(previewLibSong.lyrics || '')}
+                      className={`text-xs font-bold px-2.5 py-1 rounded-xl ${goldAccentBtn} flex items-center gap-1 shadow-xs`}
+                    >
+                      <Copy className="w-3.5 h-3.5" /> 복사
+                    </button>
+                  )}
+                </div>
+                {previewLibSong.lyrics ? (
+                  <div 
+                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    className={`p-3.5 rounded-2xl border text-sm font-normal leading-relaxed ${
+                      isDark ? 'bg-[#1A1816] border-[#38342F] text-neutral-100' : 'bg-[#FCFAF7] border-[#E8E3D8] text-[#2C2A28]'
+                    }`}
+                  >
+                    {previewLibSong.lyrics}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400">등록된 가사가 없습니다.</p>
+                )}
+              </div>
+            </div>
+
+            <div className={`pt-3 border-t flex justify-between items-center shrink-0 ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <button
+                onClick={() => {
+                  handleDeleteFromLibrary(previewLibSong.id, previewLibSong.title);
+                  setPreviewLibSong(null);
+                }}
+                className="px-3 py-1.5 text-xs text-[#D96A4E] hover:bg-[#F8EAE8] rounded-xl font-bold"
+              >
+                보관소에서 삭제
+              </button>
+              <button
+                onClick={() => setPreviewLibSong(null)}
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold ${subCardBg}`}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 비밀번호 변경 */}
+      {isChangePwModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className={`rounded-3xl w-full max-w-xs p-5 shadow-2xl border ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+                <KeyRound className="w-4 h-4 text-[#B89C70]" />
+                비밀번호 변경
+              </h2>
+              <button onClick={() => setIsChangePwModalOpen(false)} className="p-1 text-[#9E988D]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangeAdminPassword} className="mt-3.5 space-y-3">
+              <div>
+                <label className={`block text-xs font-bold mb-1 ${textSubClass}`}>새 비밀번호</label>
+                <input
+                  type="password"
+                  required
+                  value={newPwInput}
+                  onChange={(e) => setNewPwInput(e.target.value)}
+                  placeholder="새 비밀번호 입력"
+                  className={`w-full border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsChangePwModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+                >
+                  변경 완료
                 </button>
               </div>
             </form>
