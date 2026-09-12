@@ -68,10 +68,7 @@ import {
   orderBy,
   writeBatch,
   getDoc,
-  getDocs,
 } from 'firebase/firestore';
-
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || '';
 
 interface CustomTag {
   name: string;
@@ -335,6 +332,7 @@ export default function Home() {
   const initialScaleOnPinch = useRef<number>(1.0);
   const lastTapTime = useRef<number>(0);
 
+  // 스타일 설정
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-[#1A1816] text-[#EDEAE1]' : 'bg-[#F7F5F0] text-[#2C2A28]';
   const cardBgClass = isDark ? 'bg-[#242220] border-[#38342F] shadow-md' : 'bg-white border-[#E8E3D8] shadow-[0_4px_16px_rgba(160,145,120,0.08)]';
@@ -345,6 +343,7 @@ export default function Home() {
   const goldAccentText = isDark ? 'text-[#D4AF77]' : 'text-[#9C7E52]';
   const goldAccentBtn = 'bg-[#B89C70] hover:bg-[#A88B58] text-white';
 
+  // 현재 콘티 및 곡 선택 연산
   const currentConti = contis.find((c) => c.id === selectedContiId) || contis[0];
   const viewingSong = allSongs.find((s) => s.id === viewingSongId) || null;
   const currentSongs = allSongs
@@ -366,54 +365,7 @@ export default function Home() {
     `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim()
   )}`;
 
-  const handleRequestNotification = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      alert('이 브라우저는 웹 알림을 지원하지 않습니다.');
-      return;
-    }
-
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        const { getMessaging, isSupported } = await import('firebase/messaging');
-        const supported = await isSupported();
-        if (!supported) {
-          alert('현재 환경에서는 푸시 알림이 지원되지 않습니다.');
-          return;
-        }
-
-        const messaging = getMessaging();
-        const { getToken } = await import('firebase/messaging');
-        const registration = await navigator.serviceWorker.register('/praise-team/firebase-messaging-sw.js').catch(async () => {
-          return await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        });
-
-        const currentToken = await getToken(messaging, {
-          vapidKey: VAPID_KEY,
-          serviceWorkerRegistration: registration,
-        });
-
-        if (currentToken) {
-          await setDoc(doc(db, 'fcm_tokens', currentToken), {
-            token: currentToken,
-            device: navigator.userAgent,
-            name: myAttendanceName || '찬양팀원',
-            updatedAt: Date.now(),
-          }, { merge: true });
-
-          alert('찬양팀 푸시 알림이 활성화되었습니다!');
-        } else {
-          alert('알림 토큰을 발급받지 못했습니다.');
-        }
-      } else if (permission === 'denied') {
-        alert('알림 권한이 차단되어 있습니다. 브라우저 설정에서 알림을 허용해 주세요.');
-      }
-    } catch (err: any) {
-      console.error('알림 권한 요청 오류:', err);
-      alert('알림 설정 오류: ' + (err?.message || '설정을 확인하세요'));
-    }
-  };
-
+  // Wake Lock 화면 꺼짐 방지
   useEffect(() => {
     let wakeLock: any = null;
     async function requestWakeLock() {
@@ -877,7 +829,7 @@ export default function Home() {
     }
   };
 
-  // 실시간 콘티, 곡, 보관소 데이터 구독
+  // 🌟 핵심: 안정적인 실시간 Firestore 구독 리스너
   useEffect(() => {
     if (!mounted) return;
 
@@ -1419,11 +1371,13 @@ export default function Home() {
     if (!confirm(`찬양 보관소에서 [${libTitle}] 곡을 삭제하시겠습니까?`)) return;
     try {
       await deleteDoc(doc(db, 'song_library', libId));
+      setLibrarySongs((prev) => prev.filter((s) => s.id !== libId));
     } catch (e) {
       alert('보관소 삭제 실패');
     }
   };
 
+  // 악보 이미지 파일 선택
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1862,19 +1816,7 @@ export default function Home() {
     return days;
   };
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0] dark:bg-[#1A1816] text-[#7F7B74] text-sm font-medium">
-        950 찬양팀 Hub 불러오는 중...
-      </div>
-    );
-  }
-
-  // 1. 악보 & 가사 뷰어
+  // 1. 악보/가사 뷰어 렌더링
   if (viewingSong) {
     const validSheets = (viewingSong.sheetUrls || []).map(formatImageUrl).filter(Boolean);
     const totalPages = validSheets.length;
@@ -2399,6 +2341,7 @@ export default function Home() {
 
         {activeTab === 'conti' && viewLevel === 'home' && (
           <div className="space-y-4">
+            {/* 아코디언 공지사항 카드 */}
             <div className={`rounded-3xl border overflow-hidden transition-all duration-200 ${cardBgClass}`}>
               <div
                 onClick={() => setIsNoticeExpanded(!isNoticeExpanded)}
@@ -3547,8 +3490,7 @@ export default function Home() {
                       type="button"
                       onClick={() => handleOpenSearchGuide(modalTitle)}
                       className={`text-xs font-bold px-2.5 py-1 border rounded-lg flex items-center gap-1 transition active:scale-95 shadow-xs ${
-                        isDark ? 'bg-[#1D2F3B]/60 border-[#325268]/50 text-[#96B8CE] hover:bg-[#253B4A]/60'
-                      : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279] hover:bg-[#DDE7ED]'
+                        isDark ? 'bg-[#1D2F3B]/60 border-[#325268]/50 text-[#96B8CE]' : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279]'
                       }`}
                     >
                       <Globe className="w-3.5 h-3.5" />
@@ -4002,21 +3944,6 @@ export default function Home() {
             </div>
 
             <div className="mt-3.5 space-y-2.5 text-xs sm:text-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSettingsModalOpen(false);
-                  handleRequestNotification();
-                }}
-                className={`w-full p-3 rounded-2xl border flex items-center justify-between font-bold transition active:scale-98 ${cardBgClass}`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Bell className="w-4 h-4 text-[#B89C70]" />
-                  <span>찬양팀 푸시 알림 설정</span>
-                </div>
-                <span className={`text-xs font-bold ${goldAccentText}`}>알림 켜기</span>
-              </button>
-
               <button
                 onClick={() => {
                   setIsSettingsModalOpen(false);
