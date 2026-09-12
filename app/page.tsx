@@ -1194,7 +1194,7 @@ try {
 const snap = await getDoc(doc(db, 'settings', 'admin_auth'));
 const correctPw = snap.exists() ? snap.data()?.password : '1234';
 
-if (authPasswordInput.trim() === correctPw || authPasswordInput.trim() === '1234') {
+if (authPasswordInput.trim() === correctPw) {
 setIsAdmin(true);
 localStorage.setItem('praise_app_is_admin', 'true');
 setIsAuthModalOpen(false);
@@ -1204,15 +1204,7 @@ alert('관리자 인증이 완료되었습니다.');
 alert('비밀번호가 일치하지 않습니다.');
 }
 } catch (err) {
-if (authPasswordInput.trim() === '1234') {
-setIsAdmin(true);
-localStorage.setItem('praise_app_is_admin', 'true');
-setIsAuthModalOpen(false);
-setAuthPasswordInput('');
-alert('관리자 인증이 완료되었습니다.');
-} else {
-alert('비밀번호가 일치하지 않습니다.');
-}
+alert('인증 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
 }
 };
 
