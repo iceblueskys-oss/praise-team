@@ -2457,12 +2457,12 @@ export default function Home() {
                 </span>
               </div>
 
-              {Contis.length === 0 ? (
+              {contis.length === 0 ? (
                 <div className={`text-center py-10 border rounded-3xl text-sm px-4 ${cardBgClass} ${textSubClass}`}>
                   예정된 예배 일정이 없습니다. 상단 <span className="text-[#A88B58] font-bold">[+ 새 콘티]</span>를 눌러 다가올 예배를 등록해보세요.
                 </div>
               ) : (
-                Contis.map((c) => {
+                contis.map((c) => {
                   const songCount = allSongs.filter((s) => s.contiId === c.id).length;
                   const singers = c.assignedSingers || [];
 
