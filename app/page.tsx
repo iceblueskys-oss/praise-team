@@ -111,7 +111,7 @@ interface Conti {
   notice?: string;
   attendance?: Record<string, 'yes' | 'no' | 'maybe'>;
 }
-
+const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 const TAG_COLOR_THEMES: Record<string, { light: { bg: string; text: string; border: string }; dark: { bg: string; text: string; border: string }; label: string }> = {
   amber: {
     light: { bg: 'bg-[#F4ECE1]', text: 'text-[#8C6D3E]', border: 'border-[#DEC8A2]' },
