@@ -142,15 +142,6 @@ const TAG_COLOR_THEMES: Record<string, { light: { bg: string; text: string; bord
   },
 };
 
-const qContis = collection(db, 'contis_v2');
-unsubContis = onSnapshot(qContis, (snapshot) => {
-  console.log("🔥 파이어베이스에서 가져온 콘티 문서 개수:", snapshot.size);
-  snapshot.forEach((d) => {
-    console.log("📄 콘티 데이터:", d.id, d.data());
-  });
-  // ...
-});
-
 const DEFAULT_CUSTOM_TAGS: CustomTag[] = [
   { name: '입례', color: 'blue' },
   { name: '송영', color: 'indigo' },
@@ -891,9 +882,8 @@ export default function Home() {
 
     try {
       const qContis = collection(db, 'contis_v2');
-      unsubContis = onSnapshot(
-        qContis,
-        (snapshot) => {
+      unsubContis = onSnapshot(qContis,(snapshot) => {
+          console.log("🔥 가져온 콘티 개수:", snapshot.size);
           const list: Conti[] = [];
           snapshot.forEach((d) => {
             const data = d.data();
