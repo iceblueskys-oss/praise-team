@@ -235,7 +235,6 @@ export default function Home() {
 
   const [viewLevel, setViewLevel] = useState<'home' | 'detail'>('home');
   const [activeTab, setActiveTab] = useState<'conti' | 'library'>('conti');
-  const [showPastContis, setShowPastContis] = useState(false);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
@@ -362,7 +361,7 @@ export default function Home() {
     `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim()
   )}`;
 
-  // 🌟 상단 배치: 달력 렌더링 함수 (ReferenceError 방지)
+  // 달력 렌더링 함수
   const renderCalendarDays = () => {
     const year = currentCalMonth.getFullYear();
     const month = currentCalMonth.getMonth();
@@ -882,7 +881,9 @@ export default function Home() {
 
     try {
       const qContis = collection(db, 'contis_v2');
-      unsubContis = onSnapshot(qContis,(snapshot) => {
+      unsubContis = onSnapshot(
+        qContis,
+        (snapshot) => {
           console.log("🔥 가져온 콘티 개수:", snapshot.size);
           const list: Conti[] = [];
           snapshot.forEach((d) => {
@@ -1052,10 +1053,6 @@ export default function Home() {
   const yesCount = Object.values(currentAttendance).filter((v) => v === 'yes').length;
   const noCount = Object.values(currentAttendance).filter((v) => v === 'no').length;
   const maybeCount = Object.values(currentAttendance).filter((v) => v === 'maybe').length;
-
-  // 날짜로 걸러서 숨기지 않고, DB에 있는 모든 콘티를 다 표시합니다.
-  const upcomingContis = contis;
-  const pastContis: Conti[] = [];
 
   const handleOpenSingerModal = () => {
     setSelectedSingers(Array.isArray(currentConti?.assignedSingers) ? currentConti.assignedSingers : []);
@@ -1283,9 +1280,9 @@ export default function Home() {
       };
 
       await setDoc(doc(db, 'contis_v2', newId), newConti);
-      setIsNewContiModalOpen(false); // 팝업 닫기
+      setIsNewContiModalOpen(false);
       setSelectedContiId(newId);
-      setViewLevel('home'); // 생성 후 메인 홈 목록에서 바로 확인
+      setViewLevel('home');
     } catch (err: any) {
       alert('콘티 생성 중 오류: ' + err.message);
     }
@@ -2450,10 +2447,10 @@ export default function Home() {
               <div className="flex items-center justify-between px-1">
                 <h2 className={`text-sm font-bold flex items-center gap-1.5 ${textTitleClass}`}>
                   <Calendar className="w-4 h-4 text-[#B89C70]" />
-                  다가오는 예배 일정
+                  예배 일정
                 </h2>
                 <span className={`text-xs font-bold px-2.5 py-0.5 rounded-lg ${isDark ? 'bg-[#42331E]/60 text-[#E5C492]' : 'bg-[#F4ECE1] text-[#8C6D3E]'}`}>
-                  {upcomingContis.length}개 예정
+                  {contis.length}개 등록됨
                 </span>
               </div>
 
@@ -2506,65 +2503,6 @@ export default function Home() {
                 })
               )}
             </div>
-
-            {pastContis.length > 0 && (
-              <div className="space-y-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPastContis(!showPastContis)}
-                  className={`w-full p-3 rounded-2xl border flex items-center justify-between transition active:scale-98 ${subCardBg}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-[#7F7B74]" />
-                    <span className={`text-xs sm:text-sm font-bold ${textTitleClass}`}>
-                      지난 예배 콘티 ({pastContis.length}개)
-                    </span>
-                  </div>
-                  {showPastContis ? (
-                    <ChevronUp className="w-4 h-4 text-[#7F7B74]" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-[#7F7B74]" />
-                  )}
-                </button>
-
-                {showPastContis && (
-                  <div className="space-y-2 pl-1">
-                    {pastContis.map((c) => {
-                      const songCount = allSongs.filter((s) => s.contiId === c.id).length;
-                      return (
-                        <div
-                          key={c.id}
-                          onClick={() => {
-                            setSelectedContiId(c.id);
-                            setViewLevel('detail');
-                          }}
-                          className={`p-3.5 rounded-2xl border transition active:scale-[0.99] cursor-pointer flex items-center justify-between gap-3 ${cardBgClass}`}
-                        >
-                          <div className="min-w-0 flex-1 space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-md ${isDark ? 'bg-[#2A2724] text-neutral-300' : 'bg-[#EFECE4] text-[#7F7B74]'}`}>
-                                {c.date}
-                              </span>
-                              <span className="text-[11px] text-[#9E988D]">
-                                {songCount}곡
-                              </span>
-                            </div>
-                            <h4 className={`text-sm font-bold truncate ${textTitleClass}`}>
-                              {c.title}
-                            </h4>
-                          </div>
-
-                          <div className="flex items-center gap-1 text-[#7F7B74] font-semibold text-xs shrink-0">
-                            <span>보기</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -3868,7 +3806,7 @@ export default function Home() {
                           onClick={() => handleDeleteMasterSinger(singer)}
                           className="text-[#9E988D] hover:text-[#D96A4E]"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </span>
                     ))}
