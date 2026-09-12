@@ -2460,11 +2460,6 @@ title="설정 및 관리"
 {activeTab === 'conti' && viewLevel === 'home' && (
 <div className="space-y-4">
 <div className={`rounded-3xl border p-4 space-y-3 ${cardBgClass}`}>
-<div className="flex items-start gap-3">
-<div className={`w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${isDark ? 'bg-[#42331E]/60' : 'bg-[#F4ECE1]'}`}>
-<Bell className="w-4 h-4 text-[#A88B58]" />
-</div>
-<div className="min-w-0 flex-1">
 <div
 role="button"
 tabIndex={0}
@@ -2475,8 +2470,13 @@ e.preventDefault();
 setIsNoticeExpanded((prev) => !prev);
 }
 }}
-className="flex items-center justify-between w-full text-left cursor-pointer"
+className="flex items-start gap-3 cursor-pointer"
 >
+<div className={`w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${isDark ? 'bg-[#42331E]/60' : 'bg-[#F4ECE1]'}`}>
+<Bell className="w-4 h-4 text-[#A88B58]" />
+</div>
+<div className="min-w-0 flex-1">
+<div className="flex items-center justify-between w-full text-left">
 <span className={`text-xs font-bold ${textSubClass}`}>찬양팀 공지사항</span>
 <div className="flex items-center gap-2 shrink-0">
 {currentConti && (
