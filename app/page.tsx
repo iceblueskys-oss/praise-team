@@ -830,6 +830,7 @@ export default function Home() {
   };
 
   // 🌟 핵심: 안정적인 실시간 Firestore 구독 리스너
+  // 실시간 콘티, 곡, 보관소 데이터 구독 (orderBy 조건 제거로 누락 방지 + 에러 추적)
   useEffect(() => {
     if (!mounted) return;
 
@@ -840,7 +841,8 @@ export default function Home() {
     let unsubTags = () => {};
 
     try {
-      const qContis = query(collection(db, 'contis_v2'), orderBy('date', 'desc'));
+      // 1. 콘티 가져오기 (orderBy 제거 후 JS 메모리 정렬)
+      const qContis = collection(db, 'contis_v2');
       unsubContis = onSnapshot(qContis, (snapshot) => {
         const list: Conti[] = [];
         snapshot.forEach((d) => {
@@ -855,6 +857,8 @@ export default function Home() {
             attendance: data?.attendance && typeof data.attendance === 'object' ? data.attendance : {},
           });
         });
+        // 날짜 기준 내림차순 수동 정렬 (필드 누락 문서도 제외 안 됨)
+        list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         setContis(list);
         if (list.length > 0) {
           setSelectedContiId((prev) => {
@@ -862,9 +866,13 @@ export default function Home() {
             return list[0].id;
           });
         }
+      }, (error) => {
+        console.error('콘티 로딩 에러:', error);
+        alert('콘티 로딩 실패 (규칙 또는 네트워크 확인): ' + error.message);
       });
 
-      const qSongs = query(collection(db, 'songs_v2'), orderBy('order', 'asc'));
+      // 2. 곡 목록 가져오기 (orderBy 제거 후 JS 메모리 정렬)
+      const qSongs = collection(db, 'songs_v2');
       unsubSongs = onSnapshot(qSongs, (snapshot) => {
         const sList: SongItem[] = [];
         snapshot.forEach((d) => {
@@ -889,10 +897,14 @@ export default function Home() {
             order: data?.order ?? 0,
           });
         });
+        sList.sort((a, b) => (a.order || 0) - (b.order || 0));
         setAllSongs(sList);
+      }, (error) => {
+        console.error('곡 로딩 에러:', error);
       });
 
-      const qLib = query(collection(db, 'song_library'), orderBy('updatedAt', 'desc'));
+      // 3. 찬양 보관소 가져오기
+      const qLib = collection(db, 'song_library');
       unsubLibrary = onSnapshot(qLib, (snapshot) => {
         const libList: LibrarySong[] = [];
         snapshot.forEach((d) => {
@@ -915,7 +927,10 @@ export default function Home() {
             updatedAt: data?.updatedAt || Date.now(),
           });
         });
+        libList.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
         setLibrarySongs(libList);
+      }, (error) => {
+        console.error('보관소 로딩 에러:', error);
       });
 
       unsubSingers = onSnapshot(doc(db, 'settings', 'singers_pool'), (snap) => {
