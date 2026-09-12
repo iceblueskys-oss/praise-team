@@ -2,14 +2,14 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-// 본인 프로젝트의 Firebase 설정값
+// 🌟 본인 Firebase 콘솔에 있는 실제 키 값 6개 입력 필수
 firebase.initializeApp({
-  apiKey: "AIzaSy...",
-  authDomain: "praise-team.firebaseapp.com",
-  projectId: "praise-team",
-  storageBucket: "praise-team.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef..."
+  apiKey: "AIzaSyDi9jZ5a3q01LUqCiR6d-4OELjtpAFTLQo",
+  authDomain: "praisesheet-66fe5.firebaseapp.com",
+  projectId: "praisesheet-66fe5",
+  storageBucket: "praisesheet-66fe5.firebasestorage.app",
+  messagingSenderId: "921722710189",
+  appId: "1:921722710189:web:52e992a5ce8daf5c5f3e24"
 });
 
 const messaging = firebase.messaging();
@@ -29,7 +29,7 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// 알림 클릭 시 해당 앱/페이지 열기
+// 알림 클릭 시 앱 열기
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
