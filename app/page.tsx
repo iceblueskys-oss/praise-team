@@ -192,6 +192,36 @@ const date = String(d.getDate()).padStart(2, '0');
 return `${year}.${month}.${date} ${typeSuffix}`;
 }
 
+// 🌟 콘티 목록 카드에는 날짜 배지(c.date, 예: "2026-09-20")와 제목(c.title)이 나란히 표시되는데,
+// 새 콘티를 만들 때 제목 기본값이 formatDateToTitle()로 "2026.09.20 950"처럼 날짜를 포함해서 채워지다 보니
+// 같은 날짜가 배지와 제목에 두 번 보이는 문제가 있었음. 제목이 배지와 같은 날짜로 시작하는 경우에만
+// 그 날짜 부분을 잘라내고 나머지(예배 구분 등 의미 있는 부분)만 보여준다. 사용자가 제목을 완전히
+// 다르게 바꾼 경우(날짜로 시작하지 않음)는 원본 그대로 보여줘서 정보 손실이 없도록 함.
+function getContiDisplayTitle(conti: { date?: string; title: string }): string {
+const title = (conti.title || '').trim();
+const date = conti.date || '';
+const parts = date.split('-');
+if (parts.length !== 3) return title;
+const [y, m, d] = parts;
+const mNum = Number(m);
+const dNum = Number(d);
+if (!y || Number.isNaN(mNum) || Number.isNaN(dNum)) return title;
+
+const candidatePrefixes = [
+`${y}.${m}.${d}`, // 기본 생성 포맷: 2026.09.20
+`${y}.${mNum}.${dNum}`, // 앞자리 0 없이 입력한 경우: 2026.9.20
+date, // 배지와 동일한 대시 포맷: 2026-09-20
+];
+
+for (const prefix of candidatePrefixes) {
+if (title.startsWith(prefix)) {
+const rest = title.slice(prefix.length).replace(/^[\s.\-:·]+/, '').trim();
+return rest || title;
+}
+}
+return title;
+}
+
 function formatImageUrl(url: string): string {
 const trimmed = url ? url.trim() : '';
 if (!trimmed) return '';
@@ -2784,7 +2814,7 @@ className={`p-4 rounded-3xl border transition active:scale-[0.99] cursor-pointer
 </div>
 
 <h3 className={`text-base font-bold truncate ${goldAccentText}`}>
-{c.title}
+{getContiDisplayTitle(c)}
 </h3>
 
                         {singers.length > 0 && (
@@ -2848,7 +2878,7 @@ className={`p-3.5 rounded-2xl border transition active:scale-[0.99] cursor-point
                               </span>
 </div>
 <h4 className={`text-sm font-bold truncate ${textTitleClass}`}>
-{c.title}
+{getContiDisplayTitle(c)}
 </h4>
 </div>
 
