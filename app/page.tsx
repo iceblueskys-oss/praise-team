@@ -2447,10 +2447,10 @@ className={`absolute inset-0 w-full h-full rounded-xl ${
 </main>
 
 <footer
-className={`fixed bottom-4 inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
+className={`fixed inset-x-0 z-50 flex justify-center items-center px-4 pointer-events-none transition-all duration-300 ${
            showViewerControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
          } `}
-style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+style={{ bottom: 'calc(1rem + max(env(safe-area-inset-bottom, 0px), 12px))' }}
 >
 <div className={`pointer-events-auto flex items-center gap-1.5 p-1.5 rounded-full border shadow-xl backdrop-blur-xl ${
            isDark ? 'bg-[#242220]/95 border-[#38342F] text-[#EDEAE1]' : 'bg-white/95 border-[#E2DDD2] text-[#2C2A28]'
@@ -3291,11 +3291,11 @@ title="유튜브 미니플레이어 재생"
 
       {/* 하단 플로팅 탭바 */}
 <nav
-className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
+className="fixed inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
 >
 
-<div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
+<div className={`pointer-events-auto flex items-center gap-2 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
          isDark ? 'bg-[#242220]/95 border-[#38342F]' : 'bg-white/95 border-[#E2DDD2]'
        }`}>
 <button
@@ -3306,7 +3306,9 @@ setViewLevel('home');
 className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
              activeTab === 'conti'
                ? `${goldAccentBtn} shadow-xs`
-               : textSubClass
+               : isDark
+               ? 'bg-[#B89C70]/15 text-[#D9C6A0]'
+               : 'bg-[#B89C70]/10 text-[#A88B58]'
            }`}
 >
 <HomeIcon className="w-4 h-4" />
@@ -3318,7 +3320,9 @@ onClick={() => setActiveTab('library')}
 className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
              activeTab === 'library'
                ? 'bg-[#7D6AA8] text-white shadow-xs'
-               : textSubClass
+               : isDark
+               ? 'bg-[#7D6AA8]/15 text-[#C7B8E0]'
+               : 'bg-[#7D6AA8]/10 text-[#7D6AA8]'
            }`}
 >
 <Library className="w-4 h-4" />
