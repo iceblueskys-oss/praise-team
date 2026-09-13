@@ -209,6 +209,69 @@ const rawId = `lib_${cleanTitle}_${cleanKey}`;
 return rawId.replace(/[\/\s#?\[\]]/g, '_');
 }
 
+// 띄어쓰기/대소문자 차이를 무시하고 비교하기 위한 정규화
+function normalizeTitleForCompare(title: string): string {
+return (title || '').replace(/\s+/g, '').trim().toLowerCase();
+}
+
+// 두 문자열 사이의 편집 거리(오타 허용 수준 판단용)
+function levenshteinDistance(a: string, b: string): number {
+const m = a.length;
+const n = b.length;
+if (m === 0) return n;
+if (n === 0) return m;
+let prevRow = Array.from({ length: n + 1 }, (_, j) => j);
+for (let i = 1; i <= m; i++) {
+const currRow = [i];
+for (let j = 1; j <= n; j++) {
+const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+currRow[j] = Math.min(currRow[j - 1] + 1, prevRow[j] + 1, prevRow[j - 1] + cost);
+}
+prevRow = currRow;
+}
+return prevRow[n];
+}
+
+// 찬양 보관소에 이미 등록된 곡 중 띄어쓰기/오타 수준으로만 다른 동일 곡을 찾는다.
+// 찾으면 그 곡의 문서 id를 반환해 같은 문서에 병합하고, 없으면 null을 반환해 새 문서를 만들게 한다.
+function findDuplicateLibrarySongId(
+title: string,
+key: string | null | undefined,
+existing: { id: string; title?: string | null; key?: string | null }[]
+): string | null {
+const cleanTitle = (title || '').trim();
+if (!cleanTitle) return null;
+const normNew = normalizeTitleForCompare(cleanTitle);
+if (!normNew) return null;
+const cleanKey = (key || '').trim().toLowerCase();
+
+let bestMatch: { id: string; distance: number } | null = null;
+
+for (const song of existing) {
+const normExisting = normalizeTitleForCompare(song.title || '');
+if (!normExisting) continue;
+
+// 띄어쓰기/대소문자 차이만 있는 완전 동일 제목이면 바로 중복으로 판단
+if (normExisting === normNew) {
+return song.id;
+}
+
+// 오타 수준의 유사도는 같은 키에서만 인정한다 (다른 키는 편곡이 다른 별개 항목일 수 있음)
+const existingKey = (song.key || '').trim().toLowerCase();
+if (existingKey !== cleanKey) continue;
+
+const maxLen = Math.max(normNew.length, normExisting.length);
+if (maxLen === 0) continue;
+const threshold = maxLen <= 6 ? 1 : maxLen <= 12 ? 2 : 3;
+const distance = levenshteinDistance(normNew, normExisting);
+if (distance <= threshold && (!bestMatch || distance < bestMatch.distance)) {
+bestMatch = { id: song.id, distance };
+}
+}
+
+return bestMatch ? bestMatch.id : null;
+}
+
 function formatAndFixLyrics(input: string): string {
 if (!input) return '';
 let text = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -639,11 +702,14 @@ return;
 }
 setIsSyncingLib(true);
 try {
+      const activeLib = isLibraryLoaded ? librarySongs : await loadLibrarySongs();
+      const workingLib: { id: string; title?: string | null; key?: string | null }[] = [...activeLib];
 const batch = writeBatch(db);
       currentSongs.forEach((song) => {
 const cleanTitle = (song.title || '').trim();
 if (!cleanTitle) return;
-const libDocId = getSafeDocId(cleanTitle, song.key);
+        const dupId = findDuplicateLibrarySongId(cleanTitle, song.key, workingLib);
+        const libDocId = dupId || getSafeDocId(cleanTitle, song.key);
 const libRef = doc(db, 'song_library', libDocId);
 
 batch.set(
@@ -661,6 +727,9 @@ updatedAt: Date.now(),
 },
 { merge: true }
 );
+        if (!dupId) {
+          workingLib.push({ id: libDocId, title: cleanTitle, key: song.key || null });
+        }
 });
 await batch.commit();
       await loadLibrarySongs();
@@ -750,6 +819,7 @@ return;
 setIsProcessing(true);
 try {
       const activeLib = isLibraryLoaded ? librarySongs : await loadLibrarySongs();
+      const workingLib: LibrarySong[] = [...activeLib];
 const batch = writeBatch(db);
 let startOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order || 0)) + 10 : 10;
       let matchedCount = 0;
@@ -758,18 +828,10 @@ parsedList.forEach((item, idx) => {
 const songDocId = `song_${Date.now()}_${idx}`;
 const newSongRef = doc(db, 'songs_v2', songDocId);
 
-        const libDocId = getSafeDocId(item.title, item.key);
-        const foundInLib = activeLib.find((l) => {
-          if (l.id === libDocId) return true;
-          const cleanA = (l.title || '').replace(/\s+/g, '').toLowerCase();
-          const cleanB = item.title.replace(/\s+/g, '').toLowerCase();
-          if (cleanA === cleanB) {
-            if (!item.key || !l.key || item.key.toUpperCase() === l.key.toUpperCase()) {
-              return true;
-            }
-          }
-          return false;
-        });
+        // 띄어쓰기/오타 차이만 있는 동일 곡이면 기존 보관소 문서를 재사용해 중복 등록을 막는다.
+        const dupId = findDuplicateLibrarySongId(item.title, item.key, workingLib);
+        const libDocId = dupId || getSafeDocId(item.title, item.key);
+        const foundInLib = dupId ? workingLib.find((l) => l.id === dupId) : undefined;
 
         let finalKey = item.key;
         let finalSheets: string[] = [];
@@ -815,6 +877,20 @@ updatedAt: Date.now(),
 },
 { merge: true }
 );
+
+        if (!dupId) {
+          workingLib.push({
+            id: libDocId,
+            title: item.title,
+            key: finalKey,
+            bpm: finalBpm,
+            comment: item.comment,
+            lyrics: finalLyrics,
+            youtubeUrl: finalYoutubeUrl,
+            sheetUrls: finalSheets,
+            updatedAt: Date.now(),
+          });
+        }
 });
 
 await batch.commit();
@@ -1632,13 +1708,19 @@ setSelectedContiId(activeContiId);
 }
 
 const finalSheets = modalSheetUrls.map(formatImageUrl).filter(Boolean);
+const cleanTitle = modalTitle.trim();
+const cleanHeader = modalHeaderTag.trim();
+
+// 띄어쓰기/오타 차이만 있는 동일 곡이 보관소에 이미 있으면 그 문서에 병합한다.
+const activeLib = isLibraryLoaded ? librarySongs : await loadLibrarySongs();
+const dupId = findDuplicateLibrarySongId(cleanTitle, modalKey, activeLib);
+const libDocId = dupId || getSafeDocId(cleanTitle, modalKey);
 
 if (editingSongId) {
         const oldSong = currentSongs.find((s) => s.id === editingSongId);
-if (oldSong && (oldSong.title !== modalTitle.trim() || oldSong.key !== (modalKey.trim() || null))) {
+if (oldSong) {
 const oldLibDocId = getSafeDocId(oldSong.title, oldSong.key);
-const newLibDocId = getSafeDocId(modalTitle.trim(), modalKey.trim());
-if (oldLibDocId !== newLibDocId) {
+if (oldLibDocId !== libDocId) {
 try {
 await deleteDoc(doc(db, 'song_library', oldLibDocId));
 } catch (e) {}
@@ -1651,9 +1733,6 @@ const maxOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s
 const songOrder = editingSongId
         ? currentSongs.find((s) => s.id === editingSongId)?.order ?? maxOrder + 10
 : maxOrder + 10;
-
-const cleanTitle = modalTitle.trim();
-const cleanHeader = modalHeaderTag.trim();
 
 const songData: SongItem = {
 id: songDocId,
@@ -1671,7 +1750,6 @@ order: songOrder,
 
 await setDoc(doc(db, 'songs_v2', songDocId), songData);
 
-const libDocId = getSafeDocId(cleanTitle, modalKey);
 await setDoc(
 doc(db, 'song_library', libDocId),
 {
@@ -1919,6 +1997,9 @@ const currentSheetUrl = validSheets[currentPageIndex] || validSheets[0] || '';
 return (
 <div
 style={{ overscrollBehavior: 'none' }}
+onTouchStart={handleTouchStartViewer}
+onTouchMove={handleTouchMoveViewer}
+onTouchEnd={handleTouchEndViewer}
 className={`fixed inset-0 z-50 flex flex-col h-[100dvh] w-full select-none overflow-hidden touch-none ${
          isDark ? 'bg-[#181716] text-[#EDEAE1]' : 'bg-[#EDEAE1] text-[#2C2A28]'
        }`}
@@ -2168,9 +2249,6 @@ title="현재 페이지 필기 지우기"
 
 <main
 ref={containerRef}
-onTouchStart={handleTouchStartViewer}
-onTouchMove={handleTouchMoveViewer}
-onTouchEnd={handleTouchEndViewer}
 onClick={() => {
 if (!isDrawingMode && !isPanning.current) setShowViewerControls(!showViewerControls);
 }}
@@ -4002,6 +4080,51 @@ className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-whi
 </button>
 </div>
 </form>
+</div>
+</div>
+)}
+
+      {/* 모달: 공지사항 작성/수정 */}
+{isNoticeModalOpen && (
+<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-md p-0 sm:p-4">
+<div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl border ${cardBgClass}`}>
+<div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+<h2 className={`text-base font-bold flex items-center gap-2 ${textTitleClass}`}>
+<Bell className={`w-4 h-4 ${goldAccentText}`} />
+공지사항 작성
+</h2>
+<button onClick={() => setIsNoticeModalOpen(false)} className="p-1 text-[#9E988D]">
+<X className="w-5 h-5" />
+</button>
+</div>
+
+<div className="mt-3.5 space-y-3">
+<textarea
+autoFocus
+rows={6}
+value={noticeInput}
+onChange={(e) => setNoticeInput(e.target.value)}
+placeholder="예배팀에게 전달할 공지사항을 입력하세요."
+className={`w-full border rounded-xl px-3.5 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#B89C70] resize-none ${inputBgClass}`}
+/>
+
+<div className="flex gap-2 pt-1">
+<button
+type="button"
+onClick={() => setIsNoticeModalOpen(false)}
+className={`flex-1 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
+>
+취소
+</button>
+<button
+type="button"
+onClick={handleSaveNotice}
+className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-white shadow-xs`}
+>
+저장
+</button>
+</div>
+</div>
 </div>
 </div>
 )}
