@@ -48,6 +48,7 @@ History,
 ChevronDown,
 ChevronUp,
 AlertCircle,
+AlertTriangle,
 Settings,
 Palette,
 ExternalLink,
@@ -636,22 +637,45 @@ navigator.clipboard.writeText(textToCopy);
 alert('가사가 복사되었습니다.');
 };
 
+  // 구글 이미지 검색 등에서 "이미지 복사"로 캡처한 실제 이미지도, 이미지 주소(URL) 텍스트도
+  // 한 번의 클릭으로 처리 — 이미지가 있으면 이미지를, 없으면 URL 텍스트를, 둘 다 없으면 직접 입력을 시도
 const handlePasteClipboardUrl = async () => {
+try {
+if (navigator.clipboard && (navigator.clipboard as any).read) {
+const clipboardItems = await (navigator.clipboard as any).read();
+for (const item of clipboardItems) {
+const imageType = item.types.find((t: string) => t.startsWith('image/'));
+if (imageType) {
+const blob = await item.getType(imageType);
+const file = new File([blob], 'clipboard-image.png', { type: imageType });
+await processAndAddSheetFiles([file]);
+alert('클립보드의 이미지가 악보로 첨부되었습니다!');
+return;
+}
+}
+}
+} catch (e) {
+      // 이미지 클립보드 접근이 막혀 있으면 아래 URL 텍스트 방식으로 폴백
+}
+
 try {
 const text = await navigator.clipboard.readText();
 if (text && text.startsWith('http')) {
 const formatted = formatImageUrl(text.trim());
 setModalSheetUrls((prev) => [...prev, formatted]);
 alert('악보 주소가 등록되었습니다!');
-} else {
-alert('클립보드에 올바른 이미지 주소(http로 시작)가 없습니다.');
+return;
 }
 } catch (e) {
+      // 무시하고 아래 직접 입력으로 폴백
+}
+
 const directUrl = prompt('악보 이미지 주소(URL)를 붙여넣어 주세요:');
 if (directUrl && directUrl.trim()) {
 const formatted = formatImageUrl(directUrl.trim());
 setModalSheetUrls((prev) => [...prev, formatted]);
-}
+} else {
+alert('클립보드에 이미지나 올바른 주소(http로 시작)가 없습니다.');
 }
 };
 
@@ -1619,14 +1643,7 @@ alert('보관소 삭제 실패');
 };
 
   // 🌟 [추가된 개선 1]: 악보 이미지 업로드 시 MAX_WIDTH 1000px, 퀄리티 0.68로 용량 최적화
-const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-const files = e.target.files;
-if (!files || files.length === 0) return;
-
-setIsProcessing(true);
-const newSheets: string[] = [];
-
-const processImageFile = (file: File): Promise<string> => {
+const compressImageFile = (file: File): Promise<string> => {
 return new Promise((resolve) => {
 const reader = new FileReader();
 reader.onload = (event) => {
@@ -1663,10 +1680,16 @@ reader.readAsDataURL(file);
 });
 };
 
+  // 파일 선택 / 붙여넣기(Ctrl+V) / 드래그앤드롭 모두 이 함수로 처리해서 악보 등록 경로를 하나로 통일
+const processAndAddSheetFiles = async (files: FileList | File[]) => {
+const fileArr = Array.from(files).filter((f) => f.type.startsWith('image/'));
+if (fileArr.length === 0) return;
+
+setIsProcessing(true);
 try {
-for (let i = 0; i < files.length; i++) {
-const file = files[i];
-const compressed = await processImageFile(file);
+const newSheets: string[] = [];
+for (const file of fileArr) {
+const compressed = await compressImageFile(file);
 newSheets.push(compressed);
 }
 setModalSheetUrls((prev) => [...prev, ...newSheets]);
@@ -1674,6 +1697,42 @@ setModalSheetUrls((prev) => [...prev, ...newSheets]);
 alert('파일 처리 오류');
 } finally {
 setIsProcessing(false);
+}
+};
+
+const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+const files = e.target.files;
+if (!files || files.length === 0) return;
+await processAndAddSheetFiles(files);
+    e.target.value = ''; // 같은 파일을 다시 선택해도 onChange가 동작하도록 초기화
+};
+
+  // 악보 등록 영역 어디든 이미지를 드래그 앤 드롭하면 바로 첨부
+const handleSheetDrop = (e: React.DragEvent<HTMLElement>) => {
+e.preventDefault();
+e.stopPropagation();
+if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+processAndAddSheetFiles(e.dataTransfer.files);
+}
+};
+
+const handleSheetDragOver = (e: React.DragEvent<HTMLElement>) => {
+e.preventDefault();
+e.stopPropagation();
+};
+
+  // 곡 추가/수정 모달 어디서든 Ctrl+V(붙여넣기)로 이미지를 넣으면 악보로 자동 첨부
+  // (제목/가사 등 텍스트 입력창에 텍스트를 붙여넣을 때는 그대로 두어 기존 동작을 방해하지 않음)
+const handleModalPaste = (e: React.ClipboardEvent) => {
+const items = e.clipboardData?.items;
+if (!items) return;
+const imageItem = Array.from(items).find((it) => it.type.startsWith('image/'));
+if (imageItem) {
+const file = imageItem.getAsFile();
+if (file) {
+e.preventDefault();
+processAndAddSheetFiles([file]);
+}
 }
 };
 
@@ -2776,9 +2835,10 @@ title="콘티 제목 수정"
 >
 <Edit3 className="w-3.5 h-3.5 text-[#B89C70]" />
 </button>
+<div className={`w-px h-4 mx-0.5 ${isDark ? 'bg-[#443F38]' : 'bg-[#E2DDD2]'}`} />
 <button
 onClick={handleDeleteConti}
-className={`p-1 border rounded-lg transition ${isDark ? 'bg-[#2F2C29] text-[#E5A1A1] hover:text-rose-200' : 'bg-[#F8EAE8] text-[#9E4E4E] hover:text-[#D96A4E]'}`}
+className={`p-1 border rounded-lg transition opacity-70 hover:opacity-100 ${isDark ? 'bg-[#2F2C29] text-[#E5A1A1] hover:text-rose-200' : 'bg-[#F8EAE8] text-[#9E4E4E] hover:text-[#D96A4E]'}`}
 title="이 콘티 전체 삭제"
 >
 <Trash2 className="w-3.5 h-3.5" />
@@ -2979,9 +3039,10 @@ title="곡 수정"
 >
 <Edit3 className="w-4 h-4" />
 </button>
+<div className={`w-px h-5 mx-0.5 ${isDark ? 'bg-[#443F38]' : 'bg-[#E2DDD2]'}`} />
 <button
 onClick={() => handleDeleteSong(song.id)}
-className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs ${
+className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs opacity-70 hover:opacity-100 ${
                                    isDark
                                      ? 'bg-[#471E1E]/60 border-[#783636]/60 text-[#E5A1A1] hover:bg-[#592626]/60'
                                      : 'bg-[#F8EAE8] border-[#ECCBC9] text-[#9E4E4E] hover:bg-[#F2D7D4]'
@@ -3149,7 +3210,15 @@ className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cur
 {libSong.bpm && (
 <span className={`text-xs font-semibold ${textSubClass}`}>♩ {libSong.bpm}</span>
 )}
-<span className="text-xs text-[#9E988D] font-medium">악보 {libSong.sheetUrls?.length || 0}장</span>
+{(libSong.sheetUrls?.length || 0) === 0 ? (
+<span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-bold border ${
+                           isDark ? 'bg-[#42331E]/60 text-[#E8B368] border-[#735A33]/50' : 'bg-[#FBF0DE] text-[#A9752E] border-[#EAD3A0]'
+                         }`}>
+<AlertTriangle className="w-3 h-3" /> 악보 없음
+</span>
+) : (
+<span className="text-xs text-[#9E988D] font-medium">악보 {libSong.sheetUrls!.length}장</span>
+)}
 </div>
 {libSong.lyrics && (
 <p className={`text-xs truncate mt-1 ${textSubClass}`}>{libSong.lyrics}</p>
@@ -3472,7 +3541,7 @@ className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-whi
 </button>
 </div>
 
-<form onSubmit={handleSaveModal} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
+<form onSubmit={handleSaveModal} onPaste={handleModalPaste} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
 <div>
 <div className="flex items-center justify-between mb-1.5">
 <label className={`text-xs font-bold flex items-center gap-1.5 ${textSubClass}`}>
@@ -3741,11 +3810,15 @@ className={`flex-1 py-2 px-3 border rounded-xl text-xs font-bold flex items-cent
                      }`}
 >
 <ClipboardPaste className="w-3.5 h-3.5" />
-<span>복사한 주소 넣기</span>
+<span>복사한 이미지/주소 넣기</span>
 </button>
 </div>
 
-<label className="w-full py-2.5 px-4 bg-[#588B76] hover:bg-[#47705F] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98">
+<label
+onDragOver={handleSheetDragOver}
+onDrop={handleSheetDrop}
+className="w-full py-2.5 px-4 bg-[#588B76] hover:bg-[#47705F] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition active:scale-98"
+>
 <ImageIcon className="w-4 h-4" />
 <span>악보 사진 / 파일 선택 (PC · 모바일)</span>
 <input
@@ -3756,6 +3829,9 @@ onChange={handleFileChange}
 className="hidden"
 />
 </label>
+<p className="text-[10px] text-[#9E988D] text-center -mt-1">
+사진을 여기로 끌어놓거나(드래그), 복사한 이미지를 Ctrl+V로 붙여넣어도 등록됩니다.
+</p>
 
 {isProcessing && (
 <span className={`text-xs ${goldAccentText} block animate-pulse font-bold text-center`}>
