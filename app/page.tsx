@@ -2581,7 +2581,7 @@ const googleSearchSheetUrl = `https://www.google.com/search?tbm=isch&q=${encodeU
  )}`;
 
 return (
-<div className={`min-h-[100dvh] transition-colors duration-200 pb-28 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
+<div className={`min-h-[100dvh] transition-colors duration-200 pb-32 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
 <div className="max-w-xl mx-auto space-y-4 w-full">
         
 <header className="flex items-center justify-between gap-2 px-1 pt-1">
@@ -3288,6 +3288,19 @@ title="유튜브 미니플레이어 재생"
 )}
 
 </div>
+
+      {/* 🌟 하단 플로팅 탭바 뒤에 배경색과 자연스럽게 이어지는 그라데이션을 깔아줘서,
+          스크롤 중 목록 카드가 탭바 밑으로 지나갈 때 "잘려서 충돌"하는 느낌 대신
+          배경 속으로 자연스럽게 사라지는 것처럼 보이게 함 (탭바 자체보다 아래 z축) */}
+<div
+className="fixed inset-x-0 bottom-0 z-30 pointer-events-none"
+style={{
+  height: 'calc(env(safe-area-inset-bottom, 0px) + 6.5rem)',
+  background: isDark
+    ? 'linear-gradient(to top, #1A1816 0%, #1A1816 42%, rgba(26,24,22,0) 100%)'
+    : 'linear-gradient(to top, #F7F5F0 0%, #F7F5F0 42%, rgba(247,245,240,0) 100%)',
+}}
+/>
 
       {/* 하단 플로팅 탭바 */}
 <nav
