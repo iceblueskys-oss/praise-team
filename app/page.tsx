@@ -729,53 +729,80 @@ alert('클립보드에 이미지나 올바른 주소(http로 시작)가 없습�
     }
   }, [activeTab, isLibraryLoaded, loadLibrarySongs]);
 
-const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
-    if (currentSongs.length === 0) {
+  const syncAllSongsToLibrary = async (showSuccessAlert = true) => {
+    // 🌟 이름과 달리 예전에는 "현재 보고 있는 콘티 한 개"만 동기화했던 버그가 있었음.
+    // 찬양 보관소 화면에서 누르는 동기화는 당연히 전체 콘티의 곡을 대상으로 해야 하므로 allSongs(전체) 기준으로 동작하도록 수정.
+    if (allSongs.length === 0) {
       if (showSuccessAlert) alert('동기화할 콘티 곡이 없습니다.');
-return;
-}
-setIsSyncingLib(true);
-try {
+      return;
+    }
+    setIsSyncingLib(true);
+    try {
       const activeLib = isLibraryLoaded ? librarySongs : await loadLibrarySongs();
-      const workingLib: { id: string; title?: string | null; key?: string | null }[] = [...activeLib];
-const batch = writeBatch(db);
-      currentSongs.forEach((song) => {
-const cleanTitle = (song.title || '').trim();
-if (!cleanTitle) return;
+      const workingLib: LibrarySong[] = [...activeLib];
+      const BATCH_LIMIT = 400; // Firestore 배치 1건당 최대 500 작업 제한을 넉넉히 피하기 위한 여유값
+      let batch = writeBatch(db);
+      let opCount = 0;
+      const commitPromises: Promise<void>[] = [];
+
+      for (const song of allSongs) {
+        const cleanTitle = (song.title || '').trim();
+        if (!cleanTitle) continue;
+
         const dupId = findDuplicateLibrarySongId(cleanTitle, song.key, workingLib);
         const libDocId = dupId || getSafeDocId(cleanTitle, song.key);
-const libRef = doc(db, 'song_library', libDocId);
+        const existingEntry = dupId ? workingLib.find((l) => l.id === dupId) : undefined;
 
-batch.set(
-libRef,
-{
-id: libDocId,
-title: cleanTitle,
-key: song.key || null,
-bpm: song.bpm || null,
-comment: song.comment || '',
-lyrics: song.lyrics || '',
-youtubeUrl: song.youtubeUrl || '',
-sheetUrls: song.sheetUrls || [],
-updatedAt: Date.now(),
-},
-{ merge: true }
-);
-        if (!dupId) {
-          workingLib.push({ id: libDocId, title: cleanTitle, key: song.key || null });
+        // 🌟 콘티 쪽 악보가 비어있다고 해서 보관소에 이미 등록돼 있던 악보(이미지든 링크든)를 지우지 않도록,
+        // 콘티 곡에 악보가 있을 때만 그 값으로 덮어쓰고 없으면 보관소에 있던 값을 그대로 유지한다.
+        const incomingSheets = song.sheetUrls || [];
+        const finalSheets = incomingSheets.length > 0 ? incomingSheets : existingEntry?.sheetUrls || [];
+
+        const libRef = doc(db, 'song_library', libDocId);
+        const mergedEntry: LibrarySong = {
+          id: libDocId,
+          title: cleanTitle,
+          key: song.key || existingEntry?.key || null,
+          bpm: song.bpm || existingEntry?.bpm || null,
+          comment: song.comment || existingEntry?.comment || '',
+          lyrics: song.lyrics || existingEntry?.lyrics || '',
+          youtubeUrl: song.youtubeUrl || existingEntry?.youtubeUrl || '',
+          sheetUrls: finalSheets,
+          updatedAt: Date.now(),
+        };
+
+        batch.set(libRef, mergedEntry, { merge: true });
+        opCount++;
+
+        if (dupId) {
+          const idx = workingLib.findIndex((l) => l.id === dupId);
+          if (idx >= 0) workingLib[idx] = mergedEntry;
+        } else {
+          workingLib.push(mergedEntry);
         }
-});
-await batch.commit();
+
+        if (opCount >= BATCH_LIMIT) {
+          commitPromises.push(batch.commit());
+          batch = writeBatch(db);
+          opCount = 0;
+        }
+      }
+
+      if (opCount > 0) {
+        commitPromises.push(batch.commit());
+      }
+      await Promise.all(commitPromises);
       await loadLibrarySongs();
-if (showSuccessAlert) {
-alert('찬양이 보관소로 안전하게 동기화되었습니다!');
-}
-} catch (e) {
-console.error('보관소 동기화 오류:', e);
-} finally {
-setIsSyncingLib(false);
-}
-};
+      if (showSuccessAlert) {
+        alert('찬양이 보관소로 안전하게 동기화되었습니다!');
+      }
+    } catch (e) {
+      console.error('보관소 동기화 오류:', e);
+      if (showSuccessAlert) alert('동기화 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setIsSyncingLib(false);
+    }
+  };
 
   // 🌟 에버노트 스마트 일괄 파싱 및 등록 로직
 const handleBatchImportEvernote = async () => {
