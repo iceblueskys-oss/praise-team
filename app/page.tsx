@@ -1707,12 +1707,47 @@ await processAndAddSheetFiles(files);
     e.target.value = ''; // 같은 파일을 다시 선택해도 onChange가 동작하도록 초기화
 };
 
+  // 구글 이미지 검색 등 다른 탭/사이트에서 사진을 끌어다 놓은 경우, 브라우저는 실제 파일이 아니라
+  // 이미지 주소(URL)만 넘겨주는 경우가 대부분이라 dataTransfer의 uri-list/html/plain 텍스트에서 주소를 찾아냄
+const extractDraggedImageUrl = (dt: DataTransfer): string | null => {
+try {
+const uriList = dt.getData('text/uri-list');
+if (uriList) {
+const firstLine = uriList
+.split('\n')
+.map((s) => s.trim())
+.find((s) => s && !s.startsWith('#'));
+if (firstLine) return firstLine;
+}
+const html = dt.getData('text/html');
+if (html) {
+const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+if (match && match[1]) return match[1];
+}
+const plain = dt.getData('text/plain');
+if (plain && /^https?:\/\//i.test(plain.trim())) {
+return plain.trim();
+}
+} catch {
+        // 일부 브라우저에서 접근 제한 시 무시
+}
+return null;
+};
+
   // 악보 등록 영역 어디든 이미지를 드래그 앤 드롭하면 바로 첨부
+  // - 컴퓨터의 사진 파일을 끌어놓으면: 파일로 인식해 압축 후 첨부
+  // - 구글 검색 결과 등 다른 탭의 이미지를 그대로 끌어놓으면: 이미지 주소로 인식해 바로 첨부
 const handleSheetDrop = (e: React.DragEvent<HTMLElement>) => {
 e.preventDefault();
 e.stopPropagation();
 if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
 processAndAddSheetFiles(e.dataTransfer.files);
+return;
+}
+const draggedUrl = extractDraggedImageUrl(e.dataTransfer);
+if (draggedUrl) {
+const formatted = formatImageUrl(draggedUrl);
+setModalSheetUrls((prev) => [...prev, formatted]);
 }
 };
 
@@ -3830,7 +3865,7 @@ className="hidden"
 />
 </label>
 <p className="text-[10px] text-[#9E988D] text-center -mt-1">
-사진을 여기로 끌어놓거나(드래그), 복사한 이미지를 Ctrl+V로 붙여넣어도 등록됩니다.
+구글 검색 결과의 사진을 클릭한 채로 여기로 끌어놓거나(드래그 앤 드롭), 복사한 이미지를 Ctrl+V로 붙여넣어도 바로 등록됩니다.
 </p>
 
 {isProcessing && (
