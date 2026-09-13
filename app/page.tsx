@@ -147,6 +147,16 @@ label: '어쿠스틱 슬레이트',
 },
 };
 
+// 🌟 태그 알약을 그라데이션 배지로 보여줄 때 쓰는 색상 쌍 (from → to). TAG_COLOR_THEMES의 색상 키와 1:1로 대응.
+const TAG_CHIP_GRADIENTS: Record<string, [string, string]> = {
+amber: ['#D9BE8C', '#B89C70'],
+blue: ['#6FA0C0', '#3E6C86'],
+purple: ['#9A86BE', '#6F5B8B'],
+emerald: ['#6FA98A', '#446F54'],
+rose: ['#D98F8F', '#9E4E4E'],
+indigo: ['#7C86A0', '#545C6D'],
+};
+
 const DEFAULT_CUSTOM_TAGS: CustomTag[] = [
 { name: '입례', color: 'blue' },
 { name: '송영', color: 'indigo' },
@@ -1488,7 +1498,7 @@ const clean = tagStr.replace(/[<>]/g, '').trim();
 const matched = masterTags.find((t) => t.name === clean || `<${t.name}>` === tagStr || t.name === tagStr);
 const colorKey = matched?.color || 'amber';
 const themeObj = TAG_COLOR_THEMES[colorKey] || TAG_COLOR_THEMES.amber;
-return isDark ? themeObj.dark : themeObj.light;
+return { ...(isDark ? themeObj.dark : themeObj.light), colorKey };
 };
 
 const startDragAction = (idx: number, clientX: number, clientY: number, targetEl: HTMLElement) => {
@@ -2920,6 +2930,10 @@ const isBeingDragged = draggedIdx === idx;
 const isDropTarget = dropTargetIdx === idx && draggedIdx !== null;
 const isLyricsExpanded = expandedLyricsSongId === song.id;
 const tagStyle = getTagStyle(song.headerTag);
+const tagGradient = TAG_CHIP_GRADIENTS[(tagStyle as any)?.colorKey] || TAG_CHIP_GRADIENTS.amber;
+const songRowCardClass = isDark
+? 'bg-gradient-to-br from-[#242220] to-[#2B2419] border-[#4A3D22]/40 shadow-[0_10px_26px_-18px_rgba(217,198,160,0.4)]'
+: 'bg-gradient-to-br from-white to-[#FBF5E9] border-[#B89C70]/20 shadow-[0_10px_26px_-18px_rgba(139,111,71,0.4)]';
 
 return (
 <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
@@ -2933,7 +2947,7 @@ className={`flex flex-col border transition-all duration-150 overflow-hidden w-f
                        } ${
                          isBeingDragged
                            ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
-                           : cardBgClass
+                           : songRowCardClass
                        }`}
 >
 <div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
@@ -2964,18 +2978,22 @@ title="길게 눌러 순서 변경"
 <GripVertical className="w-5 h-5" />
 </div>
 
-<div className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border shadow-xs ${
-                             isDark
-                               ? 'bg-[#3A3022] border-[#735A33]/60 text-[#E5C492]'
-                               : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
-                           }`}>
+<div
+className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_3px_8px_-3px_rgba(139,111,71,0.6)] ${
+                             isDark ? 'text-[#241C0E]' : 'text-white'
+                           }`}
+style={{ backgroundImage: isDark ? 'linear-gradient(155deg,#E3C892,#B8935A)' : 'linear-gradient(155deg,#D9BE8C,#B89C70)' }}
+>
 {idx + 1}
 </div>
 
 <div className="min-w-0 flex-1 space-y-0.5">
 <div className="flex items-center gap-1.5 flex-wrap">
 {song.headerTag && tagStyle && (
-<span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${tagStyle.bg} ${tagStyle.text} ${tagStyle.border}`}>
+<span
+className="px-2.5 py-0.5 text-xs font-bold rounded-full shrink-0 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_3px_8px_-4px_rgba(0,0,0,0.35)]"
+style={{ backgroundImage: `linear-gradient(155deg, ${tagGradient[0]}, ${tagGradient[1]})` }}
+>
 {song.headerTag}
 </span>
 )}
@@ -2985,17 +3003,17 @@ title="길게 눌러 순서 변경"
 </h3>
 
 {song.key && (
-<span className={`px-2 py-0.5 text-xs font-bold rounded-lg border shrink-0 shadow-xs ${
+<span className={`flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold rounded-full border shrink-0 font-mono tracking-wide ${
                                    isDark
-                                     ? 'bg-[#3A3022] border-[#735A33]/60 text-[#E5C492]'
-                                     : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+                                     ? 'bg-gradient-to-br from-[#2A241C] to-[#332B1E] border-[#7A5E33]/50 text-[#E5C492]'
+                                     : 'bg-gradient-to-br from-white to-[#FBF3E3] border-[#DEC8A2] text-[#8C6D3E]'
                                  }`}>
 {song.key} Key
 </span>
 )}
 
 {song.sheetUrls && song.sheetUrls.length > 1 && (
-<span className={`flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold rounded-lg shrink-0 border ${
+<span className={`flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold rounded-full shrink-0 border ${
                                    isDark
                                      ? 'bg-[#2A2724] border-[#3D3833] text-neutral-300'
                                      : 'bg-[#EFECE4] border-[#DDD7CB] text-[#7F7B74]'
@@ -3047,46 +3065,53 @@ className={`px-2.5 py-1 rounded-xl border text-xs font-bold disabled:opacity-20 
 </button>
 </div>
 ) : (
-<>
+<div className={`flex items-center gap-0.5 p-1 rounded-full border ${
+                                   isDark
+                                     ? 'bg-gradient-to-br from-[#2A2724] to-[#332D24] border-[#4A3D22]/40 shadow-[0_3px_10px_-5px_rgba(0,0,0,0.5)]'
+                                     : 'bg-gradient-to-br from-white to-[#FBF5E9] border-[#B89C70]/25 shadow-[0_3px_10px_-5px_rgba(139,111,71,0.35)]'
+                                 }`}>
 <button
 onClick={() => handleToggleLyricsExpand(song.id)}
-className={`flex items-center justify-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
+className={`flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition active:scale-95 ${
                                    isLyricsExpanded
-                                     ? 'bg-[#B89C70] border-[#B89C70] text-white shadow-sm'
+                                     ? 'text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.5)]'
                                      : isDark
-                                     ? 'bg-[#322345] border-[#584175]/60 text-[#C5B3DC] hover:bg-[#3D2C54]'
-                                     : 'bg-[#F2EDF6] border-[#DDD2E8] text-[#6F5B8B] hover:bg-[#E8DFF0]'
+                                     ? 'text-[#C5B3DC] hover:bg-white/5'
+                                     : 'text-[#6F5B8B] hover:bg-black/5'
                                  }`}
+style={isLyricsExpanded ? { backgroundImage: 'linear-gradient(155deg,#D9BE8C,#B89C70)' } : undefined}
 title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
 >
 <BookOpen className="w-3.5 h-3.5" />
 <span>{isLyricsExpanded ? '닫기' : '가사'}</span>
 </button>
 
+<span className={`w-px h-4 mx-0.5 ${isDark ? 'bg-[#4A3D22]/50' : 'bg-[#B89C70]/25'}`} />
+
 <button
 onClick={() => handleOpenModal(song)}
-className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs ${
+className={`p-1.5 rounded-full transition active:scale-95 flex items-center justify-center ${
                                    isDark
-                                     ? 'bg-[#2F2C29] border-[#443F38] text-neutral-200 hover:text-white hover:bg-[#3A3630]'
-                                     : 'bg-white border-[#E2DDD2] text-[#4A4641] hover:text-[#2C2A28] hover:bg-[#F0EDE5]'
+                                     ? 'text-neutral-300 hover:text-white hover:bg-white/5'
+                                     : 'text-[#6B655A] hover:text-[#2C2A28] hover:bg-black/5'
                                  }`}
 title="곡 수정"
 >
 <Edit3 className="w-4 h-4" />
 </button>
-<div className={`w-px h-5 mx-0.5 ${isDark ? 'bg-[#443F38]' : 'bg-[#E2DDD2]'}`} />
+<span className={`w-px h-4 mx-0.5 ${isDark ? 'bg-[#4A3D22]/50' : 'bg-[#B89C70]/25'}`} />
 <button
 onClick={() => handleDeleteSong(song.id)}
-className={`p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs opacity-70 hover:opacity-100 ${
+className={`p-1.5 rounded-full transition active:scale-95 flex items-center justify-center opacity-80 hover:opacity-100 ${
                                    isDark
-                                     ? 'bg-[#471E1E]/60 border-[#783636]/60 text-[#E5A1A1] hover:bg-[#592626]/60'
-                                     : 'bg-[#F8EAE8] border-[#ECCBC9] text-[#9E4E4E] hover:bg-[#F2D7D4]'
+                                     ? 'text-[#E5A1A1] hover:bg-[#592626]/50'
+                                     : 'text-[#9E4E4E] hover:bg-[#F2D7D4]'
                                  }`}
 title="곡 삭제"
 >
 <Trash2 className="w-4 h-4" />
 </button>
-</>
+</div>
 )}
 </div>
 </div>
@@ -3308,8 +3333,10 @@ className="fixed inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
 >
 
-<div className={`pointer-events-auto flex items-center gap-2 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
-         isDark ? 'bg-[#242220]/95 border-[#38342F]' : 'bg-white/95 border-[#E2DDD2]'
+<div className={`pointer-events-auto flex items-center gap-1.5 p-1.5 rounded-full border backdrop-blur-2xl ${
+         isDark
+           ? 'bg-gradient-to-br from-[#242220]/95 to-[#2C2620]/95 border-[#4A3D22]/40 shadow-[0_16px_30px_-14px_rgba(217,198,160,0.35),inset_0_1px_0_rgba(255,255,255,0.06)]'
+           : 'bg-gradient-to-br from-white/95 to-[#FBF5E9]/95 border-[#B89C70]/25 shadow-[0_16px_30px_-14px_rgba(139,111,71,0.4),inset_0_1px_0_rgba(255,255,255,0.6)]'
        }`}>
 <button
 onClick={() => {
@@ -3318,11 +3345,12 @@ setViewLevel('home');
 }}
 className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
              activeTab === 'conti'
-               ? `${goldAccentBtn} shadow-xs`
+               ? 'text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.5)]'
                : isDark
-               ? 'bg-[#B89C70]/15 text-[#D9C6A0]'
-               : 'bg-[#B89C70]/10 text-[#A88B58]'
+               ? 'text-[#D9C6A0] hover:bg-white/5'
+               : 'text-[#A88B58] hover:bg-black/5'
            }`}
+style={activeTab === 'conti' ? { backgroundImage: 'linear-gradient(155deg,#D9BE8C,#B89C70)' } : undefined}
 >
 <HomeIcon className="w-4 h-4" />
 <span>예배 일정</span>
@@ -3332,11 +3360,12 @@ className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold tra
 onClick={() => setActiveTab('library')}
 className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition active:scale-95 ${
              activeTab === 'library'
-               ? 'bg-[#7D6AA8] text-white shadow-xs'
+               ? 'text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.5)]'
                : isDark
-               ? 'bg-[#7D6AA8]/15 text-[#C7B8E0]'
-               : 'bg-[#7D6AA8]/10 text-[#7D6AA8]'
+               ? 'text-[#C7B8E0] hover:bg-white/5'
+               : 'text-[#7D6AA8] hover:bg-black/5'
            }`}
+style={activeTab === 'library' ? { backgroundImage: 'linear-gradient(155deg,#9A86BE,#7D6AA8)' } : undefined}
 >
 <Library className="w-4 h-4" />
 <span>찬양 보관소</span>
