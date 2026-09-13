@@ -3290,7 +3290,11 @@ title="유튜브 미니플레이어 재생"
 </div>
 
       {/* 하단 플로팅 탭바 */}
-<nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
+<nav
+className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
+>
+
 <div className={`pointer-events-auto flex items-center gap-1 p-1.5 rounded-full border shadow-xl backdrop-blur-2xl ${
          isDark ? 'bg-[#242220]/95 border-[#38342F]' : 'bg-white/95 border-[#E2DDD2]'
        }`}>
@@ -3578,10 +3582,24 @@ className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-whi
 
 <form onSubmit={handleSaveModal} onPaste={handleModalPaste} className="mt-3.5 space-y-3.5 text-xs sm:text-sm">
 <div>
-<div className="flex items-center justify-between mb-1.5">
+<label className={`block text-xs font-bold mb-1 flex items-center gap-1.5 ${goldAccentText}`}>
+곡 제목 <span className="text-[#D96A4E]">*필수</span>
+</label>
+<input
+type="text"
+required
+value={modalTitle}
+onChange={(e) => setModalTitle(e.target.value)}
+placeholder="예: 꽃들도, 은혜 (여기에 곡 제목을 입력하세요)"
+className={`w-full border-2 border-[#B89C70]/60 rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+/>
+</div>
+
+<div className={`p-3 rounded-2xl border space-y-2 ${isDark ? 'bg-[#211E1B] border-[#38342F]' : 'bg-[#F7F4EE] border-[#EAE4D6]'}`}>
+<div className="flex items-center justify-between">
 <label className={`text-xs font-bold flex items-center gap-1.5 ${textSubClass}`}>
 <Tag className="w-3.5 h-3.5 text-[#A88B58]" />
-예배 순서 태그 (선택)
+예배 순서 태그 (선택 · 곡 제목이 아닌 짧은 분류표)
 </label>
 <button
 type="button"
@@ -3593,7 +3611,7 @@ className={`text-xs font-bold ${goldAccentText} hover:underline flex items-cente
 </button>
 </div>
 
-<div className="flex gap-1.5 mb-2 flex-wrap">
+<div className="flex gap-1.5 flex-wrap">
 {masterTags.map((t) => {
 const themeObj = TAG_COLOR_THEMES[t.color] || TAG_COLOR_THEMES.amber;
 const style = isDark ? themeObj.dark : themeObj.light;
@@ -3624,25 +3642,16 @@ className="px-2.5 py-1 rounded-xl text-xs font-bold border border-red-500/40 tex
 </button>
 )}
 </div>
+<div className="relative">
+<Tag className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9E988D]" />
 <input
 type="text"
 value={modalHeaderTag}
 onChange={(e) => setModalHeaderTag(e.target.value)}
-placeholder="직접 입력하거나 위 태그를 터치하세요"
-className={`w-full border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
+placeholder="짧은 태그만 직접 입력 (예: 특별찬양) · 곡 제목은 위 칸에!"
+className={`w-full border border-dashed rounded-xl pl-7 pr-3 py-1.5 text-xs ${isDark ? 'border-[#443F38]' : 'border-[#D6CFC0]'} focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
 />
 </div>
-
-<div>
-<label className={`block text-xs font-bold mb-1 ${textSubClass}`}>순수 곡 제목 *</label>
-<input
-type="text"
-required
-value={modalTitle}
-onChange={(e) => setModalTitle(e.target.value)}
-placeholder="예: 꽃들도, 은혜"
-className={`w-full border rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#B89C70] ${inputBgClass}`}
-/>  
 </div>
 
 <div className="grid grid-cols-2 gap-2.5">

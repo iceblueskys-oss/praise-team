@@ -16,3 +16,13 @@ html, body {
 [data-drag-handle] {
   touch-action: none;
 }
+
+/* 🌟 아이폰/아이패드에서 입력창을 탭할 때 사파리가 자동으로 화면을 확대해버리는 현상 방지.
+   iOS 사파리는 포커스된 입력창의 글자 크기가 16px보다 작으면 자동으로 화면을 확대하는데,
+   페이지 자체 핀치줌은 막아둔 상태(user-scalable=no)라 한번 확대되면 사용자가 스스로
+   되돌리기 어려워짐. 모든 입력창 글자 크기를 16px 이상으로 맞춰서 이 자동 확대 자체를 막는다. */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
