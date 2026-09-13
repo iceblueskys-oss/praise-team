@@ -2621,8 +2621,12 @@ const googleSearchSheetUrl = `https://www.google.com/search?tbm=isch&q=${encodeU
    `${modalTitle} ${modalKey ? `${modalKey} Key` : ''} 악보`.trim()
  )}`;
 
+// 🌟 이전에는 p-4 sm:p-6(상하좌우 padding shorthand)와 pb-32(하단 전용 padding)를 한 요소에 같이 썼는데,
+// Tailwind가 반응형(sm:) padding shorthand를 기본 유틸리티보다 뒤에 출력하는 바람에 화면 폭이 sm 이상일 때
+// sm:p-6의 padding-bottom(24px)이 pb-32(128px)를 덮어써서 목록 맨 아래 항목이 하단 탭바 뒤에 깔려
+// 클릭이 안 되는 문제가 있었음. 좌우/상단은 shorthand로, 하단만 별도 pb-*로 분리해서 절대 덮어써지지 않게 함.
 return (
-<div className={`min-h-[100dvh] transition-colors duration-200 pb-32 p-4 sm:p-6 w-full max-w-[100vw] overflow-x-hidden pt-[max(env(safe-area-inset-top),20px)] ${bgClass}`}>
+<div className={`min-h-[100dvh] transition-colors duration-200 pt-[max(env(safe-area-inset-top),20px)] px-4 sm:px-6 pb-36 sm:pb-40 w-full max-w-[100vw] overflow-x-hidden ${bgClass}`}>
 <div className="max-w-xl mx-auto space-y-4 w-full">
         
 <header className="flex items-center justify-between gap-2 px-1 pt-1">
