@@ -2089,6 +2089,10 @@ const textTitleClass = isDark ? 'text-[#EDEAE1]' : 'text-[#2C2A28]';
 const textSubClass = isDark ? 'text-[#9E988D]' : 'text-[#7F7B74]';
 const goldAccentText = isDark ? 'text-[#D4AF77]' : 'text-[#9C7E52]';
 const goldAccentBtn = 'bg-[#B89C70] hover:bg-[#A88B58] text-white';
+// 🌟 프리미엄 엘리베이티드 카드 톤 (콘티 곡 카드 · 찬양 보관소 카드 공용): 미색 그라데이션 + 은은한 컬러 그림자
+const premiumRowCardClass = isDark
+? 'bg-gradient-to-br from-[#242220] to-[#2B2419] border-[#4A3D22]/40 shadow-[0_10px_26px_-18px_rgba(217,198,160,0.4)]'
+: 'bg-gradient-to-br from-white to-[#FBF5E9] border-[#B89C70]/20 shadow-[0_10px_26px_-18px_rgba(139,111,71,0.4)]';
 
   // ==========================================
   // 1. 악보 & 가사 뷰어 화면
@@ -2931,9 +2935,6 @@ const isDropTarget = dropTargetIdx === idx && draggedIdx !== null;
 const isLyricsExpanded = expandedLyricsSongId === song.id;
 const tagStyle = getTagStyle(song.headerTag);
 const tagGradient = TAG_CHIP_GRADIENTS[(tagStyle as any)?.colorKey] || TAG_CHIP_GRADIENTS.amber;
-const songRowCardClass = isDark
-? 'bg-gradient-to-br from-[#242220] to-[#2B2419] border-[#4A3D22]/40 shadow-[0_10px_26px_-18px_rgba(217,198,160,0.4)]'
-: 'bg-gradient-to-br from-white to-[#FBF5E9] border-[#B89C70]/20 shadow-[0_10px_26px_-18px_rgba(139,111,71,0.4)]';
 
 return (
 <div key={song.id} data-song-index={idx} className="relative flex flex-col w-full">
@@ -2947,7 +2948,7 @@ className={`flex flex-col border transition-all duration-150 overflow-hidden w-f
                        } ${
                          isBeingDragged
                            ? 'opacity-20 border-dashed border-neutral-500 scale-[0.98]'
-                           : songRowCardClass
+                           : premiumRowCardClass
                        }`}
 >
 <div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
@@ -3253,7 +3254,7 @@ filteredLibrary.map((libSong) => (
 <div
 key={libSong.id}
 onClick={() => setPreviewLibSong(libSong)}
-className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cursor-pointer transition active:scale-[0.99] hover:border-[#B89C70]/60 ${cardBgClass}`}
+className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cursor-pointer transition active:scale-[0.99] hover:border-[#B89C70]/60 ${premiumRowCardClass}`}
 >
 <div className="min-w-0 flex-1">
 <div className="flex items-center gap-2 flex-wrap">
@@ -3261,8 +3262,10 @@ className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cur
 {libSong.title}
 </span>
 {libSong.key && (
-<span className={`px-2 py-0.5 text-xs font-bold rounded-lg border ${
-                           isDark ? 'bg-[#3A3022] border-[#735A33]/50 text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+<span className={`flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold rounded-full border font-mono tracking-wide ${
+                           isDark
+                             ? 'bg-gradient-to-br from-[#2A241C] to-[#332B1E] border-[#7A5E33]/50 text-[#E5C492]'
+                             : 'bg-gradient-to-br from-white to-[#FBF3E3] border-[#DEC8A2] text-[#8C6D3E]'
                          }`}>
 {libSong.key} Key
 </span>
@@ -3271,7 +3274,7 @@ className={`flex items-center justify-between p-4 rounded-3xl border gap-2.5 cur
 <span className={`text-xs font-semibold ${textSubClass}`}>♩ {libSong.bpm}</span>
 )}
 {(libSong.sheetUrls?.length || 0) === 0 ? (
-<span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-bold border ${
+<span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border shadow-xs ${
                            isDark ? 'bg-[#42331E]/60 text-[#E8B368] border-[#735A33]/50' : 'bg-[#FBF0DE] text-[#A9752E] border-[#EAD3A0]'
                          }`}>
 <AlertTriangle className="w-3 h-3" /> 악보 없음
@@ -3293,14 +3296,16 @@ onClick={(e) => {
 e.stopPropagation();
 handleOpenPipPlayer(libSong.youtubeUrl, libSong.title);
 }}
-className="p-1.5 border rounded-xl bg-[#F8EAE8] dark:bg-[#471E1E]/60 border-[#ECCBC9] dark:border-[#783636]/60 text-[#9E4E4E] dark:text-[#E5A1A1] hover:bg-[#F2D7D4] transition shadow-xs"
+className="p-1.5 border rounded-full bg-[#F8EAE8] dark:bg-[#471E1E]/60 border-[#ECCBC9] dark:border-[#783636]/60 text-[#9E4E4E] dark:text-[#E5A1A1] hover:bg-[#F2D7D4] transition shadow-xs"
 title="유튜브 미니플레이어 재생"
 >
 <Youtube className="w-4 h-4 text-[#D96A4E]" />
 </button>
 )}
-<span className={`text-xs font-bold px-3 py-1.5 rounded-xl border shrink-0 ${
-                       isDark ? 'bg-[#3A3022] border-[#735A33]/50 text-[#E5C492]' : 'bg-[#F4ECE1] border-[#DEC8A2] text-[#8C6D3E]'
+<span className={`text-xs font-bold px-3 py-1.5 rounded-full border shrink-0 font-mono tracking-wide ${
+                       isDark
+                         ? 'bg-gradient-to-br from-[#2A241C] to-[#332B1E] border-[#7A5E33]/50 text-[#E5C492]'
+                         : 'bg-gradient-to-br from-white to-[#FBF3E3] border-[#DEC8A2] text-[#8C6D3E]'
                      }`}>
 보기
 </span>
