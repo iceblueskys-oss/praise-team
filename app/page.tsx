@@ -3727,7 +3727,7 @@ className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
                           />
                         </div>
                       )}
-div>
+                    </div>
                   );
                 })
               )}
