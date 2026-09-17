@@ -842,16 +842,38 @@ return;
 }
 
 const lines = batchImportInput.split('\n').map((l) => l.trim()).filter(Boolean);
-const ignoreKeywords = ['기도', '멘트', '설교', '축도', '사회자', '목사님', '성경봉독'];
+    // 🌟 [일괄등록 개선] 실제 콘티 노트에는 곡 목록 사이사이에 "송폼 : V(*이름 - SOLO, 선창)- [V-C] 함께" 같은
+    // 솔로/제창 안내 줄이나 유튜브 영상 카드가 섞여 있는 경우가 많다. 이런 줄이 엉뚱한 곡으로 등록되거나,
+    // 대괄호 안의 영문자(예: [V-C]의 C)가 키(조성)로 잘못 인식되는 문제를 막기 위해 무시 키워드와 URL 처리를 추가했다.
+const ignoreKeywords = ['기도', '멘트', '설교', '축도', '사회자', '목사님', '성경봉독', '송폼'];
 const keyRegex = /\b([A-G][b#]?(?:m)?)\s*(?:Key|키)?\b/i;
 const tagRegex = /^<([^>]+)>|^\[([^\]]+)\]/;
 const songFormRegex = /^(?:IN|INTRO|OUT|OUTRO|V\d*|C|CHORUS|B|BRIDGE|RIT|\-|\s)+$/i;
+    const urlLineRegex = /https?:\/\/\S+/i;
 
-const parsedList: { title: string; key: string | null; headerTag: string; comment: string }[] = [];
+    const parsedList: { title: string; key: string | null; headerTag: string; comment: string; youtubeUrl: string }[] = [];
 let currentTag = '';
+    // 🌟 영상 링크가 해당 곡의 제목 줄보다 먼저 나오는 경우(태그 위에 미리보기로 붙어있는 경우)를 대비해,
+    // 아직 배정할 곡이 없을 때는 일단 보관해뒀다가 다음에 인식되는 곡에 붙여준다.
+    let pendingYoutubeUrl = '';
 
 for (let i = 0; i < lines.length; i++) {
 let line = lines[i];
+
+      // 🌟 유튜브 링크(또는 다른 URL이 섞인 줄)는 곡으로 등록하지 않고, 유튜브면 직전(없으면 다음) 곡의
+      // 유튜브 링크로 자동 연결한다.
+      const ytId = extractYouTubeVideoId(line);
+      if (ytId || urlLineRegex.test(line)) {
+        if (ytId) {
+          const cleanUrl = `https://www.youtube.com/watch?v=${ytId}`;
+          if (parsedList.length > 0) {
+            parsedList[parsedList.length - 1].youtubeUrl = cleanUrl;
+          } else {
+            pendingYoutubeUrl = cleanUrl;
+          }
+        }
+        continue;
+      }
 
 const tagMatch = line.match(tagRegex);
 if (tagMatch && line.replace(tagRegex, '').trim() === '') {
@@ -899,7 +921,9 @@ title: cleanTitle,
 key: songKey,
 headerTag: songTag,
 comment,
-});
+        youtubeUrl: pendingYoutubeUrl,
+      });
+      pendingYoutubeUrl = '';
 }
 
 if (parsedList.length === 0) {
@@ -927,7 +951,9 @@ const newSongRef = doc(db, 'songs_v2', songDocId);
         let finalKey = item.key;
         let finalSheets: string[] = [];
         let finalLyrics = '';
-        let finalYoutubeUrl = '';
+        // 🌟 이번에 붙여넣은 노트에서 직접 뿑아낸 유튜브 링크를 최우선으로 쓰고,
+        // 노트에 링크가 없을 때만 보관소에 저장돼 있던 기존 링크로 보충한다.
+        let finalYoutubeUrl = item.youtubeUrl || '';
         let finalBpm: number | null = null;
 
         if (foundInLib) {
@@ -935,7 +961,7 @@ const newSongRef = doc(db, 'songs_v2', songDocId);
           if (!finalKey && foundInLib.key) finalKey = foundInLib.key;
           finalSheets = foundInLib.sheetUrls || [];
           finalLyrics = foundInLib.lyrics || '';
-          finalYoutubeUrl = foundInLib.youtubeUrl || '';
+          if (!finalYoutubeUrl) finalYoutubeUrl = foundInLib.youtubeUrl || '';
           finalBpm = foundInLib.bpm || null;
         }
 
