@@ -391,6 +391,9 @@ const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
 const [batchImportInput, setBatchImportInput] = useState('');
 
+      // 🌟 [검색 모아보기] 악보 검색 결과를 새 탭 없이 바로 볼 수 있도록, 지금 이미지 미리보기가 펼쳐진
+      // 곡의 id를 저장한다 (구글 이미지 검색을 igu=1 파라미터로 iframe에 그대로 임베드).
+      const [expandedSheetPreviewId, setExpandedSheetPreviewId] = useState<string | null>(null);
 const [activePipVideoId, setActivePipVideoId] = useState<string | null>(null);
 const [activePipTitle, setActivePipTitle] = useState<string>('');
 const [isPipMinimized, setIsPipMinimized] = useState(false);
@@ -3638,13 +3641,13 @@ className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
                 <Search className={`w-4 h-4 shrink-0 ${goldAccentText}`} />
                 <span className="truncate">검색 모아보기 · {currentConti.title}</span>
               </h3>
-              <button onClick={() => setIsBatchSearchModalOpen(false)} className="p-1 text-[#9E988D] shrink-0">
+          <button onClick={() => { setIsBatchSearchModalOpen(false); setExpandedSheetPreviewId(null); }} className="p-1 text-[#9E988D] shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <p className={`text-xs leading-relaxed pt-3 shrink-0 ${textSubClass}`}>
-              곡마다 링크를 눌러 새 탭에서 가사·악보를 찾은 뒤 복사해서, [곡 수정] 화면의 붙여넣기 버튼으로 등록해 주세요. 이미 등록된 항목은 초록색으로 표시돼요.
+              가사 검색은 새 탭에서 열리고, 악보 검색은 바로 아래에 미리보기로 펼쳐져요. 찾은 내용은 연필 아이콘으로 바로 그 곡 수정 화면을 열어 붙여넣어 주세요. 이미 등록된 항목은 초록색으로 표시돼요.
             </p>
 
             <div className="flex-1 overflow-y-auto mt-3 space-y-2 -mx-1 px-1">
@@ -3673,7 +3676,7 @@ className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2">
                         <a
                           href={lyricsSearchUrl}
                           target="_blank"
@@ -3683,17 +3686,48 @@ className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
                           {hasLyrics ? <CheckCircle2 className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
                           <span>가사 검색</span>
                         </a>
-                        <a
-                          href={sheetSearchUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSheetPreviewId(expandedSheetPreviewId === song.id ? null : song.id)
+                          }
                           className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition active:scale-95 ${hasSheet ? doneClass : todoClass}`}
                         >
                           {hasSheet ? <CheckCircle2 className="w-3.5 h-3.5" /> : <ImageIcon className="w-3.5 h-3.5" />}
-                          <span>악보 검색</span>
-                        </a>
+                          <span>악보 미리보기</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsBatchSearchModalOpen(false);
+                            setExpandedSheetPreviewId(null);
+                            handleOpenModal(song);
+                          }}
+                          title="이 곡 바로 수정"
+                          className={`p-2 rounded-xl border transition active:scale-95 shrink-0 ${subCardBg}`}
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                    </div>
+
+                      {expandedSheetPreviewId === song.id && (
+                        <div className={`mt-2 rounded-xl overflow-hidden border ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+                          <div className={`flex items-center justify-between px-2 py-1 text-[10px] ${textSubClass}`}>
+                            <span>구글 이미지 검색 미리보기</span>
+                            <a href={sheetSearchUrl} target="_blank" rel="noopener noreferrer" className="underline shrink-0">
+                              새 탭에서 크게 보기
+                            </a>
+                          </div>
+                          <iframe
+                            src={`${sheetSearchUrl}&igu=1`}
+                            title={`${song.title} 악보 검색 미리보기`}
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-64 border-0 bg-white"
+                          />
+                        </div>
+                      )}
+div>
                   );
                 })
               )}
@@ -3701,7 +3735,7 @@ className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
 
             <button
               type="button"
-              onClick={() => setIsBatchSearchModalOpen(false)}
+onClick={() => { setIsBatchSearchModalOpen(false); setExpandedSheetPreviewId(null); }}
               className={`w-full py-2.5 mt-3 rounded-2xl text-xs font-bold shrink-0 ${subCardBg}`}
             >
               닫기
