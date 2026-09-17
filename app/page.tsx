@@ -3106,6 +3106,10 @@ style={{ backgroundImage: isDark ? 'linear-gradient(155deg,#E3C892,#B8935A)' : '
 </div>
 
 <div className="min-w-0 flex-1 space-y-0.5">
+<h3 className={`text-sm sm:text-base font-bold break-words transition group-hover:text-[#A88B58] ${textTitleClass}`}>
+{song.title}
+</h3>
+
 <div className="flex items-center gap-1.5 flex-wrap">
 {song.headerTag && tagStyle && (
 <span
@@ -3115,10 +3119,6 @@ style={{ backgroundImage: `linear-gradient(155deg, ${tagGradient[0]}, ${tagGradi
 {song.headerTag}
 </span>
 )}
-
-<h3 className={`text-sm sm:text-base font-bold truncate transition group-hover:text-[#A88B58] ${textTitleClass}`}>
-{song.title}
-</h3>
 
 {song.key && (
 <span className={`flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold rounded-full border shrink-0 font-mono tracking-wide ${
