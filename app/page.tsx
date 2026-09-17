@@ -394,6 +394,7 @@ const [batchImportInput, setBatchImportInput] = useState('');
       // 🌟 [검색 모아보기] 악보 검색 결과를 새 탭 없이 바로 볼 수 있도록, 지금 이미지 미리보기가 펼쳐진
       // 곡의 id를 저장한다 (구글 이미지 검색을 igu=1 파라미터로 iframe에 그대로 임베드).
       const [expandedSheetPreviewId, setExpandedSheetPreviewId] = useState<string | null>(null);
+  const [editOpenedFromBatchSearch, setEditOpenedFromBatchSearch] = useState(false);
 const [activePipVideoId, setActivePipVideoId] = useState<string | null>(null);
 const [activePipTitle, setActivePipTitle] = useState<string>('');
 const [isPipMinimized, setIsPipMinimized] = useState(false);
@@ -1719,6 +1720,16 @@ setIsProcessing(false);
 setIsModalOpen(true);
 };
 
+// 🌟 [검색 모아보기] 곡 수정 모달을 닫을 때 쓰는 공통 함수. 이 곡 바로 수정 버튼으로 검색 모아보기에서
+// 넘어온 경우(editOpenedFromBatchSearch)에는 그냥 다 닫지 않고 검색 모아보기 모달로 돌아가게 한다.
+const handleCloseModal = () => {
+  setIsModalOpen(false);
+  if (editOpenedFromBatchSearch) {
+    setEditOpenedFromBatchSearch(false);
+    setIsBatchSearchModalOpen(true);
+  }
+};
+
 const handleSelectFromLibrary = (libSong: LibrarySong) => {
 setModalTitle(libSong.title || '');
 setModalKey(libSong.key || '');
@@ -1979,7 +1990,7 @@ updatedAt: Date.now(),
         });
       }
 
-setIsModalOpen(false);
+handleCloseModal();
 } catch (err: any) {
 alert('저장 실패: ' + (err?.message || '네트워크 상태 확인'));
 } finally {
@@ -2506,7 +2517,8 @@ className={`w-full flex-1 p-3.5 rounded-2xl border text-base font-normal leading
 type="button"
 onClick={() => {
 setViewingSongId(null);
-handleOpenModal(viewingSong);
+setEditOpenedFromBatchSearch(false);
+  handleOpenModal(viewingSong);
 }}
 className={`px-4 py-2 ${goldAccentBtn} rounded-xl text-xs font-bold shadow-xs transition`}
 >
@@ -2965,7 +2977,7 @@ className={`flex items-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-
               </button>
 
 <button
-onClick={() => handleOpenModal()}
+onClick={() => { setEditOpenedFromBatchSearch(false); handleOpenModal(); }}
 className={`flex items-center gap-1 px-3.5 py-1.5 ${goldAccentBtn} rounded-2xl text-xs font-bold shadow-xs transition active:scale-95`}
 >
 <Plus className="w-3.5 h-3.5" />
@@ -3195,7 +3207,7 @@ title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
 <span className={`w-px h-4 mx-0.5 ${isDark ? 'bg-[#4A3D22]/50' : 'bg-[#B89C70]/25'}`} />
 
 <button
-onClick={() => handleOpenModal(song)}
+onClick={() => { setEditOpenedFromBatchSearch(false); handleOpenModal(song); }}
 className={`p-1.5 rounded-full transition active:scale-95 flex items-center justify-center ${
                                    isDark
                                      ? 'text-neutral-300 hover:text-white hover:bg-white/5'
@@ -3701,6 +3713,7 @@ className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
                           onClick={() => {
                             setIsBatchSearchModalOpen(false);
                             setExpandedSheetPreviewId(null);
+                            setEditOpenedFromBatchSearch(true);
                             handleOpenModal(song);
                           }}
                           title="이 곡 바로 수정"
@@ -3843,7 +3856,7 @@ className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-whi
 <Music className="w-4 h-4 text-[#B89C70]" />
 {editingSongId ? '찬양 곡 수정' : '찬양 곡 추가'}
 </h2>
-<button onClick={() => setIsModalOpen(false)} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
+<button onClick={handleCloseModal}} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
 <X className="w-5 h-5" />
 </button>
 </div>
@@ -4184,7 +4197,7 @@ title="삭제"
 <div className="flex gap-2 pt-2">
 <button
 type="button"
-onClick={() => setIsModalOpen(false)}
+onClick={handleCloseModal}
 className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${subCardBg}`}
 >
 취소
