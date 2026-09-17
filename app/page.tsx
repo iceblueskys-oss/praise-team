@@ -2999,7 +2999,7 @@ title="이 콘티 전체 삭제"
 <button
 onClick={handleOpenSingerModal}
 className={`text-xs font-bold ${goldAccentText} hover:underline shrink-0`}
->뿑아낸
+>추출된
   
 + 싱어 관리
 </button>
