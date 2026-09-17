@@ -3856,7 +3856,7 @@ className={`flex-1 py-2.5 ${goldAccentBtn} rounded-xl font-bold text-xs text-whi
 <Music className="w-4 h-4 text-[#B89C70]" />
 {editingSongId ? '찬양 곡 수정' : '찬양 곡 추가'}
 </h2>
-<button onClick={handleCloseModal}} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
+<button onClick={handleCloseModal} className="p-1 text-[#9E988D] hover:text-[#4A4641]">
 <X className="w-5 h-5" />
 </button>
 </div>
