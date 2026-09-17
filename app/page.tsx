@@ -3068,7 +3068,8 @@ className={`flex flex-col border transition-all duration-150 overflow-hidden w-f
                            : premiumRowCardClass
                        }`}
 >
-<div className="flex items-center justify-between p-3.5 sm:p-4 gap-2.5 w-full">
+<div className="flex flex-col w-full p-3.5 sm:p-4 gap-2.5">
+<div className="flex items-start justify-between gap-2.5">
 <div
 onClick={() => {
                               setSelectedContiId(song.contiId);
@@ -3079,7 +3080,7 @@ setShowViewerControls(true);
 setScale(1.0);
 setPosition({ x: 0, y: 0 });
 }}
-className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
+className="flex items-start gap-2.5 min-w-0 flex-1 cursor-pointer group"
 >
 <div
 onClick={(e) => {
@@ -3090,36 +3091,27 @@ onTouchMove={handleTouchMove}
 onTouchEnd={endDragAction}
 onMouseDown={(e) => handleMouseDown(idx, e)}
 style={{ touchAction: 'none' }}
-className={`p-1 -m-1 cursor-grab active:cursor-grabbing shrink-0 transition ${isDark ? 'text-neutral-500 hover:text-white' : 'text-[#9E988D] hover:text-[#B89C70]'}`}
+className={`p-1 -m-1 mt-0.5 cursor-grab active:cursor-grabbing shrink-0 transition ${isDark ? 'text-neutral-500 hover:text-white' : 'text-[#9E988D] hover:text-[#B89C70]'}`}
 title="길게 눌러 순서 변경"
 >
 <GripVertical className="w-5 h-5" />
 </div>
 
-<div
-className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_3px_8px_-3px_rgba(139,111,71,0.6)] ${
-                             isDark ? 'text-[#241C0E]' : 'text-white'
-                           }`}
-style={{ backgroundImage: isDark ? 'linear-gradient(155deg,#E3C892,#B8935A)' : 'linear-gradient(155deg,#D9BE8C,#B89C70)' }}
->
-{idx + 1}
-</div>
-
-<div className="min-w-0 flex-1 space-y-0.5">
-<h3 className={`text-sm sm:text-base font-bold break-words transition group-hover:text-[#A88B58] ${textTitleClass}`}>
-{song.title}
-</h3>
-
-<div className="flex items-center gap-1.5 flex-wrap">
+<div className="min-w-0 flex-1 space-y-1">
 {song.headerTag && tagStyle && (
 <span
-className="px-2.5 py-0.5 text-xs font-bold rounded-full shrink-0 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_3px_8px_-4px_rgba(0,0,0,0.35)]"
+className="inline-block px-2.5 py-0.5 text-xs font-bold rounded-full shrink-0 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_3px_8px_-4px_rgba(0,0,0,0.35)]"
 style={{ backgroundImage: `linear-gradient(155deg, ${tagGradient[0]}, ${tagGradient[1]})` }}
 >
 {song.headerTag}
 </span>
 )}
 
+<h3 className={`text-base sm:text-lg font-bold leading-snug break-words transition group-hover:text-[#A88B58] ${textTitleClass}`}>
+{song.title}
+</h3>
+
+<div className="flex items-center gap-1.5 flex-wrap">
 {song.key && (
 <span className={`flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold rounded-full border shrink-0 font-mono tracking-wide ${
                                    isDark
@@ -3148,22 +3140,24 @@ style={{ backgroundImage: `linear-gradient(155deg, ${tagGradient[0]}, ${tagGradi
 </div>
 )}
 </div>
-
 </div>
 
-<div className="flex items-center gap-1.5 shrink-0">
 {song.youtubeUrl && (
 <button
 onClick={(e) => {
 e.stopPropagation();
 handleOpenPipPlayer(song.youtubeUrl, song.title);
 }}
-className="p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs bg-[#F8EAE8] dark:bg-[#471E1E]/60 border-[#ECCBC9] dark:border-[#783636]/60 text-[#9E4E4E] dark:text-[#E5A1A1] hover:bg-[#F2D7D4]"
+className="p-1.5 border rounded-xl transition active:scale-95 flex items-center justify-center shadow-xs bg-[#F8EAE8] dark:bg-[#471E1E]/60 border-[#ECCBC9] dark:border-[#783636]/60 text-[#9E4E4E] dark:text-[#E5A1A1] hover:bg-[#F2D7D4] shrink-0"
 title="유튜브 미니플레이어 재생"
 >
 <Youtube className="w-4 h-4 text-[#D96A4E]" />
 </button>
 )}
+</div>
+
+<div className={`flex items-center justify-between pt-2.5 border-t border-dashed ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+<span className={`text-[11px] font-semibold ${textSubClass}`}>{idx + 1}번째 곡</span>
 
 {isReordering ? (
 <div className="flex items-center gap-1">
