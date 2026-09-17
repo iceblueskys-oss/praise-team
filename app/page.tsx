@@ -384,6 +384,9 @@ const [newTagColor, setNewTagColor] = useState<string>('amber');
 const [isTagModalOpen, setIsTagModalOpen] = useState(false);
 
 const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
+    // 🌟 [검색 모아보기] 콘티 안의 모든 곡을 한 화면에 모아놓고, 곡마다 "가사 검색"/"악보 검색" 링크를
+    // 바로 클릭할 수 있게 해서, 곡마다 모달을 열고 닫는 과정 없이 빠르게 여러 탭을 열어 복사해올 수 있게 한다.
+    const [isBatchSearchModalOpen, setIsBatchSearchModalOpen] = useState(false);
 
 const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
 const [batchImportInput, setBatchImportInput] = useState('');
@@ -951,7 +954,7 @@ const newSongRef = doc(db, 'songs_v2', songDocId);
         let finalKey = item.key;
         let finalSheets: string[] = [];
         let finalLyrics = '';
-        // 🌟 이번에 붙여넣은 노트에서 직접 뿑아낸 유튜브 링크를 최우선으로 쓰고,
+        // 🌟 이번에 붙여넣은 노트에서 직접 뽑아낸 유튜브 링크를 최우선으로 쓰고,
         // 노트에 링크가 없을 때만 보관소에 저장돼 있던 기존 링크로 보충한다.
         let finalYoutubeUrl = item.youtubeUrl || '';
         let finalBpm: number | null = null;
@@ -2947,6 +2950,17 @@ className={`flex items-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-
 <span>에버노트 일괄등록</span>
 </button>
 
+              <button
+                onClick={() => setIsBatchSearchModalOpen(true)}
+                className={`flex items-center gap-1 px-3 py-1.5 border rounded-2xl text-xs font-bold transition active:scale-95 shadow-xs ${
+                  isDark ? 'bg-[#1D2F3B] border-[#325268] text-[#96B8CE]' : 'bg-[#EBF1F5] border-[#CBDCE6] text-[#416279]'
+                }`}
+                title="콘티 안의 모든 곡의 가사/악보 검색 링크를 한 화면에 모아서 보여줍니다"
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>검색 모아보기</span>
+              </button>
+
 <button
 onClick={() => handleOpenModal()}
 className={`flex items-center gap-1 px-3.5 py-1.5 ${goldAccentBtn} rounded-2xl text-xs font-bold shadow-xs transition active:scale-95`}
@@ -2985,7 +2999,8 @@ title="이 콘티 전체 삭제"
 <button
 onClick={handleOpenSingerModal}
 className={`text-xs font-bold ${goldAccentText} hover:underline shrink-0`}
->
+>뿑아낸
+  
 + 싱어 관리
 </button>
 </div>
@@ -3613,6 +3628,87 @@ className={`w-full py-2.5 rounded-2xl text-xs font-bold ${subCardBg}`}
 </div>
 </div>
 )}
+
+      {/* 모달: 검색 모아보기 - 콘티 안 모든 곡의 가사/악보 검색 링크를 한 화면에 모아서, 곡마다 모달을 열고 닫지 않고 빠르게 여러 탭을 열 수 있게 한다 */}
+      {isBatchSearchModalOpen && currentConti && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
+          <div className={`rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[85vh] p-5 shadow-2xl border flex flex-col ${cardBgClass}`}>
+            <div className={`flex items-center justify-between pb-3 border-b shrink-0 ${isDark ? 'border-[#38342F]' : 'border-[#E8E3D8]'}`}>
+              <h3 className={`font-bold text-sm flex items-center gap-2 min-w-0 ${textTitleClass}`}>
+                <Search className={`w-4 h-4 shrink-0 ${goldAccentText}`} />
+                <span className="truncate">검색 모아보기 · {currentConti.title}</span>
+              </h3>
+              <button onClick={() => setIsBatchSearchModalOpen(false)} className="p-1 text-[#9E988D] shrink-0">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className={`text-xs leading-relaxed pt-3 shrink-0 ${textSubClass}`}>
+              곡마다 링크를 눌러 새 탭에서 가사·악보를 찾은 뒤 복사해서, [곡 수정] 화면의 붙여넣기 버튼으로 등록해 주세요. 이미 등록된 항목은 초록색으로 표시돼요.
+            </p>
+
+            <div className="flex-1 overflow-y-auto mt-3 space-y-2 -mx-1 px-1">
+              {currentSongs.length === 0 ? (
+                <p className={`text-xs text-center py-6 ${textSubClass}`}>이 콘티에 등록된 곡이 없습니다.</p>
+              ) : (
+                currentSongs.map((song, idx) => {
+                  const hasLyrics = !!(song.lyrics && song.lyrics.trim());
+                  const hasSheet = Array.isArray(song.sheetUrls) && song.sheetUrls.length > 0;
+                  const lyricsSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(`${song.title} 찬양 가사`)}`;
+                  const sheetSearchUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+                    `${song.title} ${song.key ? `${song.key} Key` : ''} 악보`.trim()
+                  )}`;
+                  const doneClass = isDark ? 'border-[#2F573C] text-[#9ACDB0]' : 'border-[#C8DFCD] text-[#446F54]';
+                  const todoClass = isDark ? 'border-[#735A33] text-[#E5C492]' : 'border-[#DEC8A2] text-[#8C6D3E]';
+                  return (
+                    <div key={song.id} className={`rounded-2xl border p-3 ${subCardBg}`}>
+                      <div className="flex items-center gap-2 min-w-0 mb-2">
+                        <span className={`text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${goldAccentBtn}`}>
+                          {idx + 1}
+                        </span>
+                        <span className={`text-sm font-bold truncate ${textTitleClass}`}>{song.title}</span>
+                        {song.key && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#B89C70]/15 text-[#8C6D3E] shrink-0">
+                            {song.key}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={lyricsSearchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition active:scale-95 ${hasLyrics ? doneClass : todoClass}`}
+                        >
+                          {hasLyrics ? <CheckCircle2 className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                          <span>가사 검색</span>
+                        </a>
+                        <a
+                          href={sheetSearchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border transition active:scale-95 ${hasSheet ? doneClass : todoClass}`}
+                        >
+                          {hasSheet ? <CheckCircle2 className="w-3.5 h-3.5" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                          <span>악보 검색</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsBatchSearchModalOpen(false)}
+              className={`w-full py-2.5 mt-3 rounded-2xl text-xs font-bold shrink-0 ${subCardBg}`}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 모달: 새 콘티 추가 */}
 {isNewContiModalOpen && (
