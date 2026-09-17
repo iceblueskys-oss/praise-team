@@ -3190,7 +3190,7 @@ className={`px-2.5 py-1 rounded-xl border text-xs font-bold disabled:opacity-20 
                                  }`}>
 <button
 onClick={() => handleToggleLyricsExpand(song.id)}
-className={`flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition active:scale-95 ${
+className={`p-1.5 rounded-full transition active:scale-95 flex items-center justify-center ${
                                    isLyricsExpanded
                                      ? 'text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.5)]'
                                      : isDark
@@ -3200,8 +3200,7 @@ className={`flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text
 style={isLyricsExpanded ? { backgroundImage: 'linear-gradient(155deg,#D9BE8C,#B89C70)' } : undefined}
 title={isLyricsExpanded ? '가사 접기' : '가사 펼치기'}
 >
-<BookOpen className="w-3.5 h-3.5" />
-<span>{isLyricsExpanded ? '닫기' : '가사'}</span>
+<BookOpen className="w-4 h-4" />
 </button>
 
 <span className={`w-px h-4 mx-0.5 ${isDark ? 'bg-[#4A3D22]/50' : 'bg-[#B89C70]/25'}`} />
