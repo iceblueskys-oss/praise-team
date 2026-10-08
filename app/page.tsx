@@ -941,7 +941,15 @@ const lines = batchImportInput.split('\n').map((l) => l.trim()).filter(Boolean);
     // 🌟 [일괄등록 개선] 실제 콘티 노트에는 곡 목록 사이사이에 "송폼 : V(*이름 - SOLO, 선창)- [V-C] 함께" 같은
     // 솔로/제창 안내 줄이나 유튜브 영상 카드가 섞여 있는 경우가 많다. 이런 줄이 엉뚱한 곡으로 등록되거나,
     // 대괄호 안의 영문자(예: [V-C]의 C)가 키(조성)로 잘못 인식되는 문제를 막기 위해 무시 키워드와 URL 처리를 추가했다.
-const ignoreKeywords = ['기도', '멘트', '설교', '축도', '사회자', '목사님', '성경봉독', '송폼'];
+    // 🌟 [기도송 누락 수정] 예전엔 줄 어디에든 '기도'가 들어 있으면 버려서 "<기도송>주께 기도드리오니",
+    // "기도하는 이 시간" 같은 곡까지 사라졌다. 이제는 태그를 뗀 본문이 '대표기도', '기도:', '설교' 처럼
+    // 순서 안내로 '시작'할 때만 무시하고, 곡 태그(<기도송> 등)가 붙은 줄은 절대 무시하지 않는다.
+    const ignoreLineRegex =
+      /^(?:(?:대표|합심|중보|통성|마침)?\s*기도\s*(?:$|[:：\-(]|인도|순서|제목)|송폼|멘트|설교|축도|광고|성경\s*봉독|사회\s*[:：]|사회자)/;
+    const ignoreAnywhere = ['목사님', '사회자'];
+    const knownTagNames = new Set(masterTags.map((t) => t.name.replace(/\s/g, '')));
+    const isIgnorableLine = (body: string) =>
+      ignoreLineRegex.test(body) || ignoreAnywhere.some((kw) => body.includes(kw));
 const keyRegex = /\b([A-G][b#]?(?:m)?)\s*(?:Key|키)?\b/i;
 const tagRegex = /^<([^>]+)>|^\[([^\]]+)\]/;
     // 🌟 [송폼 인식 강화] "V(*전태현 집사 Solo)-V-C", "IN - V1,2 C C C", "[V-C] 함께" 처럼
@@ -1003,7 +1011,15 @@ continue;
         continue;
       }
 
-if (ignoreKeywords.some((kw) => line.includes(kw))) {
+      // 괄호 없이 "기도송", "결단곡:" 처럼 태그 이름만 단독으로 적힌 줄은 태그로 처리
+      const bareTag = lineWithoutTag.replace(/[:：]\s*$/, '').replace(/\s/g, '');
+      if (!tagMatch && knownTagNames.has(bareTag)) {
+        currentTag = lineWithoutTag.replace(/[:：]\s*$/, '').trim();
+        continue;
+      }
+
+      const inlineTagName = tagMatch ? (tagMatch[1] || tagMatch[2] || '').replace(/\s/g, '') : '';
+      if (!knownTagNames.has(inlineTagName) && isIgnorableLine(lineWithoutTag)) {
 continue;
 }
 
