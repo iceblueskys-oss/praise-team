@@ -391,6 +391,63 @@ const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
 const [batchImportInput, setBatchImportInput] = useState('');
 
+  // 🌟 [일괄등록 대상 자동 선택] 노트 첫머리의 "2026.10.11 9:50예배" 같은 날짜 줄을 읽어
+  // 같은 날짜의 콘티를 등록 대상으로 자동 선택한다. 날짜 줄 자체는 곡으로 잘못 등록되지 않도록 본문에서 뺀다.
+  const [batchImportDate, setBatchImportDate] = useState<string>('');
+  const [batchImportTimeDigits, setBatchImportTimeDigits] = useState<string>('');
+
+  const applyImportText = (raw: string) => {
+    const lines = raw.replace(/\r\n/g, '\n').split('\n');
+    let foundDate = '';
+    let timeDigits = '';
+    for (let i = 0; i < Math.min(lines.length, 5); i++) {
+      const m = lines[i].match(/(20\d{2})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/);
+      if (m) {
+        foundDate = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+        const t = lines[i].slice((m.index || 0) + m[0].length).match(/(\d{1,2})\s*[:시]\s*(\d{2})/);
+        if (t) timeDigits = `${Number(t[1])}${t[2]}`;
+        // 날짜만 있는 제목 줄이면 제거 (곡명이 같은 줄에 붙어 있는 경우는 그대로 둔다)
+        const rest = lines[i].replace(m[0], '').replace(/\d{1,2}\s*[:시]\s*\d{2}\s*분?/, '').replace(/[일\s]|예배|주일|오전|오후|\d/g, '');
+        if (!rest) lines.splice(i, 1);
+        break;
+      }
+    }
+    setBatchImportDate(foundDate);
+    setBatchImportTimeDigits(timeDigits);
+    setBatchImportInput(lines.join('\n').replace(/^\s*\n+/, ''));
+  };
+
+  useEffect(() => {
+    if (!batchImportDate || contis.length === 0) return;
+    const sameDay = contis.filter((c) => c.date === batchImportDate);
+    if (sameDay.length === 0) return;
+    const best =
+      (batchImportTimeDigits && sameDay.find((c) => (c.title || '').replace(/\D/g, '').endsWith(batchImportTimeDigits))) ||
+      sameDay[0];
+    setSelectedContiId(best.id);
+  }, [batchImportDate, batchImportTimeDigits, contis]);
+
+  const handleCreateContiForImportDate = async () => {
+    if (!batchImportDate) return;
+    const [y, m, d] = batchImportDate.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const newId = `c_${Date.now()}`;
+    try {
+      await setDoc(doc(db, 'contis_v2', newId), {
+        id: newId,
+        title: formatDateToTitle(dateObj, batchImportTimeDigits || '950'),
+        date: batchImportDate,
+        assignedSingers: [],
+        customNote: '',
+        notice: '',
+        attendance: {},
+      });
+      setSelectedContiId(newId);
+    } catch (e) {
+      alert('콘티 생성 중 오류가 발생했습니다.');
+    }
+  };
+
   // 🌟 [아이폰 일괄등록] iOS 단축어/공유시트에서 #import=<텍스트> 로 열면 일괄등록 창에 자동으로 채운다.
   // 해시(#)는 서버로 전송되지 않으므로 콘티 내용이 외부 로그에 남지 않는다.
   useEffect(() => {
@@ -400,7 +457,7 @@ const [batchImportInput, setBatchImportInput] = useState('');
     try {
       const text = decodeURIComponent(hash.slice('#import='.length).replace(/\+/g, ' '));
       if (text.trim()) {
-        setBatchImportInput(text);
+        applyImportText(text);
         setIsBatchImportModalOpen(true);
       }
     } catch (e) {
@@ -417,7 +474,7 @@ const [batchImportInput, setBatchImportInput] = useState('');
         alert('클립보드가 비어 있습니다. 에버노트에서 먼저 복사해 주세요.');
         return;
       }
-      setBatchImportInput(text);
+      applyImportText(text);
     } catch (e) {
       alert('클립보드 접근이 거부되었습니다. 입력창을 길게 눌러 직접 붙여넣어 주세요.');
     }
@@ -3600,9 +3657,19 @@ className="w-full h-full border-0"
 </p>
 
 <div className="flex items-center justify-between gap-2">
-<span className={`text-xs truncate ${textSubClass}`}>
-등록 대상: <span className={`font-bold ${goldAccentText}`}>{currentConti ? currentConti.title : '콘티를 먼저 만들어 주세요'}</span>
-</span>
+<label className={`flex items-center gap-1.5 min-w-0 text-xs ${textSubClass}`}>
+<span className="shrink-0">등록 대상</span>
+<select
+value={currentConti?.id || ''}
+onChange={(e) => setSelectedContiId(e.target.value)}
+className={`min-w-0 max-w-[11rem] truncate border rounded-lg px-2 py-1 text-xs font-bold ${inputBgClass} ${goldAccentText}`}
+>
+{contis.length === 0 && <option value="">콘티 없음</option>}
+{contis.map((c) => (
+<option key={c.id} value={c.id}>{c.date ? `${c.date.slice(5).replace('-', '/')} · ` : ''}{getContiDisplayTitle(c) || c.title}</option>
+))}
+</select>
+</label>
 <button
 type="button"
 onClick={handlePasteBatchFromClipboard}
@@ -3612,6 +3679,17 @@ className={`shrink-0 text-xs font-bold px-2.5 py-1.5 rounded-xl ${goldAccentBtn}
 <span>클립보드 붙여넣기</span>
 </button>
 </div>
+
+{batchImportDate && currentConti?.date !== batchImportDate && (
+<div className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-[#3A2A22] text-[#F0C9A8]' : 'bg-[#FBEDE3] text-[#9A5B2E]'}`}>
+<span>노트 날짜({batchImportDate.slice(5).replace('-', '/')}) 콘티가 {contis.some((c) => c.date === batchImportDate) ? '선택되지 않았습니다' : '없습니다'}</span>
+{!contis.some((c) => c.date === batchImportDate) && (
+<button type="button" onClick={handleCreateContiForImportDate} className={`shrink-0 font-bold px-2.5 py-1 rounded-lg ${goldAccentBtn} text-white`}>
+이 날짜로 새 콘티
+</button>
+)}
+</div>
+)}
 
 <textarea
 rows={8}
