@@ -944,7 +944,23 @@ const lines = batchImportInput.split('\n').map((l) => l.trim()).filter(Boolean);
 const ignoreKeywords = ['기도', '멘트', '설교', '축도', '사회자', '목사님', '성경봉독', '송폼'];
 const keyRegex = /\b([A-G][b#]?(?:m)?)\s*(?:Key|키)?\b/i;
 const tagRegex = /^<([^>]+)>|^\[([^\]]+)\]/;
-const songFormRegex = /^(?:IN|INTRO|OUT|OUTRO|V\d*|C|CHORUS|B|BRIDGE|RIT|\-|\s)+$/i;
+    // 🌟 [송폼 인식 강화] "V(*전태현 집사 Solo)-V-C", "IN - V1,2 C C C", "[V-C] 함께" 처럼
+    // 괄호 속 안내(솔로/선창 등), 쉼표·숫자가 섞인 송폼 줄이 곡으로 잘못 등록되던 문제 수정.
+    // 괄호 안 메모와 진행 안내 단어를 걷어낸 뒤 남은 토큰이 전부 송폼 기호일 때만 송폼 줄로 본다.
+    const songFormTokenRegex =
+      /^(?:IN|INTRO|OUT|OUTRO|END|ENDING|V\d*|VERSE\d*|C\d*|CH|CHORUS\d*|PC\d*|PRE|PRECHORUS|B\d*|BR|BRIDGE|RIT|TAG|INTER|INTERLUDE|INST|I|R|REPEAT|X?\d+X?|[×xX]\d+)$/i;
+    const songFormNoiseRegex =
+      /(솔로|solo|선창|제창|함께|다같이|같이|남자|여자|남|여|반복|후렴|간주|전주|후주|싱어|회중|모두|번)/gi;
+    const isSongFormLine = (raw: string): boolean => {
+      let s = raw.replace(/^송폼\s*[:：]?\s*/, '');
+      s = s.replace(/\([^)]*\)/g, ' ').replace(/[\[\]{}]/g, ' ');
+      s = s.replace(songFormNoiseRegex, ' ');
+      const tokens = s.split(/[\s\-–—~>→,，/·.\+:]+/).filter(Boolean);
+      if (tokens.length === 0) return false;
+      if (!tokens.every((t) => songFormTokenRegex.test(t))) return false;
+      // 숫자만 있는 줄(예: "1.")은 송폼이 아니다. 송폼 기호가 최소 1개는 있어야 한다.
+      return tokens.some((t) => /[A-Za-z]/.test(t));
+    };
     const urlLineRegex = /https?:\/\/\S+/i;
 
     const parsedList: { title: string; key: string | null; headerTag: string; comment: string; youtubeUrl: string }[] = [];
@@ -977,11 +993,15 @@ currentTag = tagMatch[1] || tagMatch[2] || '';
 continue;
 }
 
-if (songFormRegex.test(line) && parsedList.length > 0) {
-const lastSong = parsedList[parsedList.length - 1];
-lastSong.comment = lastSong.comment ? `${lastSong.comment} / ${line}` : line;
-continue;
-}
+      // 송폼 줄은 절대 곡으로 등록하지 않는다. 직전 곡이 있으면 그 곡의 메모로 붙이고, 없으면 버린다.
+      const lineWithoutTag = line.replace(tagRegex, '').trim();
+      if (isSongFormLine(lineWithoutTag)) {
+        if (parsedList.length > 0) {
+          const lastSong = parsedList[parsedList.length - 1];
+          lastSong.comment = lastSong.comment ? `${lastSong.comment} / ${lineWithoutTag}` : lineWithoutTag;
+        }
+        continue;
+      }
 
 if (ignoreKeywords.some((kw) => line.includes(kw))) {
 continue;
