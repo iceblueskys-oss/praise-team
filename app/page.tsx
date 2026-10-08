@@ -391,6 +391,38 @@ const [searchModalTitle, setSearchModalTitle] = useState<string | null>(null);
 const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
 const [batchImportInput, setBatchImportInput] = useState('');
 
+  // 🌟 [아이폰 일괄등록] iOS 단축어/공유시트에서 #import=<텍스트> 로 열면 일괄등록 창에 자동으로 채운다.
+  // 해시(#)는 서버로 전송되지 않으므로 콘티 내용이 외부 로그에 남지 않는다.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash || '';
+    if (!hash.startsWith('#import=')) return;
+    try {
+      const text = decodeURIComponent(hash.slice('#import='.length).replace(/\+/g, ' '));
+      if (text.trim()) {
+        setBatchImportInput(text);
+        setIsBatchImportModalOpen(true);
+      }
+    } catch (e) {
+      console.error('import hash decode failed', e);
+    }
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
+
+  // 🌟 [아이폰 일괄등록] 입력창을 길게 누르지 않고 버튼 한 번으로 클립보드 내용 붙여넣기
+  const handlePasteBatchFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || !text.trim()) {
+        alert('클립보드가 비어 있습니다. 에버노트에서 먼저 복사해 주세요.');
+        return;
+      }
+      setBatchImportInput(text);
+    } catch (e) {
+      alert('클립보드 접근이 거부되었습니다. 입력창을 길게 눌러 직접 붙여넣어 주세요.');
+    }
+  };
+
       // 🌟 [검색 모아보기] 악보 검색 결과를 새 탭 없이 바로 볼 수 있도록, 지금 이미지 미리보기가 펼쳐진
       // 곡의 id를 저장한다 (구글 이미지 검색을 igu=1 파라미터로 iframe에 그대로 임베드).
       const [expandedSheetPreviewId, setExpandedSheetPreviewId] = useState<string | null>(null);
@@ -3567,6 +3599,20 @@ className="w-full h-full border-0"
               보관소에 있는 곡은 <span className={`font-bold ${goldAccentText}`}>악보, 가사, 유튜브 링크</span>가 자동으로 연결됩니다.
 </p>
 
+<div className="flex items-center justify-between gap-2">
+<span className={`text-xs truncate ${textSubClass}`}>
+등록 대상: <span className={`font-bold ${goldAccentText}`}>{currentConti ? currentConti.title : '콘티를 먼저 만들어 주세요'}</span>
+</span>
+<button
+type="button"
+onClick={handlePasteBatchFromClipboard}
+className={`shrink-0 text-xs font-bold px-2.5 py-1.5 rounded-xl ${goldAccentBtn} flex items-center gap-1 text-white shadow-xs transition active:scale-95`}
+>
+<ClipboardPaste className="w-3.5 h-3.5 text-white" />
+<span>클립보드 붙여넣기</span>
+</button>
+</div>
+
 <textarea
 rows={8}
 value={batchImportInput}
@@ -3589,7 +3635,6 @@ disabled={isProcessing}
 onClick={handleBatchImportEvernote}
 className={`flex-1 py-2.5 ${goldAccentBtn} disabled:opacity-50 rounded-xl font-bold text-xs text-white shadow-xs`}
 >
-                {isProcessing ? '자동 등록 중...' : '콘티 곡으로 한 번에 생성'}
                 {isProcessing ? '자동 등록 및 보관소 매칭 중...' : '콘티 곡으로 한 번에 생성'}
 </button>
 </div>
