@@ -971,14 +971,42 @@ const tagRegex = /^<([^>]+)>|^\[([^\]]+)\]/;
     };
     const urlLineRegex = /https?:\/\/\S+/i;
 
-    const parsedList: { title: string; key: string | null; headerTag: string; comment: string; youtubeUrl: string }[] = [];
+    const parsedList: {
+      title: string;
+      key: string | null;
+      headerTag: string;
+      comment: string;
+      youtubeUrl: string;
+      sheetIdx: number[];
+    }[] = [];
 let currentTag = '';
     // 🌟 영상 링크가 해당 곡의 제목 줄보다 먼저 나오는 경우(태그 위에 미리보기로 붙어있는 경우)를 대비해,
     // 아직 배정할 곡이 없을 때는 일단 보관해뒀다가 다음에 인식되는 곡에 붙여준다.
     let pendingYoutubeUrl = '';
 
+    // 🌟 [에버노트 악보 가져오기] 아이폰 단축어가 노트 속 악보 이미지를 import_sheets 컬렉션에 미리 올리고,
+    // 본문에는 이미지 자리마다 "[[악보 3]]", 맨 끝에 "[[악보ID=xxxx]]" 표식을 남긴다.
+    // 악보 표식은 바로 위 곡에 붙이고, 아직 곡이 없으면 다음에 나오는 곡에 붙인다.
+    const sheetMarkerRegex = /^\[\[\s*악보\s*(\d+)\s*\]\]$/;
+    const sheetImportIdRegex = /^\[\[\s*악보ID\s*[=:]\s*([\w-]+)\s*\]\]$/;
+    let sheetImportId = '';
+    let pendingSheetIdx: number[] = [];
+
 for (let i = 0; i < lines.length; i++) {
 let line = lines[i];
+
+      const idMatch = line.match(sheetImportIdRegex);
+      if (idMatch) {
+        sheetImportId = idMatch[1];
+        continue;
+      }
+      const sheetMatch = line.match(sheetMarkerRegex);
+      if (sheetMatch) {
+        const n = Number(sheetMatch[1]);
+        if (parsedList.length > 0) parsedList[parsedList.length - 1].sheetIdx.push(n);
+        else pendingSheetIdx.push(n);
+        continue;
+      }
 
       // 🌟 유튜브 링크(또는 다른 URL이 섞인 줄)는 곡으로 등록하지 않고, 유튜브면 직전(없으면 다음) 곡의
       // 유튜브 링크로 자동 연결한다.
@@ -1054,8 +1082,10 @@ key: songKey,
 headerTag: songTag,
 comment,
         youtubeUrl: pendingYoutubeUrl,
+        sheetIdx: pendingSheetIdx,
       });
       pendingYoutubeUrl = '';
+      pendingSheetIdx = [];
 }
 
 if (parsedList.length === 0) {
@@ -1067,11 +1097,43 @@ setIsProcessing(true);
 try {
       const activeLib = isLibraryLoaded ? librarySongs : await loadLibrarySongs();
       const workingLib: LibrarySong[] = [...activeLib];
-const batch = writeBatch(db);
+      // 🌟 단축어가 미리 올려둔 악보 이미지를 불러온다. (없거나 실패한 장은 건너뛰고 개수만 알려준다)
+      const noteSheetMap = new Map<number, string>();
+      const allSheetIdx = parsedList.flatMap((p) => p.sheetIdx);
+      let missingSheetCount = 0;
+      if (sheetImportId && allSheetIdx.length > 0) {
+        await Promise.all(
+          allSheetIdx.map(async (n) => {
+            try {
+              const snap = await getDoc(doc(db, 'import_sheets', `${sheetImportId}_${n}`));
+              const data = snap.exists() ? (snap.data() as any)?.data : '';
+              if (typeof data === 'string' && data.startsWith('data:image')) noteSheetMap.set(n, data);
+              else missingSheetCount++;
+            } catch {
+              missingSheetCount++;
+            }
+          })
+        );
+      } else if (allSheetIdx.length > 0) {
+        missingSheetCount = allSheetIdx.length;
+      }
+      let noteSheetCount = 0;
+
+      // 악보(이미지 문자열)가 들어가면 문서가 커지므로 한 번에 커밋하지 않고 3곡씩 나눠 커밋한다
+      // (Firestore 한 번 커밋 용량 한도 초과 방지).
+      let batch = writeBatch(db);
+      let batchSongCount = 0;
+      const pendingCommits: Promise<void>[] = [];
 let startOrder = currentSongs.length > 0 ? Math.max(...currentSongs.map((s) => s.order || 0)) + 10 : 10;
       let matchedCount = 0;
 
 parsedList.forEach((item, idx) => {
+        if (batchSongCount >= 3) {
+          pendingCommits.push(batch.commit());
+          batch = writeBatch(db);
+          batchSongCount = 0;
+        }
+        batchSongCount++;
 const songDocId = `song_${Date.now()}_${idx}`;
 const newSongRef = doc(db, 'songs_v2', songDocId);
 
@@ -1095,6 +1157,14 @@ const newSongRef = doc(db, 'songs_v2', songDocId);
           finalLyrics = foundInLib.lyrics || '';
           if (!finalYoutubeUrl) finalYoutubeUrl = foundInLib.youtubeUrl || '';
           finalBpm = foundInLib.bpm || null;
+        }
+
+        // 노트에 악보가 붙어 있으면 그게 이번 예배용 최신 악보이므로 보관소 악보보다 우선한다.
+        const noteSheets = item.sheetIdx.map((n) => noteSheetMap.get(n)).filter((s): s is string => !!s);
+        if (noteSheets.length > 0) {
+          finalSheets = noteSheets;
+          noteSheetCount += noteSheets.length;
+          if (foundInLib) foundInLib.sheetUrls = noteSheets;
         }
 
 batch.set(newSongRef, {
@@ -1142,12 +1212,26 @@ updatedAt: Date.now(),
         }
 });
 
-await batch.commit();
+      if (batchSongCount > 0) pendingCommits.push(batch.commit());
+      await Promise.all(pendingCommits);
+
+      // 임시로 올려둔 악보 원본은 콘티/보관소에 옮겨 담았으니 정리한다 (실패해도 등록 결과에는 영향 없음).
+      if (sheetImportId && noteSheetMap.size > 0) {
+        await Promise.all(
+          Array.from(noteSheetMap.keys()).map((n) =>
+            deleteDoc(doc(db, 'import_sheets', `${sheetImportId}_${n}`)).catch(() => undefined)
+          )
+        );
+      }
+
 setIsBatchImportModalOpen(false);
 setBatchImportInput('');
-      alert(`${parsedList.length}곡이 에버노트에서 콘티로 자동 등록되었습니다!`);
+      const sheetMsg =
+        noteSheetCount > 0 || missingSheetCount > 0
+          ? `\n(노트에서 가져온 악보: ${noteSheetCount}장${missingSheetCount > 0 ? `, 못 가져온 악보: ${missingSheetCount}장` : ''})`
+          : '';
       alert(
-        `${parsedList.length}곡이 등록되었습니다!\n(보관소에서 악보/정보 자동 매칭: ${matchedCount}곡)`
+        `${parsedList.length}곡이 등록되었습니다!\n(보관소에서 악보/정보 자동 매칭: ${matchedCount}곡)${sheetMsg}`
       );
 } catch (err: any) {
 alert('일괄 등록 중 오류 발생: ' + err?.message);
