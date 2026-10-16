@@ -408,7 +408,9 @@ const [batchImportInput, setBatchImportInput] = useState('');
         if (t) timeDigits = `${Number(t[1])}${t[2]}`;
         // 날짜만 있는 제목 줄이면 제거 (곡명이 같은 줄에 붙어 있는 경우는 그대로 둔다)
         const rest = lines[i].replace(m[0], '').replace(/\d{1,2}\s*[:시]\s*\d{2}\s*분?/, '').replace(/[일\s]|예배|주일|오전|오후|\d/g, '');
-        if (!rest) lines.splice(i, 1);
+        // 🌟 단축어가 첫 줄에 붙이는 노트 제목(예: "2026.10.18 9:50예배 벤쿠버시온합창단")은 곡이 아니므로
+        // 날짜 뒤에 다른 말이 붙어 있어도 첫 줄이거나 '예배'가 들어 있으면 뺀다.
+        if (!rest || i === 0 || /예배/.test(lines[i])) lines.splice(i, 1);
         break;
       }
     }
@@ -958,7 +960,9 @@ const lines = batchImportInput.split('\n').map((l) => l.trim()).filter(Boolean);
       ignoreLineRegex.test(body) ||
       ignoreAnywhere.some((kw) => body.includes(kw)) ||
       (!hasSongTag && !trailingKeyRegex.test(body) && prayerWordRegex.test(body));
-const keyRegex = /\b([A-G][b#]?(?:m)?)\s*(?:Key|키)?\b/i;
+    // 🌟 [키 인식 수정] 대소문자 무시(/i) 때문에 "'I am'"의 am이 AM 키로 잡히던 문제 수정.
+    // 키는 대문자 A~G로 시작하는 독립된 낱말(예: E, Bb, F#m, C Key)일 때만 인정한다.
+const keyRegex = /(?:^|\s)([A-G][b#]?m?)(?:\s*(?:Key|key|KEY|키))?(?=\s|$)/;
 const tagRegex = /^<([^>]+)>|^\[([^\]]+)\]/;
     // 🌟 [송폼 인식 강화] "V(*전태현 집사 Solo)-V-C", "IN - V1,2 C C C", "[V-C] 함께" 처럼
     // 괄호 속 안내(솔로/선창 등), 쉼표·숫자가 섞인 송폼 줄이 곡으로 잘못 등록되던 문제 수정.
@@ -986,8 +990,18 @@ const tagRegex = /^<([^>]+)>|^\[([^\]]+)\]/;
       comment: string;
       youtubeUrl: string;
       sheetIdx: number[];
+      isPlaceholder?: boolean;
     }[] = [];
 let currentTag = '';
+    // 🌟 [구역 인식] 지금 구역(태그/구분선 단위)에 이미 곡이 나왔는지. 악보를 엉뚱한 앞 구역 곡에 붙이지 않기 위해 쓴다.
+    let sectionHasSong = false;
+    const setSection = (tag: string | null) => {
+      if (tag !== null) currentTag = tag;
+      sectionHasSong = false;
+    };
+    // 괄호 없이 적은 구역 제목 (예: "설교중 찬양", "헌금 찬양", "결단 찬양")
+    const sectionHeaderRegex =
+      /^(?:설교\s*(?:중|후|전)?|회중|경배(?:와)?|헌금|봉헌|입례|결단|파송|특별|성찬|기도|축복)\s*(?:찬양|송|곡)$/;
     // 🌟 영상 링크가 해당 곡의 제목 줄보다 먼저 나오는 경우(태그 위에 미리보기로 붙어있는 경우)를 대비해,
     // 아직 배정할 곡이 없을 때는 일단 보관해뒀다가 다음에 인식되는 곡에 붙여준다.
     let pendingYoutubeUrl = '';
@@ -1008,11 +1022,32 @@ let line = lines[i];
         sheetImportId = idMatch[1];
         continue;
       }
+      if (/^\[\[\s*구분선\s*\]\]$/.test(line)) {
+        setSection(null);
+        continue;
+      }
       const sheetMatch = line.match(sheetMarkerRegex);
       if (sheetMatch) {
         const n = Number(sheetMatch[1]);
-        if (parsedList.length > 0) parsedList[parsedList.length - 1].sheetIdx.push(n);
-        else pendingSheetIdx.push(n);
+        // 🌟 [구역별 악보 배정] 같은 구역에 곡이 있으면 그 곡에, 없으면(노트에 제목 없이 악보만 있는 경우)
+        // "제목 확인 필요" 곡을 새로 만들어 붙인다. 예전엔 무조건 직전 곡에 붙여서
+        // <회중찬양> 악보가 입례곡에, 설교중/결단곡 악보가 특순에 붙는 문제가 있었다.
+        if (sectionHasSong && parsedList.length > 0) {
+          parsedList[parsedList.length - 1].sheetIdx.push(n);
+        } else {
+          parsedList.push({
+            title: `${currentTag || '찬양'} (제목 확인 필요)`,
+            key: null,
+            headerTag: currentTag,
+            comment: '',
+            youtubeUrl: pendingYoutubeUrl,
+            sheetIdx: [...pendingSheetIdx, n],
+            isPlaceholder: true,
+          });
+          pendingYoutubeUrl = '';
+          pendingSheetIdx = [];
+          sectionHasSong = true;
+        }
         continue;
       }
 
@@ -1033,9 +1068,10 @@ let line = lines[i];
 
 const tagMatch = line.match(tagRegex);
 if (tagMatch && line.replace(tagRegex, '').trim() === '') {
-currentTag = tagMatch[1] || tagMatch[2] || '';
+        setSection(tagMatch[1] || tagMatch[2] || '');
 continue;
 }
+      if (tagMatch) sectionHasSong = false; // "<입례> 지금까지 에벤에셀"처럼 태그+곡이 한 줄이면 새 구역 시작
 
       // 송폼 줄은 절대 곡으로 등록하지 않는다. 직전 곡이 있으면 그 곡의 메모로 붙이고, 없으면 버린다.
       const lineWithoutTag = line.replace(tagRegex, '').trim();
@@ -1049,8 +1085,8 @@ continue;
 
       // 괄호 없이 "기도송", "결단곡:" 처럼 태그 이름만 단독으로 적힌 줄은 태그로 처리
       const bareTag = lineWithoutTag.replace(/[:：]\s*$/, '').replace(/\s/g, '');
-      if (!tagMatch && knownTagNames.has(bareTag)) {
-        currentTag = lineWithoutTag.replace(/[:：]\s*$/, '').trim();
+      if (!tagMatch && (knownTagNames.has(bareTag) || sectionHeaderRegex.test(lineWithoutTag.replace(/[:：]\s*$/, '').trim()))) {
+        setSection(lineWithoutTag.replace(/[:：]\s*$/, '').trim());
         continue;
       }
 
@@ -1066,6 +1102,8 @@ line = line.replace(tagRegex, '').trim();
 }
 
 line = line.replace(/^[0-9]+[\.\)\-\s]+/, '').trim();
+      // "특순 2 'GOD' / ○○합창단", "입례전특순 : ..." 같은 특별순서는 앞 구역 태그 대신 '특송' 태그로 분류
+      if (!tagMatch && /^(?:[가-힣]{0,4}\s*)?특[순송]/.test(line)) songTag = '특송';
 
 let comment = '';
 if (line.includes(' - ')) {
@@ -1077,13 +1115,25 @@ comment = parts.slice(1).join(' - ').trim();
 let songKey: string | null = null;
 const keyMatch = line.match(keyRegex);
 if (keyMatch) {
-songKey = keyMatch[1].toUpperCase();
-line = line.replace(keyRegex, '').trim();
+        songKey = keyMatch[1].charAt(0).toUpperCase() + keyMatch[1].slice(1);
+        line = line.replace(keyRegex, ' ').replace(/\s+/g, ' ').trim();
 }
 
 const cleanTitle = line.trim();
 if (!cleanTitle) continue;
 
+      // 악보가 제목보다 먼저 나와서 "제목 확인 필요" 곡이 이미 만들어졌다면, 새 곡을 만들지 않고 그 곡에 제목을 채운다.
+      const lastItem = parsedList[parsedList.length - 1];
+      if (sectionHasSong && lastItem?.isPlaceholder) {
+        lastItem.title = cleanTitle;
+        lastItem.key = songKey;
+        lastItem.headerTag = songTag;
+        lastItem.comment = comment;
+        lastItem.isPlaceholder = false;
+        continue;
+      }
+
+      sectionHasSong = true;
 parsedList.push({
 title: cleanTitle,
 key: songKey,
@@ -1146,7 +1196,8 @@ const songDocId = `song_${Date.now()}_${idx}`;
 const newSongRef = doc(db, 'songs_v2', songDocId);
 
         // 띄어쓰기/오타 차이만 있는 동일 곡이면 기존 보관소 문서를 재사용해 중복 등록을 막는다.
-        const dupId = findDuplicateLibrarySongId(item.title, item.key, workingLib);
+        // "제목 확인 필요" 임시 곡은 보관소와 매칭하거나 보관소에 저장하지 않는다 (제목을 고친 뒤 저장하면 보관소에 들어감).
+        const dupId = item.isPlaceholder ? null : findDuplicateLibrarySongId(item.title, item.key, workingLib);
         const libDocId = dupId || getSafeDocId(item.title, item.key);
         const foundInLib = dupId ? workingLib.find((l) => l.id === dupId) : undefined;
 
@@ -1189,7 +1240,7 @@ comment: item.comment,
 order: startOrder + idx * 10,
 });
 
-batch.set(
+        if (!item.isPlaceholder) batch.set(
 doc(db, 'song_library', libDocId),
 {
 id: libDocId,
@@ -1205,7 +1256,7 @@ updatedAt: Date.now(),
 { merge: true }
 );
 
-        if (!dupId) {
+        if (!dupId && !item.isPlaceholder) {
           workingLib.push({
             id: libDocId,
             title: item.title,
@@ -1238,8 +1289,13 @@ setBatchImportInput('');
         noteSheetCount > 0 || missingSheetCount > 0
           ? `\n(노트에서 가져온 악보: ${noteSheetCount}장${missingSheetCount > 0 ? `, 못 가져온 악보: ${missingSheetCount}장` : ''})`
           : '';
+      const placeholderCount = parsedList.filter((p) => p.isPlaceholder).length;
+      const placeholderMsg =
+        placeholderCount > 0
+          ? `\n\n⚠️ 노트에 제목 없이 악보만 있던 곡 ${placeholderCount}개는 "(제목 확인 필요)"로 등록했어요. 제목을 직접 고쳐주세요.`
+          : '';
       alert(
-        `${parsedList.length}곡이 등록되었습니다!\n(보관소에서 악보/정보 자동 매칭: ${matchedCount}곡)${sheetMsg}`
+        `${parsedList.length}곡이 등록되었습니다!\n(보관소에서 악보/정보 자동 매칭: ${matchedCount}곡)${sheetMsg}${placeholderMsg}`
       );
 } catch (err: any) {
 alert('일괄 등록 중 오류 발생: ' + err?.message);
